@@ -72,12 +72,13 @@ public class UserRegistrationControllerV1 {
     /**
      * 用户端 - 挂号报到
      * @param id 挂号记录ID
-     * @param userId 当前用户ID(Task 12 JWT 落地后可替换为 currentUserId)
+     * @param userId 当前用户ID（来自 JWT context）
      */
     @PostMapping("/{id}/check-in")
     @Operation(summary = "用户端 - 挂号报到")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
-    public Result<Void> checkIn(@PathVariable Long id, @RequestParam Long userId) {
+    public Result<Void> checkIn(@PathVariable Long id,
+                                @RequestAttribute("currentUserId") Long userId) {
         registrationCheckInManager.checkIn(id, userId);
         return Result.success(null);
     }
@@ -85,14 +86,14 @@ public class UserRegistrationControllerV1 {
     /**
      * 用户端 - 取消预约(含退款联动)
      * @param id 挂号记录ID
-     * @param userId 当前用户ID
+     * @param userId 当前用户ID（来自 JWT context）
      * @param reason 取消原因(可选)
      */
     @PostMapping("/{id}/cancel")
     @Operation(summary = "用户端 - 取消预约")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
     public Result<Void> cancel(@PathVariable Long id,
-                               @RequestParam Long userId,
+                               @RequestAttribute("currentUserId") Long userId,
                                @RequestParam(required = false) String reason) {
         registrationCheckInManager.cancel(id, userId, reason);
         return Result.success(null);

@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -33,7 +33,7 @@ public class DoctorPrescriptionControllerV1 {
      */
     @Operation(summary = "医生端 - 作废处方(仅待支付)")
     @PostMapping("/{id}/cancel")
-    public Result<Void> cancel(@PathVariable Long id, @RequestParam Long doctorId) {
+    public Result<Void> cancel(@PathVariable Long id, @RequestAttribute("currentDoctorId") Long doctorId) {
         prescriptionManager.cancelByDoctor(id, doctorId);
         return Result.success(null);
     }

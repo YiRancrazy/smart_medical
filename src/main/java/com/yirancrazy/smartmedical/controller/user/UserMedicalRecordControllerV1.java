@@ -30,9 +30,8 @@ public class UserMedicalRecordControllerV1 {
     private final MedicalRecordService medicalRecordService;
 
     @Operation(summary = "用户端 - 我的病历列表")
-    @Parameter(name = "userId", description = "用户ID", required = true)
     @GetMapping("/list")
-    public Result<List<MedicalRecordListVO>> list(@RequestParam Long userId) {
+    public Result<List<MedicalRecordListVO>> list(@RequestAttribute("currentUserId") Long userId) {
         List<MedicalRecord> records = medicalRecordService.list(
                 new LambdaQueryWrapper<MedicalRecord>()
                         .eq(MedicalRecord::getPatientId, userId)
@@ -43,7 +42,8 @@ public class UserMedicalRecordControllerV1 {
     @Operation(summary = "用户端 - 病历详情")
     @Parameter(name = "id", description = "病历ID", required = true)
     @GetMapping("/{id}")
-    public Result<MedicalRecord> detail(@PathVariable Long id, @RequestParam Long userId) {
+    public Result<MedicalRecord> detail(@PathVariable Long id,
+                                       @RequestAttribute("currentUserId") Long userId) {
         MedicalRecord record = medicalRecordService.getById(id);
         if (record == null || !userId.equals(record.getPatientId())) {
             return Result.fail("无权查看该病历");

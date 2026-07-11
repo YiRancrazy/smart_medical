@@ -1,5 +1,8 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.manager.DoctorManager;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
@@ -10,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -31,16 +34,34 @@ import java.util.stream.Collectors;
 public class DoctorRegistrationControllerV1 {
 
     private final DoctorManager doctorManager;
+    private final RegistrationMapper registrationMapper;
 
     /**
-     * 医生端 - 待叫号列表
-     * @param doctorId 医生ID
+     * 医生端 - 待叫号列表（status=REPORTED）
+     * @param doctorId 医生ID（来自 JWT context）
      * @return 待叫号挂号列表
      */
     @Operation(summary = "医生端 - 待叫号列表")
     @GetMapping("/waiting")
-    public Result<List<WaitingPatientVO>> waiting(@RequestParam Long doctorId) {
+    public Result<List<WaitingPatientVO>> waiting(@RequestAttribute("currentDoctorId") Long doctorId) {
         List<Registration> list = doctorManager.listWaiting(doctorId);
+        List<WaitingPatientVO> result = list.stream().map(this::toWaitingVO).collect(Collectors.toList());
+        return Result.success(result);
+    }
+
+    /**
+     * 医生端 - 就诊中列表（status=IN_TREATMENT 或 PENDING_PAYMENT）
+     * @param doctorId 医生ID（来自 JWT context）
+     * @return 就诊中挂号列表
+     */
+    @Operation(summary = "医生端 - 就诊中列表")
+    @GetMapping("/in-progress")
+    public Result<List<WaitingPatientVO>> inProgress(@RequestAttribute("currentDoctorId") Long doctorId) {
+        List<Registration> list = registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
+                        .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode())
+                        .orderByAsc(Registration::getCheckInTime));
         List<WaitingPatientVO> result = list.stream().map(this::toWaitingVO).collect(Collectors.toList());
         return Result.success(result);
     }
@@ -48,12 +69,12 @@ public class DoctorRegistrationControllerV1 {
     /**
      * 医生端 - 叫号接诊
      * @param regId 挂号记录ID
-     * @param doctorId 医生ID
+     * @param doctorId 医生ID（来自 JWT context）
      */
     @Operation(summary = "医生端 - 叫号接诊")
     @PostMapping("/{id}/call")
     public Result<Void> call(@PathVariable("id") Long regId,
-                             @RequestParam Long doctorId) {
+                             @RequestAttribute("currentDoctorId") Long doctorId) {
         doctorManager.callPatient(regId, doctorId);
         return Result.success(null);
     }

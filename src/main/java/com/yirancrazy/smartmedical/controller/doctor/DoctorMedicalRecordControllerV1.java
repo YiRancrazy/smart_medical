@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -73,7 +74,7 @@ public class DoctorMedicalRecordControllerV1 {
     @Operation(summary = "医生端 - 提交病历+开处方")
     @PostMapping("/submit")
     public Result<PrescriptionSubmitVO> submit(@RequestBody SubmitPrescriptionRequest req,
-                                               @RequestParam Long doctorId) {
+                                               @RequestAttribute("currentDoctorId") Long doctorId) {
         return Result.success(prescriptionManager.submit(req.getRegistrationId(), req, doctorId));
     }
 }

@@ -102,6 +102,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(userId, null, resolveAuthorities(payload));
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        // 桥接 JWT 上下文到 controller request attributes,
+        // 让 controller 可用 @RequestAttribute("currentUserId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
+        // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
+        try {
+            Long currentUserId = Long.parseLong(userId);
+            request.setAttribute("currentUserId", currentUserId);
+            request.setAttribute("currentDoctorId", currentUserId);
+            request.setAttribute("currentPharmacistId", currentUserId);
+        } catch (NumberFormatException e) {
+            log.warn("[jwt] userId 非数字,跳过 request attribute 桥接: {}", userId);
+        }
         log.debug("JWT 认证通过：userId={}, uri={}", userId, uri);
         filterChain.doFilter(request, response);
     }

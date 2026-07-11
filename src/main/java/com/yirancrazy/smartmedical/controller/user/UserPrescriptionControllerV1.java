@@ -38,7 +38,8 @@ public class UserPrescriptionControllerV1 {
     @Operation(summary = "用户端 - 处方详情")
     @Parameter(name = "id", description = "处方ID", required = true)
     @GetMapping("/{id}")
-    public Result<PrescriptionDetailVO> detail(@PathVariable Long id, @RequestParam Long userId) {
+    public Result<PrescriptionDetailVO> detail(@PathVariable Long id,
+                                               @RequestAttribute("currentUserId") Long userId) {
         Prescription rx = prescriptionService.getById(id);
         if (rx == null) {
             return Result.fail("处方不存在");
