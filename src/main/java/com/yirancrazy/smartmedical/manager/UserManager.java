@@ -6,7 +6,7 @@ import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
-import com.yirancrazy.smartmedical.pojo.vo.UserDetails;
+import com.yirancrazy.smartmedical.pojo.vo.UserInfoVo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
@@ -62,12 +62,12 @@ public class UserManager {
      * @param accountId 账号id
      * @return 用户详情
      */
-    public Result<UserDetails> getUserDetailsById(Long accountId) {
+    public Result<UserInfoVo> getUserDetailsById(Long accountId) {
         Account account = accountService.getAccountById(accountId);
         User user = userService.getUserById(account.getUserId());
 
         // 组装返回元素
-        UserDetails userDetails = new UserDetails();
+        UserInfoVo userDetails = new UserInfoVo();
         userDetails.setAccountId(String.valueOf(account.getId()));
         userDetails.setUserId(String.valueOf(user.getId()));
         userDetails.setEmail(account.getEmail());
