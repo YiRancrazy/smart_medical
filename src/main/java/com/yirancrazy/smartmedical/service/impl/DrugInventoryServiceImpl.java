@@ -55,4 +55,12 @@ public class DrugInventoryServiceImpl implements DrugInventoryService {
         List<DrugInventory> drugInventories = drugInventoryMapper.selectList(new LambdaQueryWrapper<>());
         return new PageInfo<>(drugInventories);
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public DrugInventory selectForUpdate(Long drugId) {
+        return drugInventoryMapper.selectForUpdate(drugId);
+    }
 }

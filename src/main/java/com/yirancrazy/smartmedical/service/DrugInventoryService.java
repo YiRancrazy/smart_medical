@@ -55,4 +55,11 @@ public interface DrugInventoryService {
      * @return 分页的药品库存列表
      */
     PageInfo<DrugInventory> listDrugInventoriesByPage(Integer pageNum, Integer pageSize);
+
+    /**
+     * 行级悲观锁查询(SELECT ... FOR UPDATE)，用于发药大事务中按 drugId 锁库存行
+     * @param drugId 药品ID
+     * @return 库存记录(已加排他锁，需在事务内调用)
+     */
+    DrugInventory selectForUpdate(Long drugId);
 }
