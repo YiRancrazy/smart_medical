@@ -15,6 +15,7 @@ import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,6 +27,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -48,6 +50,8 @@ public class AdminAuthManager {
     private String accessSecretKey;
     @Value("${jwt.refreshSecretKey}")
     private String refreshSecretKey;
+    @Value("${cookie.secure:false}")
+    private boolean cookieSecure;
 
     private final AccountService accountService;
     private final AdminService adminService;
@@ -58,6 +62,25 @@ public class AdminAuthManager {
             .filter(role -> "管理员".equals(role.getName()))
             .findFirst()
             .orElse(null);
+
+    /**
+     * 启动时校验 JWT 密钥与 token 前缀已注入，避免运行时 NPE
+     */
+    @PostConstruct
+    public void validateJwtConfig() {
+        if (accessSecretKey == null || accessSecretKey.isBlank()) {
+            throw new IllegalStateException("jwt.accessSecretKey 未配置");
+        }
+        if (refreshSecretKey == null || refreshSecretKey.isBlank()) {
+            throw new IllegalStateException("jwt.refreshSecretKey 未配置");
+        }
+        if (adminAccessTokenPrefix == null || adminAccessTokenPrefix.isBlank()) {
+            throw new IllegalStateException("jwt.admin.adminAccessTokenPrefix 未配置");
+        }
+        if (adminRefreshTokenPrefix == null || adminRefreshTokenPrefix.isBlank()) {
+            throw new IllegalStateException("jwt.admin.adminRefreshTokenPrefix 未配置");
+        }
+    }
     /**
      * 管理员手机号密码登录
      * @param phone 手机号
@@ -89,16 +112,16 @@ public class AdminAuthManager {
         // accessJWT 和 refreshJwt 写入 redis 中
         String accessJwt = createAccessJwt(adminAccount.getPhone(),adminAccount.getId().toString());
         String refreshJwt = createRefreshJwt(adminAccount.getPhone(),adminAccount.getId().toString());
-        redisUtil.set(adminAccessTokenPrefix + adminAccount.getId(),accessJwt);
-        redisUtil.set(adminRefreshTokenPrefix + adminAccount.getId(),refreshJwt);
+        redisUtil.setEx(adminAccessTokenPrefix + adminAccount.getId(), accessJwt, 7, TimeUnit.DAYS);
+        redisUtil.setEx(adminRefreshTokenPrefix + adminAccount.getId(), refreshJwt, 7, TimeUnit.DAYS);
 
-        response.setHeader("Authorization", accessJwt);
+        response.setHeader("Authorization", "Bearer " + accessJwt);
 
         Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-        cookie.setMaxAge(30 * 24 * 60 * 60);
+        cookie.setMaxAge(7 * 24 * 60 * 60);
         cookie.setPath("/api");
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(cookieSecure);
         response.addCookie(cookie);
 
         return Result.success("登录成功");

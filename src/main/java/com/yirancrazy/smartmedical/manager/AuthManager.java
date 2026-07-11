@@ -46,6 +46,8 @@ public class AuthManager {
     private String accessSecretKey;
     @Value("${jwt.refreshSecretKey}")
     private String refreshSecretKey;
+    @Value("${cookie.secure:false}")
+    private boolean cookieSecure;
     private final AccountService accountService;
     private final UserService userService;
     private final RedisUtil redisUtil;
@@ -87,7 +89,7 @@ public class AuthManager {
             accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
             String accessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
 
-            redisUtil.setEx("access_token_"+account.getId().toString(),accessJwt,30, TimeUnit.DAYS);
+            redisUtil.setEx("access_token_"+account.getId().toString(),accessJwt,7, TimeUnit.DAYS);
 
             Map<String, Object> refreshHeader = new HashMap<>();
             refreshHeader.put("alg", "HS256");
@@ -105,13 +107,13 @@ public class AuthManager {
 
             LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()));
 
-            response.setHeader("Authorization", accessJwt);
+            response.setHeader("Authorization", "Bearer " + accessJwt);
 
             Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-            cookie.setMaxAge(30 * 24 * 60 * 60);
+            cookie.setMaxAge(7 * 24 * 60 * 60);
             cookie.setPath("/api");
             cookie.setHttpOnly(true);
-            cookie.setSecure(true);
+            cookie.setSecure(cookieSecure);
             response.addCookie(cookie);
             logInitialize(user);
 

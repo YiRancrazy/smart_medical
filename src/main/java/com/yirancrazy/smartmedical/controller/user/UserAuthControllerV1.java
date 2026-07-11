@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.po.PhoneAndPasswordLoginRequest;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.PhoneAndPasswordLoginRequest;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

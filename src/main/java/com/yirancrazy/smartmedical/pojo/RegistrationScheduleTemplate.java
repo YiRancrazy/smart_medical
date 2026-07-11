@@ -61,7 +61,7 @@ public class RegistrationScheduleTemplate {
     private Boolean enabled;
 
     @Schema(description = "就诊地址id")
-    private String consultationRoomId;
+    private Long consultationRoomId;
 
     @Schema(description = "备注")
     private String remark;

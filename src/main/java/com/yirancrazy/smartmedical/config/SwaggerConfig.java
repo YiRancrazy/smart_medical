@@ -61,13 +61,10 @@ public class SwaggerConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("XXX用户系统API")
+                        .title("智能医疗预约挂号系统 API")
                         .version("1.0")
-
-                        .description( "Knife4j集成springdoc-openapi示例")
-                        .termsOfService("http://doc.xiaominfo.com")
-                        .license(new License().name("Apache 2.0")
-                                .url("http://doc.xiaominfo.com")));
+                        .description("面向 admin / doctor / user 三端的医院预约挂号与后台管理接口；鉴权统一使用 Bearer JWT。")
+                        .license(new License().name("Apache 2.0").url("https://www.apache.org/licenses/LICENSE-2.0")));
     }
 
 

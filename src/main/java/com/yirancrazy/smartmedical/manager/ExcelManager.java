@@ -93,7 +93,7 @@ public class ExcelManager {
                     registrationScheduleTemplate.setPrice(Integer.valueOf(excelRegistrationTemplate.getPrice())); //  价格
                     registrationScheduleTemplate.setPriority(0);  // 优先级
                     registrationScheduleTemplate.setEnabled(true); // 设置是否启用
-                    registrationScheduleTemplate.setConsultationRoomId(excelRegistrationTemplate.getSn()); // 诊室编号
+                    registrationScheduleTemplate.setConsultationRoomId(Long.valueOf(excelRegistrationTemplate.getSn())); // 诊室编号
                     registrationScheduleTemplate.setRemark(excelRegistrationTemplate.getRemark());  // 设置备注
                     return registrationScheduleTemplate;
                 }
