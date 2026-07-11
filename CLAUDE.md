@@ -169,6 +169,27 @@ public final class IdGenerator {
 - 不要 git commit / push，除非用户明确说"提交"或"推送"；提交时遵循下方"Git 提交规范"。
 - 大量生成后用 `verify`：跑一次 `rtk ./mvnw compile` 确认无编译错误；改动数据库相关时跑 `rtk ./mvnw test`。
 
+### Vibe Coding 规范
+
+本项目默认走「**轻流程 / 重手感**」:最小规划、最快迭代、AI 出代码为主。以下 5 个 skill 在对应场景**自动调用**,无需用户点名。
+
+| Skill          | 触发时机                                            | 预期产出 / 调用方式                                       |
+| -------------- | ----------------------------------------------- | ---------------------------------------------- |
+| brainstorming  | 写代码 / 新增类 / 新接口 / 改语义 前                          | 1 轮 AskUserQuestion 对齐意图,不写 spec                 |
+| ponytail       | 每次给出代码方案时(默认 on)                                | 走 ponytail 思路:能少则少、复用优先、不加无意义依赖               |
+| verify         | 改动涉及运行行为 / API / 配置 / DDL 后,准备声明完成前           | 跑 `mvn compile` + 必要时启动应用 + curl/接口验证           |
+| simplify       | 单次功能 / PR 收尾、提交前                                | 对刚改文件跑 simplify 思路:复用 / 简化 / 删除冗余             |
+| caveman        | 全程对话输出                                          | 用 lite / full / ultra 级别压缩文本,与现有 RTK 互补      |
+
+以下场景**不走 vibe coding**,切换到正式流程(含 writing-plans / TDD / 至少一人复核):
+
+- 改动 `CreateTable.sql` 或任何 DDL
+- 改动 `SecurityConfig.java` / JWT 过滤器链
+- 改动跨 ≥ 2 个 Manager / Service 的编排
+- `release/*` 或 `hotfix/*` 分支
+
+> 与 RTK 的关系:RTK 压缩 shell 输出(命令结果),caveman 压缩 Claude 文本(回复内容),二者互补不冲突。
+
 ## Git 分支规范
 
 仓库采用「双长期分支 + 主题分支」模型：`main` 为受保护的发布分支（PR 目标），`master` 为日常集成与默认工作分支，所有变更通过分支 + 合并回 `master`。
