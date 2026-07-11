@@ -17,7 +17,10 @@ public enum RegistrationStatusEnum {
     SUCCESS(1, "支付成功/待就诊"), // 支付成功/待就诊
     FAILED(2 , "支付失败"), // 支付失败
     CANCELED(3, "取消"), // 取消
-    COMPLETED(4, "完成");  // 完成
+    COMPLETED(4, "完成"),  // 完成
+    REPORTED(5, "已报到"), // 已报到
+    IN_TREATMENT(6, "就诊中"), // 就诊中
+    PENDING_PAYMENT(7, "待支付"); // 就诊后待支付（处方/检查补缴）
 
     private final int code;
     private final String message;
