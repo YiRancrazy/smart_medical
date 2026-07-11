@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: dazhutizi
+    url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8&useSSL=false
+pagehelper:
+  reasonable: true
+  support-methods-arguments: true
+  page-size-zero: true
+#  params: count=countSql

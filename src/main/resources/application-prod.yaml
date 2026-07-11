@@ -1,0 +1,10 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: dazhutizi
+    url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8&useSSL=false
