@@ -36,6 +36,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Value("${jwt.accessSecretKey}")
     private String accessSecretKey;
 
+    @Value("${jwt.admin.adminAccessTokenPrefix:admin-access-token}")
+    private String adminAccessTokenPrefix;
+
     private final RedisUtil redisUtil;
 
     private static final String BEARER_PREFIX = "Bearer ";
@@ -86,7 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             unauthorized(response, "Token expired");
             return;
         }
-        String redisToken = redisUtil.get("access_token_" + userId);
+        String redisToken = redisUtil.get(resolveTokenKey(uri, userId));
         if (redisToken == null || !redisToken.equals(token)) {
             unauthorized(response, "Token expired or invalid");
             return;
@@ -106,6 +109,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         return false;
+    }
+
+    private String resolveTokenKey(String uri, String userId) {
+        if (uri.startsWith("/api/admin/")) {
+            return adminAccessTokenPrefix + userId;
+        }
+        return "access_token_" + userId;
     }
 
     private void unauthorized(HttpServletResponse response, String message) throws IOException {
