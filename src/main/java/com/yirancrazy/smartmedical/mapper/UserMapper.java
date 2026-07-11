@@ -21,7 +21,11 @@ public interface UserMapper extends BaseMapper<User> {
     @Select("TRUNCATE TABLE user")
     void truncateTable();
 
-    @Select("SELECT account_id,uid,nickname,avatar FROM account,user WHERE user.user_id= #{userId} and account.user_id = user.user_id")
+    @Select("SELECT CAST(account.id AS CHAR) AS accountId, "
+            + "CAST(user.id AS CHAR) AS userId, "
+            + "user.nickname, user.username, user.avatar "
+            + "FROM account, user "
+            + "WHERE user.id = #{userId} AND account.user_id = user.id")
     UserBaseInfo getUserBaseInfoByUserId(Long userId);
 
 }

@@ -16,7 +16,6 @@ import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorConfirmVo;
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
 
-import javax.swing.text.Position;
 import java.math.BigDecimal;
 import java.util.*;
 

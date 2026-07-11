@@ -27,7 +27,7 @@ public class MinIOConfig {
     private Integer fileSize;
 
     @Bean
-    public MinIOUtil creatMinioClient() {
+    public MinIOUtil createMinioClient() {
         return new MinIOUtil(endpoint, bucketName, accessKey, secretKey, imgSize, fileSize);
     }
 }

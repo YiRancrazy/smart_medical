@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import cn.hutool.core.util.IdUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
@@ -131,7 +130,7 @@ public class RegistrationScheduleTemplateManager {
                 String.valueOf(registrationScheduleTemplate.getEndTime()),
                 String.valueOf(remaining),
                 String.valueOf(registrationScheduleTemplate.getTotalQuota()),
-                registrationScheduleTemplate.getConsultationRoomId(),
+                String.valueOf(registrationScheduleTemplate.getConsultationRoomId()),
                 String.valueOf(registrationScheduleTemplate.getEnabled()),
                 registrationScheduleTemplate.getRemark()
         );
