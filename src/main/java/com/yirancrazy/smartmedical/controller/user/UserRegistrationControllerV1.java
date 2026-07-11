@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import com.yirancrazy.smartmedical.manager.RegistrationCheckInManager;
 import com.yirancrazy.smartmedical.manager.RegistrationManager;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
@@ -15,8 +16,8 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
- * @Datetime: 2026-02-02 13:57
+ * @Description: 用户挂号管理 + 报到/取消
+ * @Datetime: 2026-07-11 12:00
  * @Version: 1.0
  */
 
@@ -27,6 +28,7 @@ import java.util.List;
 public class UserRegistrationControllerV1 {
 
     private final RegistrationManager registrationManager;
+    private final RegistrationCheckInManager registrationCheckInManager;
 
     @PostMapping("/add")
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
@@ -67,6 +69,32 @@ public class UserRegistrationControllerV1 {
         return registrationManager.getRegistrationByUid(Long.valueOf(patientId));
     }
 
+    /**
+     * 用户端 - 挂号报到
+     * @param id 挂号记录ID
+     * @param userId 当前用户ID(Task 12 JWT 落地后可替换为 currentUserId)
+     */
+    @PostMapping("/{id}/check-in")
+    @Operation(summary = "用户端 - 挂号报到")
+    @Parameter(name = "id", description = "挂号记录ID", required = true)
+    public Result<Void> checkIn(@PathVariable Long id, @RequestParam Long userId) {
+        registrationCheckInManager.checkIn(id, userId);
+        return Result.success(null);
+    }
 
-
+    /**
+     * 用户端 - 取消预约(含退款联动)
+     * @param id 挂号记录ID
+     * @param userId 当前用户ID
+     * @param reason 取消原因(可选)
+     */
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "用户端 - 取消预约")
+    @Parameter(name = "id", description = "挂号记录ID", required = true)
+    public Result<Void> cancel(@PathVariable Long id,
+                               @RequestParam Long userId,
+                               @RequestParam(required = false) String reason) {
+        registrationCheckInManager.cancel(id, userId, reason);
+        return Result.success(null);
+    }
 }
