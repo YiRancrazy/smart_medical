@@ -1,0 +1,38 @@
+package com.yirancrazy.smartmedical.controller.user;
+
+import com.yirancrazy.smartmedical.manager.OrderTypeManager;
+import com.yirancrazy.smartmedical.pojo.OrderType;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * @Author: YiRanCrazy@gmail.com
+ * @Description:
+ * @Datetime: 2026-02-02 13:57
+ * @Version: 1.0
+ */
+
+@RestController
+@RequestMapping("api/user/v1/orderType")
+@RequiredArgsConstructor
+@Tag(name = "订单类型管理", description = "订单类型相关接口")
+public class UserOrderTypeControllerV1 {
+
+    private final OrderTypeManager orderTypeManager;
+
+    @PostMapping("/add")
+    @Operation(summary = "添加订单类型", description = "添加新订单类型")
+    public int addOrderType(@RequestBody OrderType orderType) {
+        return orderTypeManager.addOrderType(orderType);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "根据ID获取订单类型", description = "根据订单类型ID获取订单类型信息")
+    @Parameter(name = "id", description = "订单类型ID", required = true)
+    public OrderType getOrderTypeById(@PathVariable String id) {
+        return orderTypeManager.getOrderTypeById(Long.parseLong(id));
+    }
+}

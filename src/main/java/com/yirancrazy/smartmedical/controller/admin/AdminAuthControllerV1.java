@@ -1,0 +1,63 @@
+package com.yirancrazy.smartmedical.controller.admin;
+
+import com.yirancrazy.smartmedical.manager.AdminAuthManager;
+import com.yirancrazy.smartmedical.manager.AdminManager;
+import com.yirancrazy.smartmedical.manager.AuthManager;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.AdminLoginByPhoneAndPasswordRequest;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * @Author: YiRanCrazy@gmail.com
+ * @Description: 管理员登录控制器
+ * @Datetime: 2026-03-05 17:10
+ * @Version: 1.0
+ */
+
+@RestController
+@RequestMapping("api/admin/v1/auth")
+@RequiredArgsConstructor
+@Tag(name = "管理员登录控制器", description = "管理员登录控制器")
+public class AdminAuthControllerV1 {
+
+    private final AdminAuthManager authManager;
+
+    /**
+     * 管理员手机号密码登录
+     * @param loginRequest 管理员根据手机号和密码登录的请求
+     * @param request 请求
+     * @param response 响应
+     * @return 结果
+     */
+    @PostMapping("/login")
+    @Operation(summary = "管理员手机号密码登录")
+    public Result<String> login(@RequestBody AdminLoginByPhoneAndPasswordRequest loginRequest,HttpServletRequest request,HttpServletResponse response) {
+        System.out.println(loginRequest);
+        System.out.println(request);
+        System.out.println(response);
+
+        return authManager.loginByPhoneAndPassword(loginRequest.getPhone(),
+                loginRequest.getPassword(),
+                loginRequest.getRemember(),
+                request,
+                response);
+    }
+
+    /**
+     * 获取当前登录管理员信息
+     * @param request 登录请求
+     * @return 管理员信息
+     */
+    @GetMapping("/current")
+    @Operation(summary = "获取当前登录管理员信息")
+    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(HttpServletRequest request) {
+        return authManager.getCurrentAdminBaseInfo(request);
+    }
+
+}

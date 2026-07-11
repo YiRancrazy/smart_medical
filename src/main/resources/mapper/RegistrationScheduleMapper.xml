@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper">
+
+    <select id="getRecentRegistrationListByDoctorIdList" resultType="com.yirancrazy.smartmedical.pojo.RegistrationSchedule">
+        SELECT rst.*
+        FROM doctor d
+        JOIN registration_schedule_template rst ON d.id = rst.doctor_id
+        <where>
+            <if test="doctorIdList != null and doctorIdList.size > 0">
+                AND d.id IN
+                <foreach item="id" collection="doctorIdList" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+        ORDER BY rst.registration_date
+    </select>
+
+    <select id="getRegistrationScheduleLastWeekByDoctorId" resultType="com.yirancrazy.smartmedical.pojo.RegistrationSchedule">
+        SELECT *
+        FROM registration_schedule
+        WHERE doctor_id = #{doctorId}
+          AND start_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ORDER BY start_time DESC
+    </select>
+
+    <!-- 通过医生id和最大提前挂号天数获取挂号信息 -->
+    <select id="listRegistrationSchedulesByDoctorIdAndMaxAdvanceDays" resultType="com.yirancrazy.smartmedical.pojo.RegistrationSchedule">
+        SELECT *
+        FROM registration_schedule
+        WHERE doctor_id = #{doctorId}
+          AND start_time &lt;= DATE_ADD(CURDATE(), INTERVAL #{maxAdvanceDays} DAY)
+          AND start_time &gt;= CURDATE()
+        ORDER BY start_time DESC
+    </select>
+</mapper>
