@@ -160,12 +160,13 @@ public final class IdGenerator {
 
 ## Repo-Specific Claude Behavior
 
+- **每条命令必须用 RTK 封装**：所有通过 Bash 工具执行的命令（git / mvn / find / cat / grep / ls / npm / docker 等）必须写成 `rtk <原命令>` 的形式，例如 `rtk git status`、`rtk ./mvnw test`、`rtk ls src`。RTK（Rust Token Killer）是 token 优化的 CLI 代理，可节省 60-90% 输出 token；不能绕开直接调用底层命令。Meta 命令（`rtk gain`、`rtk gain --history`、`rtk discover`）按 RTK 文档直接使用即可。调试或特殊场景需绕过 RTK 时使用 `rtk proxy <cmd>`，但这是例外，不应作为常规写法。
 - 默认使用 `./mvnw` 而不是全局 `mvn`，与项目锁定版本一致。
 - 修改业务代码前先 `Read` 对应 Manager / Service / Mapper，理解现有事务边界再动。
 - 报错时优先读 `src/main/resources/sql/CreateTable.sql` + 对应 XML，确认表 / 字段是否仍然存在；很多 `unknown column` 是 DDL 与实体不同步。
 - 涉及前端对接的 API，保持路径与 `AdminXxxControllerV1` / `UserXxxControllerV1` 中 `@Operation` 描述一致，方便前端查 Knife4j。
 - 不要 git commit / push，除非用户明确说"提交"或"推送"；提交时遵循下方"Git 提交规范"。
-- 大量生成后用 `verify`：跑一次 `./mvnw compile` 确认无编译错误；改动数据库相关时跑 `./mvnw test`。
+- 大量生成后用 `verify`：跑一次 `rtk ./mvnw compile` 确认无编译错误；改动数据库相关时跑 `rtk ./mvnw test`。
 
 ## Git 分支规范
 
@@ -203,15 +204,15 @@ public final class IdGenerator {
 
 ```bash
 # 1. 切分支：始终从最新 master 出发
-git checkout master && git pull
-git checkout -b feat/科室-新增停诊接口
+rtk git checkout master && rtk git pull
+rtk git checkout -b feat/科室-新增停诊接口
 
 # 2. 长寿命分支定期 rebase master，避免 merge 噪音
-git fetch origin && git rebase origin/master
+rtk git fetch origin && rtk git rebase origin/master
 
 # 3. 合回 master：保留分支历史，禁止 fast-forward / squash
-git checkout master
-git merge --no-ff feat/科室-新增停诊接口
+rtk git checkout master
+rtk git merge --no-ff feat/科室-新增停诊接口
 ```
 
 - **禁止** `git push --force` 到 `master` / `main`；force-push 仅限**自己**的主题分支。
@@ -220,9 +221,9 @@ git merge --no-ff feat/科室-新增停诊接口
 
 ### 与 Claude 协作
 
-- 动手前先 `git status` + `git branch --show-current`，确认在主题分支上；不要在 `master` / `main` 留未提交改动。
+- 动手前先 `rtk git status` + `rtk git branch --show-current`，确认在主题分支上；不要在 `master` / `main` 留未提交改动。
 - 不要直推 `master` / `main`；若用户要求推送，先用 PR 流程。
-- 改完分支先 `git fetch` 再决定 rebase / merge，避免误覆盖他人提交。
+- 改完分支先 `rtk git fetch` 再决定 rebase / merge，避免误覆盖他人提交。
 
 ## Git 提交规范
 
@@ -286,7 +287,7 @@ BREAKING CHANGE: code=200 改为 0 表示成功，500 改为业务异常
 ### 与 Claude 协作
 
 - 单次任务可能产生多条 commit，按逻辑边界**小步提交**，而非一坨提交。
-- 提交前先 `git status` + `git diff --stat` 让用户复核改动范围。
+- 提交前先 `rtk git status` + `rtk git diff --stat` 让用户复核改动范围。
 - 改动跨越多个 scope 时，优先拆成多条；只有同一次提交确实无法分离，再并列：`feat(科室,排班): ...`。
 
 ## Useful Pointers

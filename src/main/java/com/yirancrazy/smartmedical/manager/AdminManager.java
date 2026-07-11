@@ -13,6 +13,7 @@ import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,6 +28,7 @@ import java.util.List;
 
 @Manager
 @RequiredArgsConstructor
+@Slf4j
 public class AdminManager {
 
     private final AdminService adminService;
@@ -83,14 +85,16 @@ public class AdminManager {
             AdminAdminSimpleResponse item = new AdminAdminSimpleResponse();
             Account account = accounts.stream().filter(account1 -> account1.getUserId().equals(admin.getId())).findFirst().orElse(null);
             Department department = departments.stream().filter(department1 -> department1.getId().equals(admin.getDepartmentId())).findFirst().orElse(null);
+            if (account == null || department == null) {
+                log.warn("跳过管理员 {}：未找到对应的 account={} 或 department={}", admin.getId(), account, department);
+                continue;
+            }
             item.setId(String.valueOf(admin.getId()));
             item.setUsername(admin.getName());
-            assert account != null;
             item.setPhone(account.getPhone());
             item.setAvatar(admin.getAvatar());
             item.setRemark(admin.getRemark());
             item.setDepartmentId(String.valueOf(admin.getDepartmentId()));
-            assert department != null;
             item.setDepartmentName(department.getName());
             item.setRole(account.getRoleId().toString());
             item.setRoleId(account.getRoleId().toString());
@@ -126,14 +130,16 @@ public class AdminManager {
             AdminAdminSimpleResponse item = new AdminAdminSimpleResponse();
             Account account = accounts.stream().filter(account1 -> account1.getUserId().equals(admin.getId())).findFirst().orElse(null);
             Department department = departments.stream().filter(department1 -> department1.getId().equals(admin.getDepartmentId())).findFirst().orElse(null);
+            if (account == null || department == null) {
+                log.warn("跳过管理员 {}：未找到对应的 account={} 或 department={}", admin.getId(), account, department);
+                continue;
+            }
             item.setId(String.valueOf(admin.getId()));
             item.setUsername(admin.getName());
-            assert account != null;
             item.setPhone(account.getPhone());
             item.setAvatar(admin.getAvatar());
             item.setRemark(admin.getRemark());
             item.setDepartmentId(String.valueOf(admin.getDepartmentId()));
-            assert department != null;
             item.setDepartmentName(department.getName());
             item.setRole(account.getRoleId().toString());
             item.setRoleId(account.getRoleId().toString());

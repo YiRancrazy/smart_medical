@@ -38,10 +38,6 @@ public class AdminAuthControllerV1 {
     @PostMapping("/login")
     @Operation(summary = "管理员手机号密码登录")
     public Result<String> login(@RequestBody AdminLoginByPhoneAndPasswordRequest loginRequest,HttpServletRequest request,HttpServletResponse response) {
-        System.out.println(loginRequest);
-        System.out.println(request);
-        System.out.println(response);
-
         return authManager.loginByPhoneAndPassword(loginRequest.getPhone(),
                 loginRequest.getPassword(),
                 loginRequest.getRemember(),

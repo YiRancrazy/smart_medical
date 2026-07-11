@@ -36,19 +36,20 @@ public class RegistrationManager {
     private final OrderTypeService orderTypeService;
     private final OrderItemService orderItemService;
     private final RegistrationScheduleService registrationScheduleService;
+    private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final DoctorService doctorService;
     private final UserService userService;
     private final DepartmentService departmentService;
     private final DoctorPositionService doctorPositionService;
 
 
-    public int addRegistration(Registration registration) {
+    public Result<Integer> addRegistration(Registration registration) {
         registration.setId(IdUtil.getSnowflakeNextId());
-        return registrationService.insertRegistration(registration);
+        return Result.success(registrationService.insertRegistration(registration));
     }
 
-    public Registration getRegistrationById(Long id) {
-        return registrationService.getRegistrationById(id);
+    public Result<Registration> getRegistrationById(Long id) {
+        return Result.success(registrationService.getRegistrationById(id));
     }
 
     /**
@@ -127,70 +128,56 @@ public class RegistrationManager {
      * @return 用户预约信息简单响应列表
      */
     public Result<List<AppointmentResponseSimple>> getRegistrationByUid(Long patientId) {
+        List<Registration> registrationList = registrationService.listRegistrationsByUserId(patientId);
+        User user = userService.getUserById(patientId);
+        String patientName = user == null ? "" : user.getNickname();
 
-//        // 根据患者id 获取用户信息
-//        User user = userService.getUserById(patientId);
-//
-//        // 根据患者id 获取患者的预约信息
-//        List<Registration> registrationList = registrationService.listRegistrationsByUserId(patientId);
-//
-//        // 根据预约信息中的医生id 获取医生信息
-//        List<Doctor> doctorList = doctorService.listDoctorsByIds(registrationList
-//                .stream()
-//                .map(Registration::getDoctorId)
-//                .toList());
-//
-//        // 根据医生id 获取科室信息
-//        List<Department> departmentList = departmentService.listDepartmentsByIds(doctorList
-//                .stream()
-//                .map(Doctor::getDepartmentId)
-//                .toList());
-//
-//        // 根据医生id 获取医生职位信息
-//        List<DoctorPosition> doctorPositionList = doctorPositionService.listDoctorPositions();
-//
-//        // 构建结果
-//        List<AppointmentResponseSimple> result = new ArrayList<>();
-//        for (Registration registration : registrationList) {
-//            AppointmentResponseSimple temp = new AppointmentResponseSimple();
-//            temp.setRegistrationId(String.valueOf(registration.getId()));
-//            temp.setRegistrationStatus(registration.getStatus());
-//
-//            Doctor doctor = doctorList
-//                    .stream()
-//                    .filter(item -> item.getId().equals(registration.getDoctorId()))
-//                    .toList()
-//                    .get(0);
-//
-//            DoctorPosition doctorPosition = doctorPositionList
-//                    .stream()
-//                    .filter(item -> item.getId().equals(doctor.getDoctorPositionId()))
-//                    .toList()
-//                    .get(0);
-//
-//            Department department = departmentList
-//                    .stream()
-//                    .filter(item -> item.getId().equals(doctor.getDepartmentId()))
-//                    .toList()
-//                    .get(0);
-//
-//            temp.setAppointmentData("");
-//            temp.setAppointmentStartTime("");
-//            temp.setAppointmentEndTime("");
-//            temp.setDoctorId(String.valueOf(doctor.getId()));
-//            temp.setDoctorName(doctor.getName());
-//            temp.setDoctorAvatar(doctor.getAvatar());
-//            temp.setDoctorPosition(doctorPosition.getName());
-//            temp.setDepartmentId(String.valueOf(department.getId()));
-//            temp.setDepartmentName(department.getName());
-//            temp.setPatientName(user.getNickname());
-//            temp.setRegistrationPrice(0.0);
-//            result.add(temp);
-//        }
+        List<AppointmentResponseSimple> result = new ArrayList<>();
+        if (registrationList == null || registrationList.isEmpty()) {
+            return Result.success(result);
+        }
 
-//        System.out.println(result);
-//
-//        return Result.success(result);
-        return null;
+        for (Registration registration : registrationList) {
+            AppointmentResponseSimple item = new AppointmentResponseSimple();
+            item.setRegistrationId(String.valueOf(registration.getId()));
+            item.setRegistrationStatus(registration.getStatus());
+            item.setPatientName(patientName);
+            item.setAppointmentData("");
+            item.setAppointmentStartTime("");
+            item.setAppointmentEndTime("");
+            item.setRegistrationPrice(0.0);
+
+            if (registration.getRegistrationScheduleTemplateId() == null) {
+                log.warn("跳过挂号 {}：未关联排班模板", registration.getId());
+                continue;
+            }
+            RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                    .getRegistrationScheduleTemplateById(registration.getRegistrationScheduleTemplateId());
+            if (template == null || template.getDoctorId() == null) {
+                log.warn("跳过挂号 {}：未找到排班模板 {}", registration.getId(),
+                        registration.getRegistrationScheduleTemplateId());
+                continue;
+            }
+            Doctor doctor = doctorService.getDoctorById(template.getDoctorId());
+            if (doctor == null) {
+                log.warn("跳过挂号 {}：未找到医生 {}", registration.getId(), template.getDoctorId());
+                continue;
+            }
+            Department department = doctor.getDepartmentId() == null
+                    ? null
+                    : departmentService.getDepartmentById(doctor.getDepartmentId());
+            DoctorPosition position = doctor.getDoctorPositionId() == null
+                    ? null
+                    : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
+
+            item.setDoctorId(String.valueOf(doctor.getId()));
+            item.setDoctorName(doctor.getName());
+            item.setDoctorAvatar(doctor.getAvatar());
+            item.setDoctorPosition(position == null ? "" : position.getName());
+            item.setDepartmentId(department == null ? "" : String.valueOf(department.getId()));
+            item.setDepartmentName(department == null ? "" : department.getName());
+            result.add(item);
+        }
+        return Result.success(result);
     }
 }

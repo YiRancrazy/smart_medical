@@ -329,14 +329,16 @@ public class DepartmentManager {
                     .filter(a -> a.getUserId().equals(department.getManager()))
                     .filter(a->a.getRoleId().equals(1L))
                     .findFirst().orElse(null);
+            if (admin == null || account == null) {
+                log.warn("跳过科室 {}：未找到对应的管理员 admin={}, account={}", department.getId(), admin, account);
+                continue;
+            }
             item.setId(String.valueOf(department.getId()));
             item.setName(department.getName());
             item.setType(department.getType());
             item.setDescription(department.getDescription());
             item.setManagerId(String.valueOf(department.getManager()));
-            assert admin != null;
             item.setManagerName(admin.getName());
-            assert account != null;
             item.setManagerPhone(account.getPhone());
             item.setPhone(department.getPhone());
             item.setParentDepartmentId(String.valueOf(department.getParentDepartmentId()));
