@@ -49,6 +49,8 @@ public class SecurityConfig {
                                 "/api/admin/v1/auth/login",
                                 "/api/user/v1/auth/login",
                                 "/api/user/v1/auth/register",
+                                "/doctor/v1/auth/login",
+                                "/pharmacy/v1/auth/login",
                                 "/doc.html",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
@@ -58,6 +60,8 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/doctor/v1/**").hasRole("doctor")
+                        .requestMatchers("/pharmacy/v1/**").hasRole("pharmacist")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

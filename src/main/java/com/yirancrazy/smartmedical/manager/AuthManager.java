@@ -82,6 +82,7 @@ public class AuthManager {
             Map<String, Object> accessPayload = new HashMap<>();
             accessPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
             accessPayload.put(JWTPayload.SUBJECT, account.getId().toString());
+            accessPayload.put("role_id", account.getRoleId());
             Long currentTimeMillis = System.currentTimeMillis();
             accessPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000 * 60 * 60 * 24 *7);
             accessPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);

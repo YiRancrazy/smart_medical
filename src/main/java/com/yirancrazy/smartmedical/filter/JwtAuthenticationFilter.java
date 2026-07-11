@@ -12,12 +12,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * JWT 认证过滤器
@@ -47,6 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/admin/v1/auth/login",
             "/api/user/v1/auth/login",
             "/api/user/v1/auth/register",
+            "/doctor/v1/auth/login",
+            "/pharmacy/v1/auth/login",
             "/doc.html",
             "/swagger-ui",
             "/swagger-ui.html",
@@ -96,10 +100,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                new UsernamePasswordAuthenticationToken(userId, null, resolveAuthorities(payload));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         log.debug("JWT 认证通过：userId={}, uri={}", userId, uri);
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 将 JWT payload 中的 role_id 映射为 Spring Security 角色权限（ROLE_xxx）
+     * 角色 ID 映射以 role 表为准：1=系统管理员 / 2=医生 / 3=护士 / 4=患者 / 5=收费员 / 6=药师
+     */
+    private List<SimpleGrantedAuthority> resolveAuthorities(JWTPayload payload) {
+        Object roleClaim = payload.getClaim("role_id");
+        if (roleClaim == null) {
+            return Collections.emptyList();
+        }
+        long roleId;
+        try {
+            roleId = Long.parseLong(String.valueOf(roleClaim));
+        } catch (NumberFormatException e) {
+            return Collections.emptyList();
+        }
+        String authority = switch ((int) roleId) {
+            case 1 -> "ROLE_admin";
+            case 2 -> "ROLE_doctor";
+            case 5 -> "ROLE_cashier";
+            case 6 -> "ROLE_pharmacist";
+            default -> "ROLE_user";
+        };
+        return List.of(new SimpleGrantedAuthority(authority));
     }
 
     private boolean isWhitelisted(String uri) {

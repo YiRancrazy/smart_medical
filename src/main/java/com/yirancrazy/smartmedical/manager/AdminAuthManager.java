@@ -110,7 +110,7 @@ public class AdminAuthManager {
 
 
         // accessJWT 和 refreshJwt 写入 redis 中
-        String accessJwt = createAccessJwt(adminAccount.getPhone(),adminAccount.getId().toString());
+        String accessJwt = createAccessJwt(adminAccount.getPhone(), adminAccount.getId().toString(), adminAccount.getRoleId());
         String refreshJwt = createRefreshJwt(adminAccount.getPhone(),adminAccount.getId().toString());
         redisUtil.setEx(adminAccessTokenPrefix + adminAccount.getId(), accessJwt, 7, TimeUnit.DAYS);
         redisUtil.setEx(adminRefreshTokenPrefix + adminAccount.getId(), refreshJwt, 7, TimeUnit.DAYS);
@@ -127,13 +127,14 @@ public class AdminAuthManager {
         return Result.success("登录成功");
     }
 
-    private  String createAccessJwt(String username, String accountId){
+    private  String createAccessJwt(String username, String accountId, Long roleId){
         Map<String,Object> accessJwtHeader = new HashMap<>();
         accessJwtHeader.put("alg","HS256");
         accessJwtHeader.put("typ","JWT");
         Map<String,Object> accessJwtPayload = new HashMap<>();
         accessJwtPayload.put(JWTPayload.ISSUER,username);
         accessJwtPayload.put(JWTPayload.SUBJECT,accountId);
+        accessJwtPayload.put("role_id", roleId);
         accessJwtPayload.put(JWTPayload.EXPIRES_AT,System.currentTimeMillis()+1000*60*60*24*7);
         accessJwtPayload.put(JWTPayload.NOT_BEFORE,System.currentTimeMillis());
         accessJwtPayload.put(JWTPayload.ISSUED_AT,System.currentTimeMillis());
