@@ -5,6 +5,6 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: dazhutizi
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:prod-mysql-password-placeholder}
     url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8&useSSL=false
