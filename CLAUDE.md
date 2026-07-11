@@ -3,6 +3,11 @@
 医院预约挂号与后台管理系统后端（Spring Boot 3.5.9 + Java 17 + Maven）。
 面向三类角色：`admin`（科室 / 排班 / 医生 / 订单管理）、`doctor`（出诊 / 诊室）、`user`（挂号 / 支付 / 就诊人）。
 
+## Develop ##
+- 改代码前先用 Glob/Grep 定位相关文件，只读必要的几个，不要一次性铺开读。
+- 跨模块改动或根因不明的 bug，**先看目录结构 + 调一遍调用链**再动手，别只盯单个文件。
+- 方案设计类任务（新功能、重构），先理清模块边界再写。
+
 ## Build & Run
 
 - 运行：`./mvnw spring-boot:run`（默认 profile = `dev`）
@@ -175,7 +180,7 @@ public final class IdGenerator {
 
 | Skill          | 触发时机                                            | 预期产出 / 调用方式                                       |
 | -------------- | ----------------------------------------------- | ---------------------------------------------- |
-| brainstorming  | 写代码 / 新增类 / 新接口 / 改语义 前                          | 1 轮 AskUserQuestion 对齐意图,不写 spec                 |
+| grill-me  | 写代码 / 新增类 / 新接口 / 改语义 前                          | 1 轮 AskUserQuestion 对齐意图, 当我现式调用brainstorming时不启用这个skill                |
 | ponytail       | 每次给出代码方案时(默认 on)                                | 走 ponytail 思路:能少则少、复用优先、不加无意义依赖               |
 | verify         | 改动涉及运行行为 / API / 配置 / DDL 后,准备声明完成前           | 跑 `mvn compile` + 必要时启动应用 + curl/接口验证           |
 | simplify       | 单次功能 / PR 收尾、提交前                                | 对刚改文件跑 simplify 思路:复用 / 简化 / 删除冗余             |
