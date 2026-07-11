@@ -31,6 +31,7 @@ import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +72,7 @@ public class PrescriptionManager {
     private final OrderItemService orderItemService;
     private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationStatusLogManager statusLogManager;
+    private final RegistrationStatusLogService registrationStatusLogService;
 
     /**
      * 医生提交病历 + 开处方（最大事务）
@@ -244,6 +246,25 @@ public class PrescriptionManager {
         // @Version 乐观锁会自动校验
         rx.setStatus(PrescriptionStatus.PAID.getCode());
         prescriptionService.updateById(rx);
+
+        // 写一条挂号状态日志(合成:from=to=当前状态,operator=system)
+        // 用于完整记录"处方已支付"事件，满足 spec §6.3 的"日志记录所有事件"约束
+        if (rx.getMedicalRecordId() != null) {
+            MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
+            if (record != null) {
+                Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
+                if (reg != null) {
+                    registrationStatusLogService.writeLog(
+                            reg.getId(),
+                            reg.getStatus(),
+                            reg.getStatus(),
+                            0L,
+                            "system",
+                            "处方已支付");
+                }
+            }
+        }
+
         log.info("[prescription-paid] prescriptionId={}, orderId={}", rx.getId(), orderId);
     }
 

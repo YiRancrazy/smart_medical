@@ -1,12 +1,13 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Registration;
-import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,9 @@ import java.time.LocalDateTime;
 /**
  * 挂号状态迁移工具
  * @Author: YiRanCrazy@gmail.com
- * @Description: 把 "update registration.status + 写状态日志" 统一封装，避免散落到各 Manager
+ * @Description: 把 "update registration.status + 写状态日志" 统一封装，避免散落到各 Manager；
+ *              使用 UpdateWrapper 添加 WHERE status = fromStatus 乐观守门，防止并发状态变更被静默覆盖。
+ *              注：使用 UpdateWrapper（字符串列名）而非 LambdaUpdateWrapper，避免单元测试中 MyBatis-Plus lambda cache 未初始化的限制。
  * @Datetime: 2026-07-11 10:00
  * @Version: 1.0
  */
@@ -27,8 +30,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class RegistrationStatusLogManager {
 
-    private final RegistrationService registrationService;
     private final RegistrationStatusLogService registrationStatusLogService;
+    private final RegistrationMapper registrationMapper;
 
     /**
      * 状态迁移：原子地更新 registration.status + 写日志，按需填充 check_in_time / visit_start_time / visit_end_time
@@ -47,21 +50,29 @@ public class RegistrationStatusLogManager {
             fromStatus = -1;
         }
 
-        // 1. 在内存中按需填充时间字段；updateById 默认忽略 null 字段，不会破坏未设置的时间
+        // 1. 构造带乐观守门的 UPDATE：WHERE id=? AND status=fromStatus
+        //    使用 UpdateWrapper(字符串列名)而非 LambdaUpdateWrapper(实体方法引用)，
+        //    后者依赖 MyBatis-Plus lambda cache，单元测试场景下未初始化会抛 MybatisPlusException。
         LocalDateTime now = LocalDateTime.now();
-        reg.setStatus(toStatus);
+        UpdateWrapper<Registration> uw = new UpdateWrapper<Registration>()
+                .eq("id", reg.getId())
+                .eq("status", fromStatus)
+                .set("status", toStatus);
         if (toStatus == RegistrationStatusEnum.REPORTED.getCode()) {
-            reg.setCheckInTime(now);
+            uw.set("check_in_time", now);
         } else if (toStatus == RegistrationStatusEnum.IN_TREATMENT.getCode()) {
-            reg.setVisitStartTime(now);
+            uw.set("visit_start_time", now);
         } else if (toStatus == RegistrationStatusEnum.COMPLETED.getCode()) {
-            reg.setVisitEndTime(now);
+            uw.set("visit_end_time", now);
         }
-        int rows = registrationService.updateRegistrationById(reg);
+        int rows = registrationMapper.update(null, uw);
         if (rows == 0) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
-                    "状态更新失败，请刷新");
+                    "状态已变更，请刷新");
         }
+
+        // 同步内存中状态，便于后续可能继续使用 reg
+        reg.setStatus(toStatus);
 
         // 2. 写状态日志
         registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
