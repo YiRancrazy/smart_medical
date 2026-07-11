@@ -40,6 +40,15 @@ public class Registration {
     @Schema(description = "挂号时间")
     private LocalDateTime registrationTime;
 
+    @Schema(description = "患者报到时间")
+    private LocalDateTime checkInTime;
+
+    @Schema(description = "医生接诊时间")
+    private LocalDateTime visitStartTime;
+
+    @Schema(description = "医生结束就诊时间")
+    private LocalDateTime visitEndTime;
+
     @Schema(description = "创建日期")
     private LocalDateTime createTime;
 
