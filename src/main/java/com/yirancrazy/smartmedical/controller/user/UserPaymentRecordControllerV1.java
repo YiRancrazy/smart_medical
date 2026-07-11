@@ -8,16 +8,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.yirancrazy.smartmedical.manager.PaymentRecordManager;
 
 import java.util.List;
 
 /**
+ * 用户支付记录 + 支付回调 Controller
  * @Author: YiRanCrazy@gmail.com
- * @Description:
- * @Datetime: 2026-03-01 21:18
+ * @Description: 用户支付记录查询 + 模拟支付成功端点
+ * @Datetime: 2026-07-11 12:00
  * @Version: 1.0
  */
 
@@ -33,5 +36,21 @@ public class UserPaymentRecordControllerV1 {
     @Parameter(name = "userId", description = "用户id", required = true)
     public Result<List<PaymentRecordSimpleResponse>> listAllPaymentRecordsSimple(@PathVariable Long userId) {
         return PaymentRecordManager.listAllPaymentRecordsSimple(userId);
+    }
+
+    /**
+     * 用户端 - 支付订单(模拟支付成功,实际应接入第三方回调)
+     * @param orderId 订单ID
+     * @param paymentMethodId 支付方式ID(可选)
+     * @param transactionSn 第三方流水号(可选)
+     * @param realAmount 实际支付金额(可选,默认订单总额)
+     */
+    @PostMapping("/pay")
+    @Operation(summary = "用户端 - 支付订单(模拟支付成功,实际应接入第三方回调)")
+    public Result<Void> pay(@RequestParam Long orderId,
+                            @RequestParam(required = false) Integer paymentMethodId,
+                            @RequestParam(required = false) Long transactionSn,
+                            @RequestParam(required = false) Integer realAmount) {
+        return PaymentRecordManager.paySuccess(orderId, paymentMethodId, transactionSn, realAmount);
     }
 }
