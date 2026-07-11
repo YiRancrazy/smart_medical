@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.config;
 
 import com.yirancrazy.smartmedical.filter.JwtAuthenticationFilter;
-import com.yirancrazy.smartmedical.filter.PhonePasswordAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +23,7 @@ import java.util.Arrays;
  * Spring Security 配置
  * @Author: YiRanCrazy@gmail.com
  * @Description: 无状态 API；JWT 过滤器在 UsernamePasswordAuthenticationFilter 之前执行；
- *              登录端点放行，其余受保护；登录侧通过自定义 PhonePasswordAuthenticationFilter 走表单参数约定。
+ *              登录端点放行，其余接口统一鉴权。
  * @Datetime: 2026-02-02 12:47
  * @Version: 1.0
  */
@@ -35,10 +34,6 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    private final PhonePasswordAuthenticationFilter phonePasswordAuthenticationFilter() {
-        return new PhonePasswordAuthenticationFilter();
-    }
 
     /**
      * 配置安全过滤器链
@@ -66,7 +61,6 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(phonePasswordAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setContentType("application/json; charset=utf-8");
