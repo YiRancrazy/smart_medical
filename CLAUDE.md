@@ -47,6 +47,7 @@ src/main/resources/
 - 中文注释、Javadoc 标注 `@Author / @Description / @Datetime / @Version`，新建类时保持一致。
 - API 用 `@Operation(summary = "...")` 标注，说明面向端（`管理员端 - ` / `用户端 - ` 前缀）。
 - 请求 / 响应 DTO 放在 `pojo/dto/<role>/{request,response,result}/`；注意 `pojo/dto/user/response/` 子包历史命名（包含 admin / user 两端的响应，迁移前勿改路径）。
+- **数据库表 4 标准字段**：所有业务表（含日志表、状态流水表）都必须包含以下 4 列 —— `id`（雪花或自增，详见 §Layout 引用）、`create_time DATETIME DEFAULT CURRENT_TIMESTAMP`、`update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`、`is_deleted TINYINT(1) DEFAULT 0`；Entity 上对应字段加 MyBatis-Plus `@TableField(fill=...)` 与 `@TableLogic` 注解。即使语义上 append-only（如状态日志）也保留这 4 列，便于 DAO 层统一处理。**豁免**：仅当表为高频热点更新或纯 append-only 流水（参考 `drug_inventory`、`inventory_transaction`）时，可在 DDL 注释里**显式说明豁免原因**并省略非必要字段，但 `id` 永不豁免。新表必须在 `CreateTable.sql` 中显式列出这 4 列（即便计划豁免也要保留并注明）。
 
 ## Java 类生成格式
 
