@@ -5,7 +5,6 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.InsertRegistrationRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,14 +30,14 @@ public class UserRegistrationControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
-    public int addRegistration(@RequestBody Registration registration) {
+    public Result<Integer> addRegistration(@RequestBody Registration registration) {
         return registrationManager.addRegistration(registration);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
-    public Registration getRegistrationById(@PathVariable String id) {
+    public Result<Registration> getRegistrationById(@PathVariable String id) {
         return registrationManager.getRegistrationById(Long.parseLong(id));
     }
 
