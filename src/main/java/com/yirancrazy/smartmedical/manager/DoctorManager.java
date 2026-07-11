@@ -1,11 +1,16 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
@@ -15,9 +20,13 @@ import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorConfirmVo;
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -26,6 +35,7 @@ import java.util.*;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class DoctorManager {
@@ -33,9 +43,13 @@ public class DoctorManager {
     private final DoctorService doctorService;
     private final DepartmentService departmentService;
     private final RegistrationScheduleService registrationScheduleService;
+    private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final DoctorPositionService doctorPositionService;
     private final AppointmentRuleService appointmentRuleService;
     private final DegreeService degreeService;
+    private final RegistrationService registrationService;
+    private final RegistrationMapper registrationMapper;
+    private final RegistrationStatusLogManager statusLogManager;
     public int addDoctor(Doctor doctor) {
         doctor.setId(IdUtil.getSnowflakeNextId());
         return doctorService.insertDoctor(doctor);
@@ -235,5 +249,71 @@ public class DoctorManager {
 
         return result;
 
+    }
+
+    /**
+     * 医生叫号接诊（status 5 → 6）
+     * @param regId 挂号记录ID
+     * @param doctorId 当前医生ID
+     * @throws BizException REGISTRATION_NOT_FOUND / DOCTOR_NOT_MATCH / REGISTRATION_STATUS_INVALID
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void callPatient(Long regId, Long doctorId) {
+        Registration reg = registrationService.getRegistrationById(regId);
+        if (reg == null) {
+            throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
+        }
+        RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleTemplateId());
+        Long regDoctorId = template == null ? null : template.getDoctorId();
+        if (!doctorId.equals(regDoctorId)) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
+        }
+        if (!Integer.valueOf(RegistrationStatusEnum.REPORTED.getCode()).equals(reg.getStatus())) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "该挂号未报到");
+        }
+        statusLogManager.transition(reg, RegistrationStatusEnum.IN_TREATMENT.getCode(),
+                doctorId, "doctor", "叫号接诊");
+    }
+
+    /**
+     * 医生今日排班列表（按 registration_schedule_template.doctorId 过滤）
+     * @param doctorId 医生ID
+     * @return 当日挂号列表
+     */
+    public List<Registration> listTodaySchedule(Long doctorId) {
+        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateByDoctorIdAndDate(doctorId, LocalDate.now());
+        if (templates == null || templates.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> templateIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getId)
+                .collect(Collectors.toList());
+        return registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
+                        .orderByAsc(Registration::getRegistrationTime));
+    }
+
+    /**
+     * 医生待叫号列表（status=REPORTED）
+     * @param doctorId 医生ID
+     * @return 已报到待叫号挂号列表
+     */
+    public List<Registration> listWaiting(Long doctorId) {
+        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
+                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
+        if (templates == null || templates.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> templateIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getId)
+                .collect(Collectors.toList());
+        return registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
+                        .eq(Registration::getStatus, RegistrationStatusEnum.REPORTED.getCode())
+                        .orderByAsc(Registration::getCheckInTime));
     }
 }
