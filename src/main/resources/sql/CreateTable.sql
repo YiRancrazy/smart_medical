@@ -852,8 +852,11 @@ CREATE TABLE `registration`  (
   `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联用户ID',
   `registration_schedule_template_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联挂号规则id',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联订单ID',
-  `status` tinyint(1) NULL DEFAULT NULL COMMENT '状态: 1-待就诊, 2-已就诊, 3-已取消, 4-已退号',
+  `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-已预约 1-待就诊(历史值) 2-已就诊 3-已取消 4-已退号 5-已报到 6-就诊中 7-待支付',
   `registration_time` datetime NULL DEFAULT NULL COMMENT '挂号时间',
+  `check_in_time` datetime NULL DEFAULT NULL COMMENT '患者报到时间',
+  `visit_start_time` datetime NULL DEFAULT NULL COMMENT '医生接诊时间',
+  `visit_end_time` datetime NULL DEFAULT NULL COMMENT '医生结束就诊时间',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
@@ -1086,5 +1089,99 @@ INSERT INTO `warehouse` VALUES (1, 'CK001', '中心药房', 1, '门诊大楼1层
 INSERT INTO `warehouse` VALUES (2, 'CK002', '住院药房', 1, '住院楼1层', '010-22222222', '李药师', 1, 0, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
 INSERT INTO `warehouse` VALUES (3, 'CK003', '中药房', 1, '门诊大楼2层', '010-33333333', '王药师', 1, 0, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
 INSERT INTO `warehouse` VALUES (4, 'CK004', '中心库房', 2, '后勤楼1层', '010-44444444', '赵库管', 1, 0, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+
+-- ----------------------------
+-- Table structure for medical_record
+-- ----------------------------
+DROP TABLE IF EXISTS `medical_record`;
+CREATE TABLE `medical_record`  (
+  `id` bigint UNSIGNED NOT NULL COMMENT '病历ID',
+  `registration_id` bigint UNSIGNED NOT NULL COMMENT '挂号ID(强绑定)',
+  `doctor_id` bigint UNSIGNED NOT NULL,
+  `patient_id` bigint UNSIGNED NOT NULL,
+  `chief_complaint` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `present_illness` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+  `past_history` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+  `physical_exam` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+  `diagnosis` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `treatment_plan` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+  `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-草稿 1-已提交',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_registration_id`(`registration_id` ASC) USING BTREE,
+  INDEX `idx_doctor_id`(`doctor_id` ASC) USING BTREE,
+  INDEX `idx_patient_id`(`patient_id` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '电子病历表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for prescription
+-- ----------------------------
+DROP TABLE IF EXISTS `prescription`;
+CREATE TABLE `prescription`  (
+  `id` bigint UNSIGNED NOT NULL COMMENT '处方ID',
+  `medical_record_id` bigint UNSIGNED NOT NULL,
+  `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联药品订单',
+  `total_amount` int NULL DEFAULT NULL COMMENT '处方金额(分)',
+  `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-待支付 1-已支付 2-已发药 3-已取消',
+  `pharmacist_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '发药药师ID',
+  `dispensed_at` datetime NULL DEFAULT NULL,
+  `version` int NULL DEFAULT 0 COMMENT '乐观锁',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_medical_record_id`(`medical_record_id` ASC) USING BTREE,
+  INDEX `idx_order_id`(`order_id` ASC) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '处方表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for prescription_item
+-- ----------------------------
+DROP TABLE IF EXISTS `prescription_item`;
+CREATE TABLE `prescription_item`  (
+  `id` bigint UNSIGNED NOT NULL,
+  `prescription_id` bigint UNSIGNED NOT NULL,
+  `drug_id` bigint UNSIGNED NOT NULL,
+  `quantity` int NOT NULL,
+  `unit_price` int NOT NULL COMMENT '快照单价(分)',
+  `usage_method` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_prescription_id`(`prescription_id` ASC) USING BTREE,
+  INDEX `idx_drug_id`(`drug_id` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '处方明细表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for registration_status_log
+-- ----------------------------
+DROP TABLE IF EXISTS `registration_status_log`;
+CREATE TABLE `registration_status_log`  (
+  `id` bigint UNSIGNED NOT NULL,
+  `registration_id` bigint UNSIGNED NOT NULL,
+  `from_status` tinyint(1) NOT NULL,
+  `to_status` tinyint(1) NOT NULL,
+  `operator_id` bigint UNSIGNED NOT NULL COMMENT '0=系统/患者自助',
+  `operator_role` varchar(19) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'user/doctor/pharmacist/system',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_registration_id`(`registration_id` ASC) USING BTREE,
+  INDEX `idx_create_time`(`create_time` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号状态变更日志' ROW_FORMAT = Dynamic;
+
+-- 数据迁移：把老数据 status=1 且未报到的视为"已预约"
+UPDATE registration
+   SET status = 0
+ WHERE status = 1
+   AND check_in_time IS NULL
+   AND is_deleted = 0;
 
 SET FOREIGN_KEY_CHECKS = 1;
