@@ -3,9 +3,44 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:dev-mysql-password-placeholder}
-    url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8&useSSL=false
-pagehelper:
+    url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8
   reasonable: true
   support-methods-arguments: true
   page-size-zero: true
-#  params: count=countSql
+  params: count=countSql
+
+# 配置JWT相关属性（密钥来自环境变量，禁止入库）
+jwt:
+  accessSecretKey: ${JWT_ACCESS_SECRET_KEY:dev-jwt-access-secret-placeholder}
+  refreshSecretKey: ${JWT_REFRESH_SECRET_KEY:dev-jwt-refresh-secret-placeholder}
+  admin:
+    adminAccessTokenPrefix: admin-access-token
+    adminRefreshTokenPrefix: admin-refresh-token
+# springdoc-openapi项目配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      # 需要修改的是这部分，改为自己的controller所在的位置
+#      packages-to-scan: com.xiaominfo.knife4j.demo.web
+# knife4j的增强配置，不需要增强可以不配
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+
+minio:
+  endpoint: http://localdev:9000
+  bucket-name: imagehost
+  access-key: ${MINIO_ACCESS_KEY:dev-minio-access-placeholder}
+  secret-key: ${MINIO_SECRET_KEY:dev-minio-secret-placeholder}
+  img-size: 10                           # 图片大小限制，单位：m
+  file-size: 10                          # 文件大小限制，单位：m
+  file-host: http://localdev:9000
