@@ -27,6 +27,7 @@
         <minio.version>8.3.6</minio.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <knife4j.version>4.5.0</knife4j.version>
+        <spring-dotenv.version>4.0.0</spring-dotenv.version>
     </properties>
 
 
@@ -44,12 +45,12 @@
         </dependency>
 
         <!-- Spring devtools -->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-devtools</artifactId>-->
-<!--            <scope>runtime</scope>-->
-<!--            <optional>true</optional>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
 
         <!-- Spring test -->
         <dependency>
@@ -162,6 +163,13 @@
             <artifactId>easyexcel</artifactId>
             <version>4.0.3</version>
             <scope>compile</scope>
+        </dependency>
+
+        <!-- spring-dotenv: 启动时自动加载工作目录下的 .env -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>${spring-dotenv.version}</version>
         </dependency>
 
     </dependencies>
