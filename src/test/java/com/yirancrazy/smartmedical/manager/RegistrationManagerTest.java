@@ -1,0 +1,158 @@
+package com.yirancrazy.smartmedical.manager;
+
+import com.yirancrazy.smartmedical.pojo.Department;
+import com.yirancrazy.smartmedical.pojo.Doctor;
+import com.yirancrazy.smartmedical.pojo.DoctorPosition;
+import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
+import com.yirancrazy.smartmedical.service.DepartmentService;
+import com.yirancrazy.smartmedical.service.DoctorPositionService;
+import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.OrderItemService;
+import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderTypeService;
+import com.yirancrazy.smartmedical.service.PatientCardService;
+import com.yirancrazy.smartmedical.service.PatientService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
+import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.RedisUtil;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
+/**
+ * RegistrationManager#getRegistrationByUid 单测
+ * 覆盖：空列表、单条 happy path、template 缺失跳过（C6/C14 null-safe 路径）。
+ */
+@ExtendWith(MockitoExtension.class)
+class RegistrationManagerTest {
+
+    @Mock private RegistrationService registrationService;
+    @Mock private RedisUtil redisUtil;
+    @Mock private PatientCardService patientCardService;
+    @Mock private PatientService patientService;
+    @Mock private OrderService orderService;
+    @Mock private OrderTypeService orderTypeService;
+    @Mock private OrderItemService orderItemService;
+    @Mock private RegistrationScheduleService registrationScheduleService;
+    @Mock private RegistrationScheduleTemplateService registrationScheduleTemplateService;
+    @Mock private DoctorService doctorService;
+    @Mock private UserService userService;
+    @Mock private DepartmentService departmentService;
+    @Mock private DoctorPositionService doctorPositionService;
+
+    @InjectMocks
+    private RegistrationManager registrationManager;
+
+    @Test
+    void getRegistrationByUid_emptyList_returnsEmptyResult() {
+        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(Collections.emptyList());
+
+        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertTrue(result.getData().isEmpty());
+    }
+
+    @Test
+    void getRegistrationByUid_missingTemplate_isSkipped() {
+        Registration registration = new Registration();
+        registration.setId(101L);
+        registration.setUserId(7L);
+        registration.setRegistrationScheduleTemplateId(99L);
+        registration.setStatus(1);
+
+        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(List.of(registration));
+        when(userService.getUserById(7L)).thenReturn(new User());
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(99L)).thenReturn(null);
+
+        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+
+        assertEquals(200, result.getCode());
+        assertTrue(result.getData().isEmpty(), "registration with missing template should be skipped, not NPE");
+    }
+
+    @Test
+    void getRegistrationByUid_happyPath_populatesDoctorAndDepartment() {
+        Registration registration = new Registration();
+        registration.setId(101L);
+        registration.setUserId(7L);
+        registration.setRegistrationScheduleTemplateId(99L);
+        registration.setStatus(1);
+
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setDoctorId(55L);
+
+        Doctor doctor = new Doctor();
+        doctor.setId(55L);
+        doctor.setName("张三");
+        doctor.setAvatar("a.jpg");
+        doctor.setDepartmentId(11L);
+        doctor.setDoctorPositionId(22L);
+
+        Department department = new Department();
+        department.setId(11L);
+        department.setName("内科");
+
+        DoctorPosition position = new DoctorPosition();
+        position.setId(22L);
+        position.setName("主任医师");
+
+        User user = new User();
+        user.setId(7L);
+        user.setNickname("李四");
+
+        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(List.of(registration));
+        when(userService.getUserById(7L)).thenReturn(user);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(99L)).thenReturn(template);
+        when(doctorService.getDoctorById(55L)).thenReturn(doctor);
+        lenient().when(departmentService.getDepartmentById(11L)).thenReturn(department);
+        lenient().when(doctorPositionService.getPositionById(22L)).thenReturn(position);
+
+        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+
+        assertEquals(200, result.getCode());
+        assertEquals(1, result.getData().size());
+        AppointmentResponseSimple item = result.getData().get(0);
+        assertEquals("101", item.getRegistrationId());
+        assertEquals("55", item.getDoctorId());
+        assertEquals("张三", item.getDoctorName());
+        assertEquals("李四", item.getPatientName());
+        assertEquals("内科", item.getDepartmentName());
+        assertEquals("主任医师", item.getDoctorPosition());
+    }
+
+    @Test
+    void getRegistrationByUid_nullTemplateId_isSkipped() {
+        // ponytail: 防御性测试 — 直接构造字段为 null 的 Registration，走 C14 同款 null-safe 分支
+        Registration registration = new Registration();
+        registration.setId(102L);
+        registration.setUserId(7L);
+        // registrationScheduleTemplateId 留空
+
+        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(List.of(registration));
+        when(userService.getUserById(7L)).thenReturn(new User());
+
+        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+
+        assertEquals(200, result.getCode());
+        assertTrue(result.getData().isEmpty());
+    }
+}
