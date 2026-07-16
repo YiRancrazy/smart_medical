@@ -21,7 +21,7 @@ import java.util.List;
 
 @Tag(name = "药师端 - 库存")
 @RestController
-@RequestMapping("/pharmacy/v1/inventory")
+@RequestMapping("/api/pharmacy/v1/inventory")
 @RequiredArgsConstructor
 public class PharmacyInventoryControllerV1 {
 

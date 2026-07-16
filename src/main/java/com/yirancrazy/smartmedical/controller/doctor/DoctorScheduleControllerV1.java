@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Tag(name = "医生端 - 排班")
 @RestController
-@RequestMapping("/doctor/v1/schedule")
+@RequestMapping("/api/doctor/v1/schedule")
 @RequiredArgsConstructor
 public class DoctorScheduleControllerV1 {
 

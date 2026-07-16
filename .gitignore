@@ -48,3 +48,6 @@ res
 .env
 .env.local
 .env.*.local
+
+## dev ##
+.dev

@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 
 @Tag(name = "医生端 - 挂号/叫号")
 @RestController
-@RequestMapping("/doctor/v1/registration")
+@RequestMapping("/api/doctor/v1/registration")
 @RequiredArgsConstructor
 public class DoctorRegistrationControllerV1 {
 

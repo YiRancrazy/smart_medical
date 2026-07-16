@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "医生端 - 病历")
 @RestController
-@RequestMapping("/doctor/v1/medical-record")
+@RequestMapping("/api/doctor/v1/medical-record")
 @RequiredArgsConstructor
 public class DoctorMedicalRecordControllerV1 {
 

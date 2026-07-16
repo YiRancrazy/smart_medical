@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "医生端 - 处方")
 @RestController
-@RequestMapping("/doctor/v1/prescription")
+@RequestMapping("/api/doctor/v1/prescription")
 @RequiredArgsConstructor
 public class DoctorPrescriptionControllerV1 {
 

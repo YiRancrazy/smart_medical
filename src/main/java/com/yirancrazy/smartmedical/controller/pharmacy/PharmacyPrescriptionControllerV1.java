@@ -27,7 +27,7 @@ import java.util.List;
 
 @Tag(name = "药师端 - 处方")
 @RestController
-@RequestMapping("/pharmacy/v1/prescription")
+@RequestMapping("/api/pharmacy/v1/prescription")
 @RequiredArgsConstructor
 public class PharmacyPrescriptionControllerV1 {
 
