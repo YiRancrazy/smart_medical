@@ -8,9 +8,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localdev}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:dev-redis-password-placeholder}
       database: ${REDIS_DATABASE:0}
-      timeout: 2000ms
+      timeout: ${REDIS_TIMEOUT:2000ms}
   reasonable: true
   support-methods-arguments: true
   page-size-zero: true
