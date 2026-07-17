@@ -351,6 +351,7 @@ public class DepartmentManager {
                 continue;
             }
             item.setId(String.valueOf(department.getId()));
+            item.setSn(String.valueOf(department.getSn()));
             item.setName(department.getName());
             item.setType(department.getType());
             item.setDescription(department.getDescription());
@@ -359,6 +360,15 @@ public class DepartmentManager {
             item.setManagerPhone(account.getPhone());
             item.setPhone(department.getPhone());
             item.setParentDepartmentId(String.valueOf(department.getParentDepartmentId()));
+            String parentId = item.getParentDepartmentId();
+            String parentName = null;
+            if (parentId != null && !"null".equals(parentId) && !"0".equals(parentId)) {
+                parentName = departments.stream()
+                        .filter(d -> parentId.equals(String.valueOf(d.getId())))
+                        .map(Department::getName)
+                        .findFirst().orElse(null);
+            }
+            item.setParentDepartmentName(parentName);
             item.setAddress(department.getAddress());
             item.setStatus(String.valueOf(department.getStatus()));
             result.add(item);
