@@ -27,7 +27,7 @@ src/main/java/com/yirancrazy/smartmedical/
 ├── annotation/                    # 自定义注解（@Manager 等）
 ├── config/                        # Web / Swagger / MybatisPlus / MinIO / Security / CORS
 ├── constant/                      # 常量 + 枚举（OrderStatus、RegistrationStatus、Role…）
-├── controller/                    # 三套 controller：admin / doctor / user（均 V1 版本化）
+├── controller/                    # 四套 controller：admin / doctor / user / pharmacy（均 V1 版本化）
 ├── filter/                        # JWT / 手机号+密码 过滤器
 ├── manager/                       # 业务编排层（@Manager 注解，可注入多个 Service）
 ├── mapper/                        # MyBatis-Plus Mapper
@@ -163,7 +163,7 @@ public final class IdGenerator {
 - **不要**用 `System.out.println`；用 `@Slf4j`（类上注解，`log.info/warn/error`）。
 - **不要**手写 MyBatis XML 来做简单 CRUD；用 MyBatis-Plus `BaseMapper`；只有复杂联表才写 XML（放 `src/main/resources/mapper/`）。
 - 新增三方依赖前确认是否已有等价工具（项目已用：Hutool、PageHelper、EasyExcel、Knife4j），避免重复。
-- 安全：`SecurityConfig.java` 控制鉴权规则，改动前先确认接口所属角色（admin / user / doctor）与 JWT filter 链顺序。
+- 安全：`SecurityConfig.java` 控制鉴权规则，改动前先确认接口所属角色（admin / doctor / pharmacist / user）与 JWT filter 链顺序。
 
 ## Repo-Specific Claude Behavior
 
