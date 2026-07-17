@@ -53,7 +53,7 @@ public class AuthManager {
     private final RedisUtil redisUtil;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
-    private final Long USER_ROLE = 1L;
+    private final Long USER_ROLE = 4L;
 
     public Result<LoginVo> login(String phone, String password, HttpServletResponse response) {
         try{

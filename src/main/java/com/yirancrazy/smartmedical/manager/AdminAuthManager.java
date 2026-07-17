@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
@@ -11,6 +12,7 @@ import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
+import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.RoleService;
@@ -56,12 +58,9 @@ public class AdminAuthManager {
     private final AccountService accountService;
     private final AdminService adminService;
     private final RedisUtil redisUtil;
+    private final RoleTypeLoaderManage roleTypeLoaderManage;
 
-    private final Role ADMIN_ROLE = RoleConstant.ROLE_LIST
-            .stream()
-            .filter(role -> "管理员".equals(role.getName()))
-            .findFirst()
-            .orElse(null);
+    private Role adminRole;
 
     /**
      * 启动时校验 JWT 密钥与 token 前缀已注入，避免运行时 NPE
@@ -80,6 +79,11 @@ public class AdminAuthManager {
         if (adminRefreshTokenPrefix == null || adminRefreshTokenPrefix.isBlank()) {
             throw new IllegalStateException("jwt.admin.adminRefreshTokenPrefix 未配置");
         }
+        this.adminRole = RoleConstant.ROLE_LIST
+                .stream()
+                .filter(role -> role.getId().equals(1L))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("未找到系统管理员角色"));
     }
     /**
      * 管理员手机号密码登录
@@ -97,14 +101,14 @@ public class AdminAuthManager {
         // 查找出管理员的账号
         Account adminAccount = accountByPhone
                 .stream()
-                .filter(account ->  account.getRoleId().equals(ADMIN_ROLE.getId()))
+                .filter(account ->  account.getRoleId().equals(adminRole.getId()))
                 .findFirst()
                 .orElse(null);
 
         if(adminAccount==null){
             return Result.fail("账号不存在");
         }
-        if(!BCrypt.checkpw(password,adminAccount.getPassword())){
+        if(!checkPassword(password, adminAccount.getPassword())){
             return Result.fail("用户名或密码错误");
         }
 
@@ -124,7 +128,7 @@ public class AdminAuthManager {
         cookie.setSecure(cookieSecure);
         response.addCookie(cookie);
 
-        return Result.success("登录成功");
+        return Result.success(accessJwt);
     }
 
     private  String createAccessJwt(String username, String accountId, Long roleId){
@@ -166,6 +170,10 @@ public class AdminAuthManager {
         if(accessToken == null || accessToken.isEmpty()){
             return Result.fail("未登录");
         }
+        // 去掉 "Bearer " 前缀
+        if (accessToken.startsWith("Bearer ")) {
+            accessToken = accessToken.substring(7);
+        }
         JWT jwt = JWTUtil.parseToken(accessToken);  // 解析 access_token
         String accountId = jwt.getPayload("sub").toString(); // 获取 accountId
         Account account = accountService.getAccountById(Long.parseLong(accountId)); // 通过 accountId 获取账号信息
@@ -183,7 +191,25 @@ public class AdminAuthManager {
         result.setAvatar(admin.getAvatar());
         result.setPhone(account.getPhone());
         result.setEmail(account.getEmail());
-        result.setRole(ADMIN_ROLE.getName()); // 获取角色名称
+        result.setRole(adminRole.getName()); // 获取角色名称
         return Result.success(result);
+    }
+
+    /**
+     * 校验密码，兼容 BCrypt 与 MD5 两种存储格式
+     * @param rawPassword 明文密码
+     * @param encodedPassword 数据库存储的密码
+     * @return 是否匹配
+     */
+    private boolean checkPassword(String rawPassword, String encodedPassword) {
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            return false;
+        }
+        // BCrypt 哈希以 $2a$/$2b$/$2y$ 开头
+        if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
+            return BCrypt.checkpw(rawPassword, encodedPassword);
+        }
+        // 其余按 MD5 处理
+        return DigestUtil.md5Hex(rawPassword).equalsIgnoreCase(encodedPassword);
     }
 }

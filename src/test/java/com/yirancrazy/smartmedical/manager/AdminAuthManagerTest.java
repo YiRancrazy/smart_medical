@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
@@ -43,6 +44,7 @@ class AdminAuthManagerTest {
     @Mock private AccountService accountService;
     @Mock private AdminService adminService;
     @Mock private RedisUtil redisUtil;
+    @Mock private RoleTypeLoaderManage roleTypeLoaderManage;
     @Mock private HttpServletRequest request;
     @Mock private HttpServletResponse response;
 
@@ -52,18 +54,19 @@ class AdminAuthManagerTest {
     @BeforeEach
     void setUp() {
         // 先填充 ROLE_LIST，再构造 manager：
-        // AdminAuthManager.ADMIN_ROLE 是构造期 final 字段，依赖 ROLE_LIST 非空
+        // AdminAuthManager.adminRole 在 @PostConstruct 中初始化，依赖 ROLE_LIST 非空
         adminRole = new Role();
         adminRole.setId(1L);
-        adminRole.setName("管理员");
+        adminRole.setName("系统管理员");
         RoleConstant.ROLE_LIST.clear();
         RoleConstant.ROLE_LIST.add(adminRole);
 
-        manager = new AdminAuthManager(accountService, adminService, redisUtil);
+        manager = new AdminAuthManager(accountService, adminService, redisUtil, roleTypeLoaderManage);
         ReflectionTestUtils.setField(manager, "accessSecretKey", "test-access-secret-key");
         ReflectionTestUtils.setField(manager, "refreshSecretKey", "test-refresh-secret-key");
         ReflectionTestUtils.setField(manager, "adminAccessTokenPrefix", "admin-access:");
         ReflectionTestUtils.setField(manager, "adminRefreshTokenPrefix", "admin-refresh:");
+        manager.validateJwtConfig();
     }
 
     @AfterEach

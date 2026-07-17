@@ -869,18 +869,19 @@ CREATE TABLE `registration`  (
 -- ----------------------------
 -- Records of registration
 -- ----------------------------
-INSERT INTO `registration` VALUES (2, 2, 3, 2, 2, '2024-03-02 15:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (3, 3, 5, NULL, 1, '2024-03-05 09:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (4, 4, 2, NULL, 1, '2024-03-06 14:30:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (5, 5, 6, NULL, 3, '2024-03-03 11:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (6, 1, 4, 5, 2, '2024-03-05 16:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (7, 6, 7, NULL, 1, '2024-03-07 10:30:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (8, 7, 8, 8, 2, '2024-03-08 09:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` VALUES (2027996897424269312, 1, 1, 2027996897420075008, 0, '2026-03-01 14:38:33', '2026-03-01 14:38:33', '2026-03-01 14:38:33', 0);
-INSERT INTO `registration` VALUES (2042210115264798720, 1, 2042202396713648128, 2042210115260604416, 0, '2026-04-09 19:56:49', '2026-04-09 19:56:49', '2026-04-09 19:56:49', 0);
-INSERT INTO `registration` VALUES (2042212491958747138, 8, 2042202396713648128, 2042212491958747136, 0, '2026-04-09 20:06:15', '2026-04-09 20:06:15', '2026-04-09 20:06:15', 0);
-INSERT INTO `registration` VALUES (2042772523234447360, 1, 2042772024481386496, 2042772523230253056, 0, '2026-04-11 09:11:37', '2026-04-11 09:11:37', '2026-04-11 09:11:37', 0);
-INSERT INTO `registration` VALUES (2042772688670380034, 1, 2042772024489775105, 2042772688670380032, 0, '2026-04-11 09:12:17', '2026-04-11 09:12:17', '2026-04-11 09:12:17', 0);
+-- 说明: 表新增了 check_in_time / visit_start_time / visit_end_time 3 列, 原 dump 缺这些字段, 改用显式列名让缺省列回退到 NULL DEFAULT
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2, 2, 3, 2, 2, '2024-03-02 15:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (3, 3, 5, NULL, 1, '2024-03-05 09:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (4, 4, 2, NULL, 1, '2024-03-06 14:30:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (5, 5, 6, NULL, 3, '2024-03-03 11:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (6, 1, 4, 5, 2, '2024-03-05 16:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (7, 6, 7, NULL, 1, '2024-03-07 10:30:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (8, 7, 8, 8, 2, '2024-03-08 09:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2027996897424269312, 1, 1, 2027996897420075008, 0, '2026-03-01 14:38:33', '2026-03-01 14:38:33', '2026-03-01 14:38:33', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042210115264798720, 1, 2042202396713648128, 2042210115260604416, 0, '2026-04-09 19:56:49', '2026-04-09 19:56:49', '2026-04-09 19:56:49', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042212491958747138, 8, 2042202396713648128, 2042212491958747136, 0, '2026-04-09 20:06:15', '2026-04-09 20:06:15', '2026-04-09 20:06:15', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042772523234447360, 1, 2042772024481386496, 2042772523230253056, 0, '2026-04-11 09:11:37', '2026-04-11 09:11:37', '2026-04-11 09:11:37', 0);
+INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042772688670380034, 1, 2042772024489775105, 2042772688670380032, 0, '2026-04-11 09:12:17', '2026-04-11 09:12:17', '2026-04-11 09:12:17', 0);
 
 -- ----------------------------
 -- Table structure for registration_schedule
