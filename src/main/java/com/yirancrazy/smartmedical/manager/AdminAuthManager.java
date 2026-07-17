@@ -95,29 +95,41 @@ public class AdminAuthManager {
      * @return 结果
      */
     public Result<String> loginByPhoneAndPassword(String phone, String password,Boolean remember, HttpServletRequest request, HttpServletResponse response){
+        return loginByPhoneAndPasswordAndRoleId(phone, password, adminRole.getId(), remember, request, response);
+    }
 
+    /**
+     * 按指定角色登录（医生/药师/管理员共用）
+     * @param phone 手机号
+     * @param password 密码
+     * @param roleId 期望角色ID
+     * @param remember 是否记住
+     * @param request 请求
+     * @param response 响应
+     * @return 结果
+     */
+    public Result<String> loginByPhoneAndPasswordAndRoleId(String phone, String password, Long roleId, Boolean remember, HttpServletRequest request, HttpServletResponse response) {
         List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
-        // 查找出管理员的账号
-        Account adminAccount = accountByPhone
+        // 查找出指定角色的账号
+        Account roleAccount = accountByPhone
                 .stream()
-                .filter(account ->  account.getRoleId().equals(adminRole.getId()))
+                .filter(account -> account.getRoleId().equals(roleId))
                 .findFirst()
                 .orElse(null);
 
-        if(adminAccount==null){
-            return Result.fail("账号不存在");
+        if (roleAccount == null) {
+            return Result.fail("账号不存在或无权限");
         }
-        if(!checkPassword(password, adminAccount.getPassword())){
+        if (!checkPassword(password, roleAccount.getPassword())) {
             return Result.fail("用户名或密码错误");
         }
 
-
         // accessJWT 和 refreshJwt 写入 redis 中
-        String accessJwt = createAccessJwt(adminAccount.getPhone(), adminAccount.getId().toString(), adminAccount.getRoleId());
-        String refreshJwt = createRefreshJwt(adminAccount.getPhone(),adminAccount.getId().toString());
-        redisUtil.setEx(adminAccessTokenPrefix + adminAccount.getId(), accessJwt, 7, TimeUnit.DAYS);
-        redisUtil.setEx(adminRefreshTokenPrefix + adminAccount.getId(), refreshJwt, 7, TimeUnit.DAYS);
+        String accessJwt = createAccessJwt(roleAccount.getPhone(), roleAccount.getId().toString(), roleAccount.getRoleId());
+        String refreshJwt = createRefreshJwt(roleAccount.getPhone(), roleAccount.getId().toString());
+        redisUtil.setEx(adminAccessTokenPrefix + roleAccount.getId(), accessJwt, 7, TimeUnit.DAYS);
+        redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 7, TimeUnit.DAYS);
 
         response.setHeader("Authorization", "Bearer " + accessJwt);
 
@@ -196,7 +208,7 @@ public class AdminAuthManager {
     }
 
     /**
-     * 校验密码，兼容 BCrypt 与 MD5 两种存储格式
+     * 校验密码，兼容 BCrypt / MD5 / 历史明文三种存储格式
      * @param rawPassword 明文密码
      * @param encodedPassword 数据库存储的密码
      * @return 是否匹配
@@ -209,7 +221,11 @@ public class AdminAuthManager {
         if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
             return BCrypt.checkpw(rawPassword, encodedPassword);
         }
-        // 其余按 MD5 处理
-        return DigestUtil.md5Hex(rawPassword).equalsIgnoreCase(encodedPassword);
+        // MD5
+        if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
+            return true;
+        }
+        // 兼容历史明文（种子数据）
+        return rawPassword.equals(encodedPassword);
     }
 }
