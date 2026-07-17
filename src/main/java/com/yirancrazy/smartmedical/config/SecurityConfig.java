@@ -1,9 +1,12 @@
 package com.yirancrazy.smartmedical.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yirancrazy.smartmedical.filter.JwtAuthenticationFilter;
+import com.yirancrazy.smartmedical.pojo.Result;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,6 +20,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -60,23 +64,27 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/api/admin/v1/**").hasRole("admin")
                         .requestMatchers("/api/doctor/v1/**").hasRole("doctor")
                         .requestMatchers("/api/pharmacy/v1/**").hasRole("pharmacist")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setContentType("application/json; charset=utf-8");
-                            response.setStatus(401);
-                            response.getWriter().print("{\"success\":false,\"msg\":\"Unauthorized\"}");
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setContentType("application/json; charset=utf-8");
-                            response.setStatus(403);
-                            response.getWriter().print("{\"success\":false,\"msg\":\"Access Denied\"}");
-                        })
-                );
+                .exceptionHandling(exception -> {
+                    ObjectMapper mapper = new ObjectMapper();
+                    exception.authenticationEntryPoint((request, response, authException) -> {
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                        response.setStatus(401);
+                        mapper.writeValue(response.getWriter(), Result.fail(401, "Unauthorized"));
+                    });
+                    exception.accessDeniedHandler((request, response, accessDeniedException) -> {
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                        response.setStatus(403);
+                        mapper.writeValue(response.getWriter(), Result.fail(403, "Access Denied"));
+                    });
+                });
         return http.build();
     }
 

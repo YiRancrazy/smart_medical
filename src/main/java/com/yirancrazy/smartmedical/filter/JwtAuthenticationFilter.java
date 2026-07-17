@@ -2,6 +2,8 @@ package com.yirancrazy.smartmedical.filter;
 
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,6 +13,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
@@ -81,40 +85,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             unauthorized(response, "Token is required");
             return;
         }
-        if (!JWTUtil.verify(token, accessSecretKey.getBytes())) {
-            unauthorized(response, "Invalid token");
-            return;
-        }
-
-        JWTPayload payload = JWTUtil.parseToken(token).getPayload();
-        String userId = String.valueOf(payload.getClaim("sub"));
-        Long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
-        if (exp == null || exp < System.currentTimeMillis()) {
-            unauthorized(response, "Token expired");
-            return;
-        }
-        String redisToken = redisUtil.get(resolveTokenKey(uri, userId));
-        if (redisToken == null || !redisToken.equals(token)) {
-            unauthorized(response, "Token expired or invalid");
-            return;
-        }
-
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(userId, null, resolveAuthorities(payload));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        // 桥接 JWT 上下文到 controller request attributes,
-        // 让 controller 可用 @RequestAttribute("currentUserId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
-        // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
         try {
-            Long currentUserId = Long.parseLong(userId);
-            request.setAttribute("currentUserId", currentUserId);
-            request.setAttribute("currentDoctorId", currentUserId);
-            request.setAttribute("currentPharmacistId", currentUserId);
-        } catch (NumberFormatException e) {
-            log.warn("[jwt] userId 非数字,跳过 request attribute 桥接: {}", userId);
+            if (!JWTUtil.verify(token, accessSecretKey.getBytes())) {
+                unauthorized(response, "Invalid token");
+                return;
+            }
+            JWTPayload payload = JWTUtil.parseToken(token).getPayload();
+            String userId = String.valueOf(payload.getClaim("sub"));
+            Long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
+            if (exp == null || exp < System.currentTimeMillis()) {
+                unauthorized(response, "Token expired");
+                return;
+            }
+            String redisToken = redisUtil.get(resolveTokenKey(uri, userId));
+            if (redisToken == null || !redisToken.equals(token)) {
+                unauthorized(response, "Token expired or invalid");
+                return;
+            }
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(userId, null, resolveAuthorities(payload));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // 桥接 JWT 上下文到 controller request attributes,
+            // 让 controller 可用 @RequestAttribute("currentUserId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
+            // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
+            try {
+                Long currentUserId = Long.parseLong(userId);
+                request.setAttribute("currentUserId", currentUserId);
+                request.setAttribute("currentDoctorId", currentUserId);
+                request.setAttribute("currentPharmacistId", currentUserId);
+            } catch (NumberFormatException e) {
+                log.warn("[jwt] userId 非数字,跳过 request attribute 桥接: {}", userId);
+            }
+            log.debug("JWT 认证通过：userId={}, uri={}", userId, uri);
+            filterChain.doFilter(request, response);
+        } catch (Exception e) {
+            log.warn("[jwt] 解析 token 失败: {}", e.getMessage());
+            unauthorized(response, "Invalid token format");
         }
-        log.debug("JWT 认证通过：userId={}, uri={}", userId, uri);
-        filterChain.doFilter(request, response);
     }
 
     /**
@@ -158,8 +166,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void unauthorized(HttpServletResponse response, String message) throws IOException {
-        response.setContentType("application/json; charset=utf-8");
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setStatus(401);
-        response.getWriter().print("{\"success\":false,\"msg\":\"" + message + "\"}");
+        new ObjectMapper().writeValue(response.getWriter(), Result.fail(401, message));
     }
 }
