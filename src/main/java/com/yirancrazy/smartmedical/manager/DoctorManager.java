@@ -198,7 +198,9 @@ public class DoctorManager {
      * @return 医生信息
      */
     public Result<PageResult<AdminDoctorDetailResponse>> listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentIdAndPage(String username, Long departmentId, Integer current, Integer size) {
-        PageHelper.startPage(current,size);  // 设置分页
+        int pageNum = current == null || current < 1 ? 1 : current;
+        int pageSize = size == null || size < 1 ? 10 : size;
+        PageHelper.startPage(pageNum, pageSize);
         List<Doctor> doctors = doctorService.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentId(username, departmentId);
         PageInfo<Doctor> doctorsPageInfo = new PageInfo<>( doctors);
         List<Department> departments = departmentService.listAllNonParentDepartments();
@@ -222,33 +224,44 @@ public class DoctorManager {
         List<AdminDoctorDetailResponse> result = new ArrayList<>();
         for (Doctor doctor : doctors) {
             AdminDoctorDetailResponse item = new AdminDoctorDetailResponse();
-            Department department = departments.stream().filter(department1 -> department1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
-            System.out.println(doctor.getDepartmentId());
-            System.out.println(departments);
-            DoctorPosition position = positions.stream().filter(position1 -> position1.getId().equals(doctor.getDoctorPositionId())).findFirst().orElse(null);
-            Degree degree = degrees.stream().filter(degree1 -> degree1.getId().equals(doctor.getDegreeId())).findFirst().orElse(null);
+            Department department = findDepartment(departments, doctor.getDepartmentId());
+            DoctorPosition position = findPosition(positions, doctor.getDoctorPositionId());
+            Degree degree = findDegree(degrees, doctor.getDegreeId());
             item.setDoctorId(String.valueOf(doctor.getId()));
             item.setDoctorName(doctor.getName());
             item.setDepartmentId(String.valueOf(doctor.getDepartmentId()));
-            assert department != null;
-            item.setDepartmentName(department.getName());
+            item.setDepartmentName(department == null ? null : department.getName());
             item.setPositionId(String.valueOf(doctor.getDoctorPositionId()));
-            assert position != null;
-            item.setPositionName(position.getName());
+            item.setPositionName(position == null ? null : position.getName());
             item.setDegreeId(String.valueOf(doctor.getDegreeId()));
-            assert degree != null;
-            item.setDegreeName(degree.getName());
+            item.setDegreeName(degree == null ? null : degree.getName());
             item.setAvatar(doctor.getAvatar());
             item.setAddress(doctor.getAddress());
-            item.setScope(String.valueOf(doctor.getScope()));
-            item.setTags(Arrays.stream(doctor.getTags().split(",")).toList());
+            item.setScope(doctor.getScope() == null ? null : String.valueOf(doctor.getScope()));
+            String tags = doctor.getTags();
+            item.setTags(tags == null || tags.isEmpty() ? List.of() : Arrays.stream(tags.split(",")).toList());
             item.setDescription(doctor.getDescription());
-            item.setStatus(String.valueOf(doctor.getStatus()));
+            item.setStatus(doctor.getStatus() == null ? null : String.valueOf(doctor.getStatus()));
             result.add(item);
         }
 
         return result;
 
+    }
+
+    private Department findDepartment(List<Department> list, Long id) {
+        if (id == null || list == null) return null;
+        return list.stream().filter(d -> id.equals(d.getId())).findFirst().orElse(null);
+    }
+
+    private DoctorPosition findPosition(List<DoctorPosition> list, Long id) {
+        if (id == null || list == null) return null;
+        return list.stream().filter(d -> id.equals(d.getId())).findFirst().orElse(null);
+    }
+
+    private Degree findDegree(List<Degree> list, Long id) {
+        if (id == null || list == null) return null;
+        return list.stream().filter(d -> id.equals(d.getId())).findFirst().orElse(null);
     }
 
     /**

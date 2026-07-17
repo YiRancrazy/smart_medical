@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -35,7 +36,7 @@ public class AdminDoctorControllerV1 {
      */
     @Operation(summary = "根据姓名查询医生信息")
     @GetMapping("/simple")
-    public Result<List<AdminDoctorSimpleResponse>> getDoctorById(String name) {
+    public Result<List<AdminDoctorSimpleResponse>> getDoctorById(@RequestParam(required = false) String name) {
         return doctorManager.listDoctorsSimpleResponseByDoctorName( name );
     }
 
@@ -50,7 +51,11 @@ public class AdminDoctorControllerV1 {
      */
     @Operation(summary = "多条件检索医生列表")
     @GetMapping("/detail/list")
-    public Result<PageResult<AdminDoctorDetailResponse>> listAllDoctorsSimpleResponseByUsernameAndDepartmentIdAndPage(String username, Long departmentId, Integer current, Integer size) {
+    public Result<PageResult<AdminDoctorDetailResponse>> listAllDoctorsSimpleResponseByUsernameAndDepartmentIdAndPage(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(defaultValue = "1") Integer current,
+            @RequestParam(defaultValue = "10") Integer size) {
         return doctorManager.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentIdAndPage( username, departmentId, current, size );
     }
 
