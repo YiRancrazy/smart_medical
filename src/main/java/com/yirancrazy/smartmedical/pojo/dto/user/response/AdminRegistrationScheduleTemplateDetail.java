@@ -28,5 +28,6 @@ public class AdminRegistrationScheduleTemplateDetail {
     private String total;
     private String address;
     private String status;
+    private String price;
     private String remark;
 }

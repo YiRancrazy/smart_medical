@@ -132,6 +132,7 @@ public class RegistrationScheduleTemplateManager {
                 String.valueOf(registrationScheduleTemplate.getTotalQuota()),
                 String.valueOf(registrationScheduleTemplate.getConsultationRoomId()),
                 String.valueOf(registrationScheduleTemplate.getEnabled()),
+                String.valueOf(registrationScheduleTemplate.getPrice()),
                 registrationScheduleTemplate.getRemark()
         );
     }
