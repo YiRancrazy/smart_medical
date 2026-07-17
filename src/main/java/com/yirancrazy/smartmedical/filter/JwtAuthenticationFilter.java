@@ -119,7 +119,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * 将 JWT payload 中的 role_id 映射为 Spring Security 角色权限（ROLE_xxx）
-     * 角色 ID 映射以 role 表为准：1=系统管理员 / 2=医生 / 3=护士 / 4=患者 / 5=收费员 / 6=药师
+     * 角色 ID 映射以 role 表为准：1=系统管理员 / 2=医生 / 4=患者 / 6=药师
      */
     private List<SimpleGrantedAuthority> resolveAuthorities(JWTPayload payload) {
         Object roleClaim = payload.getClaim("role_id");
@@ -135,7 +135,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authority = switch ((int) roleId) {
             case 1 -> "ROLE_admin";
             case 2 -> "ROLE_doctor";
-            case 5 -> "ROLE_cashier";
             case 6 -> "ROLE_pharmacist";
             default -> "ROLE_user";
         };
