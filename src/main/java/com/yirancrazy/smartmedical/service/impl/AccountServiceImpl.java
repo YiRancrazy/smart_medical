@@ -144,11 +144,19 @@ public class AccountServiceImpl implements AccountService {
      * @return 分页账户列表
      */
     @Override
-    public PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
+    public PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
         PageHelper.startPage(pageNum, pageSize);
-        return new PageInfo<>(accountMapper.selectList(new LambdaQueryWrapper<Account>().
-                eq(Account::getRoleId,roleId)
-                .eq(Account::getEnabled,enabled)));
+        LambdaQueryWrapper<Account> wrapper = new LambdaQueryWrapper<>();
+        if (username != null && !username.isEmpty()) {
+            wrapper.like(Account::getPhone, username);
+        }
+        if (roleId != null) {
+            wrapper.eq(Account::getRoleId, roleId);
+        }
+        if (enabled != null) {
+            wrapper.eq(Account::getEnabled, enabled);
+        }
+        return new PageInfo<>(accountMapper.selectList(wrapper));
     }
 
     /**

@@ -175,7 +175,11 @@ public class DoctorServiceImpl implements DoctorService {
      */
     @Override
     public List<Doctor> listDoctorsSimpleResponseByDoctorName(String name) {
-        return doctorMapper.selectList(new QueryWrapper<Doctor>().like("name", name));
+        QueryWrapper<Doctor> wrapper = new QueryWrapper<>();
+        if (name != null && !name.isEmpty()) {
+            wrapper.like("name", name);
+        }
+        return doctorMapper.selectList(wrapper);
     }
 
     /**

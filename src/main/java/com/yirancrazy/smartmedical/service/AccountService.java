@@ -100,7 +100,7 @@ public interface AccountService {
      * @param pageSize 每页大小
      * @return 分页账户详情列表
      */
-    PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(Long roleId, Boolean enabled,Integer pageNum, Integer pageSize);
+    PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize);
 
     /**
      * 根据管理员ID列表批量获取管理员信息

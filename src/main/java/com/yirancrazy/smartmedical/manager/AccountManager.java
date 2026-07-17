@@ -47,7 +47,7 @@ public class AccountManager {
     public Result<PageInfo<AccountDetailResponse>> listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
             String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
 
-        PageInfo<Account> accounts = accountService.listAllAccountsByRoleIdAndEnabledAndPage(roleId, enabled, pageNum, pageSize);
+        PageInfo<Account> accounts = accountService.listAllAccountsByRoleIdAndEnabledAndPage(username, roleId, enabled, pageNum, pageSize);
 
         List<AccountDetailResponse> responseList = new ArrayList<>();
 
@@ -55,23 +55,36 @@ public class AccountManager {
             return Result.success(new PageInfo<>(responseList));
         }
 
-        List<Long> userIds = accounts.getList().stream().map(Account::getUserId).toList();
+        List<Long> userIds = roleId == null ? List.of() : accounts.getList().stream().map(Account::getUserId).toList();
 
         List<Doctor> doctorList = new ArrayList<>();
         List<Admin> adminList = new ArrayList<>();
-        
-        if (roleId != null) {
-            if (roleId == 1L) {
-                adminList = adminService.listAdminsByIds(userIds);
-            } else if (roleId == 2L) {
-                doctorList = doctorService.listDoctorsByIds(userIds);
+
+        if (roleId == null) {
+            // 未指定 roleId 时按账号实际 roleId 分别拉取关联实体
+            List<Long> adminUserIds = accounts.getList().stream()
+                    .filter(a -> a.getRoleId() != null && a.getRoleId() == 1L)
+                    .map(Account::getUserId).toList();
+            List<Long> doctorUserIds = accounts.getList().stream()
+                    .filter(a -> a.getRoleId() != null && a.getRoleId() == 2L)
+                    .map(Account::getUserId).toList();
+            if (!adminUserIds.isEmpty()) {
+                adminList = adminService.listAdminsByIds(adminUserIds);
             }
+            if (!doctorUserIds.isEmpty()) {
+                doctorList = doctorService.listDoctorsByIds(doctorUserIds);
+            }
+        } else if (roleId == 1L) {
+            adminList = adminService.listAdminsByIds(userIds);
+        } else if (roleId == 2L) {
+            doctorList = doctorService.listDoctorsByIds(userIds);
         }
 
         for (Account account : accounts.getList()) {
             AccountDetailResponse response = new AccountDetailResponse();
-            
-            if (roleId == 1L) {
+
+            Long accRole = account.getRoleId();
+            if (Objects.equals(roleId, 1L) || (roleId == null && accRole != null && accRole == 1L)) {
                 Admin admin = adminList
                         .stream()
                         .filter(item -> item.getId().equals(account.getUserId()))
@@ -106,16 +119,16 @@ public class AccountManager {
                 response.setCreateTime(account.getCreateTime());
                 response.setUpdateTime(account.getUpdateTime());
                 responseList.add(response);
-                
-            } else if (roleId == 2L) {
+
+            } else if (Objects.equals(roleId, 2L) || (roleId == null && accRole != null && accRole == 2L)) {
                 Doctor doctor = doctorList
                         .stream()
                         .filter(item -> item.getId().equals(account.getUserId()))
                         .findFirst().orElse(null);
-                
+
                 response.setAccountId(account.getId());
                 response.setUserId(account.getUserId());
-                
+
                 if (doctor == null) {
                     response.setUsername("");
                     response.setDepartment("");
@@ -130,7 +143,7 @@ public class AccountManager {
                         response.setDepartmentId(doctor.getDepartmentId());
                     }
                 }
-                
+
                 Role role = ROLE_LIST.stream()
                         .filter(r -> r.getId().equals(account.getRoleId()))
                         .findFirst().orElse(null);
@@ -141,6 +154,23 @@ public class AccountManager {
                 response.setEnabled(account.getEnabled());
                 response.setCreateTime(account.getCreateTime());
                 response.setUpdateTime(account.getUpdateTime());
+                responseList.add(response);
+            } else {
+                // 未知角色（如患者/药师）暂只填充账号基础字段
+                response.setAccountId(account.getId());
+                response.setUserId(account.getUserId());
+                response.setUsername("");
+                response.setDepartment("");
+                response.setRoleId(account.getRoleId());
+                response.setEnabled(account.getEnabled());
+                response.setCreateTime(account.getCreateTime());
+                response.setUpdateTime(account.getUpdateTime());
+                Role role = ROLE_LIST.stream()
+                        .filter(r -> r.getId().equals(account.getRoleId()))
+                        .findFirst().orElse(null);
+                if (role != null) {
+                    response.setRole(role.getRemark());
+                }
                 responseList.add(response);
             }
         }
