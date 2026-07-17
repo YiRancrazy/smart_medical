@@ -1,7 +1,7 @@
 # Smart Medical
 
 医院预约挂号与后台管理系统后端（Spring Boot 3.5.9 + Java 17 + Maven）。
-面向三类角色：`admin`（科室 / 排班 / 医生 / 订单管理）、`doctor`（出诊 / 诊室）、`user`（挂号 / 支付 / 就诊人）。
+面向四类角色：`admin`（系统管理员，科室 / 排班 / 医生 / 订单管理）、`doctor`（医生，出诊 / 诊室）、`user`（患者，挂号 / 支付 / 就诊人）、`pharmacist`（药师，药品管理）。
 
 ## Develop ##
 - 改代码前先用 Glob/Grep 定位相关文件，只读必要的几个，不要一次性铺开读。
@@ -326,3 +326,14 @@ BREAKING CHANGE: code=200 改为 0 表示成功，500 改为业务异常
 - 数据库 DDL：[src/main/resources/sql/CreateTable.sql](src/main/resources/sql/CreateTable.sql)
 - 安全 / JWT：[config/SecurityConfig.java](src/main/java/com/yirancrazy/smartmedical/config/SecurityConfig.java)
 - 过滤链：[filter/JwtAuthenticationFilter.java](src/main/java/com/yirancrazy/smartmedical/filter/JwtAuthenticationFilter.java)
+
+
+## 项目内容
+- 测试系统管理员账户：13996001338 密码：123456
+- 测试医生账户：15264835030 密码：123123
+- 测试用户账户：13996001338 密码：123456
+
+### 后端项目
+- 项目测试端口：8080
+
+### 前端端口
