@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.IdUtil;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
@@ -46,19 +47,35 @@ public class DepartmentManager {
      * @return 添加结果
      */
     public Result<Long> insertDepartment(AdminDepartmentRequest item) {
+        if (item == null) {
+            return Result.fail("请求参数不能为空");
+        }
+        if (item.getName() == null || item.getName().isBlank()) {
+            return Result.fail("科室名称不能为空");
+        }
+        Long sn = Convert.toLong(item.getSn(), null);
+        if (sn == null) {
+            return Result.fail("科室编号不能为空");
+        }
+        Long managerId = Convert.toLong(item.getManagerId(), null);
+        if (managerId == null) {
+            return Result.fail("科室负责人不能为空");
+        }
+        Long parentDepartmentId = Convert.toLong(item.getParentDepartmentId(), 0L);
+
         Department department = new Department();
         department.setId(IdUtil.getSnowflakeNextId());
-        department.setSn(Long.valueOf(item.getSn()));
+        department.setSn(sn);
         department.setName(item.getName());
         department.setType(item.getType());
-        department.setParentDepartmentId(Long.valueOf(item.getPatentDepartmentId()));
-        department.setManager(Long.valueOf(item.getManagerId()));
+        department.setParentDepartmentId(parentDepartmentId);
+        department.setManager(managerId);
         department.setPhone(item.getPhone());
         department.setAddress(item.getAddress());
-        department.setStatus(Integer.valueOf(item.getStatus()));
+        department.setStatus(Convert.toInt(item.getStatus(), 1));
         department.setDescription(item.getDescription());
 
-        int result = departmentService.insertDepartment(department);
+        departmentService.insertDepartment(department);
         return Result.success(department.getId());
     }
 
