@@ -4,6 +4,13 @@ spring:
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:dev-mysql-password-placeholder}
     url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8
+  data:
+    redis:
+      host: ${REDIS_HOST:localdev}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 2000ms
   reasonable: true
   support-methods-arguments: true
   page-size-zero: true
