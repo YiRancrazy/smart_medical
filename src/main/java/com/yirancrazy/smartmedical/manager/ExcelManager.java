@@ -13,6 +13,7 @@ import com.yirancrazy.smartmedical.pojo.excel.ExcelRegistrationTemplate;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,6 +33,7 @@ import java.util.List;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class ExcelManager {
@@ -47,34 +49,38 @@ public class ExcelManager {
         if (excelFile == null || excelFile.isEmpty()) {
             return Result.fail("请上传有效文件");
         }
-        // 将 MultipartFile 转换为 File
-        String originalFilename = excelFile.getOriginalFilename();
-        File file = new File(originalFilename);
+        // 将 MultipartFile 转换为临时文件
+        File file;
         try {
+            String suffix = "";
+            String originalFilename = excelFile.getOriginalFilename();
+            if (originalFilename != null && originalFilename.contains(".")) {
+                suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            file = File.createTempFile("upload_", suffix);
             excelFile.transferTo(file.toPath());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("文件上传失败", e);
         }
 
+        List<ExcelRegistrationTemplate> list;
+        try {
+            list = EasyExcel.read(file, ExcelRegistrationTemplate.class, new AnalysisEventListener<ExcelRegistrationTemplate>() {
+                private final List<ExcelRegistrationTemplate> rows = new ArrayList<>();
 
+                @Override
+                public void invoke(ExcelRegistrationTemplate excelRegistrationTemplate, AnalysisContext analysisContext) {
+                    rows.add(excelRegistrationTemplate);
+                }
 
-        List<ExcelRegistrationTemplate>  list  =    EasyExcel.read(file,
-                    ExcelRegistrationTemplate.class,
-                    new AnalysisEventListener<ExcelRegistrationTemplate>() {
-
-                        @Override
-                        public void invoke(ExcelRegistrationTemplate excelRegistrationTemplate, AnalysisContext analysisContext) {
-
-                        }
-
-
-                        @Override
-                        public void doAfterAllAnalysed(AnalysisContext analysisContext) {
-                            System.out.println("读取完成");
-                        }
-                    }
-
-            ).sheet().doReadSync();
+                @Override
+                public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+                    log.info("[excel] 读取完成，共{}行", rows.size());
+                }
+            }).sheet().doReadSync();
+        } finally {
+            file.delete();
+        }
 
 
         // 读取 excel 文件记录，将其转换为 RegistrationScheduleTemplate 对象
