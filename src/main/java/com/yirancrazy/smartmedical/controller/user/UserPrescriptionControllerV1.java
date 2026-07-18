@@ -37,7 +37,7 @@ public class UserPrescriptionControllerV1 {
 
     @Operation(summary = "用户端 - 处方详情")
     @Parameter(name = "id", description = "处方ID", required = true)
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public Result<PrescriptionDetailVO> detail(@PathVariable Long id,
                                                @RequestAttribute("currentUserId") Long userId) {
         Prescription rx = prescriptionService.getById(id);

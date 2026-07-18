@@ -29,7 +29,7 @@ public class UserAdminControllerV1 {
         return adminManager.addAdmin(admin);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取管理员", description = "根据管理员ID获取管理员信息")
     @Parameter(name = "id", description = "管理员ID", required = true)
     public Admin getAdminById(@PathVariable String id) {

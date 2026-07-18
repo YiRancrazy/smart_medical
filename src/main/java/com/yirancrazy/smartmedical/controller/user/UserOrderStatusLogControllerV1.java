@@ -29,7 +29,7 @@ public class UserOrderStatusLogControllerV1 {
         return orderStatusLogManager.addOrderStatusLog(orderStatusLog);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取订单状态日志", description = "根据订单状态日志ID获取日志信息")
     @Parameter(name = "id", description = "订单状态日志ID", required = true)
     public OrderStatusLog getOrderStatusLogById(@PathVariable String id) {

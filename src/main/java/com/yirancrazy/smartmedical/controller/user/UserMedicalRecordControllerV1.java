@@ -41,7 +41,7 @@ public class UserMedicalRecordControllerV1 {
 
     @Operation(summary = "用户端 - 病历详情")
     @Parameter(name = "id", description = "病历ID", required = true)
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public Result<MedicalRecord> detail(@PathVariable Long id,
                                        @RequestAttribute("currentUserId") Long userId) {
         MedicalRecord record = medicalRecordService.getById(id);

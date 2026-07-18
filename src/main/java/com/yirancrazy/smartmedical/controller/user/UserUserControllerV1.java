@@ -31,14 +31,14 @@ public class UserUserControllerV1 {
         return userManager.addUser(user);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取用户", description = "根据用户ID获取用户信息")
     @Parameter(name = "id", description = "用户ID", required = true)
     public User getUserById(@PathVariable String id) {
         return userManager.getUserById(Long.parseLong(id));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     @Operation(summary = "根据ID删除用户", description = "根据用户ID删除用户")
     @Parameter(name = "id", description = "用户ID", required = true)
     public int deleteUserById(@PathVariable String id) {

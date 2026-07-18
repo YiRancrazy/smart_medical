@@ -28,7 +28,7 @@ public class UserChatControllerV1 {
         return chatManager.addChat(chat);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取聊天记录", description = "根据聊天记录ID获取聊天记录")
     @Parameter(name = "id", description = "聊天记录ID", required = true)
     public Chat getChatById(@PathVariable String id) {
