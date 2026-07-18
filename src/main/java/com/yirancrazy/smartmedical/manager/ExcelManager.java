@@ -44,6 +44,9 @@ public class ExcelManager {
      * @return 插入数量
      */
     public Result<Integer> uploadRegistrationTemplate(MultipartFile excelFile) {
+        if (excelFile == null || excelFile.isEmpty()) {
+            return Result.fail("请上传有效文件");
+        }
         // 将 MultipartFile 转换为 File
         String originalFilename = excelFile.getOriginalFilename();
         File file = new File(originalFilename);
