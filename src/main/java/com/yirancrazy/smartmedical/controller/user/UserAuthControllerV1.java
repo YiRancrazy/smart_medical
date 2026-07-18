@@ -57,7 +57,7 @@ public class UserAuthControllerV1 {
      */
     @PostMapping("/logout")
     @Operation(summary = "用户登出", description = "用户登出接口")
-    public Result<String> logout(Long userId) {
+    public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
         return authManager.logout(userId);
     }
 
