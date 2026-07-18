@@ -46,6 +46,10 @@ public class AuthManager {
     private String accessSecretKey;
     @Value("${jwt.refreshSecretKey}")
     private String refreshSecretKey;
+    @Value("${jwt.admin.adminAccessTokenPrefix}")
+    private String adminAccessTokenPrefix;
+    @Value("${jwt.admin.adminRefreshTokenPrefix}")
+    private String adminRefreshTokenPrefix;
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
     private final AccountService accountService;
@@ -90,7 +94,7 @@ public class AuthManager {
             accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
             String accessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
 
-            redisUtil.setEx("access_token_"+account.getId().toString(),accessJwt,7, TimeUnit.DAYS);
+            redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 7, TimeUnit.DAYS);
 
             Map<String, Object> refreshHeader = new HashMap<>();
             refreshHeader.put("alg", "HS256");
@@ -159,8 +163,8 @@ public class AuthManager {
     }
 
     public Result<String> logout(Long userId) {
-        redisUtil.delete("access_token_" + userId);
-        redisUtil.delete("refresh_token_" + userId);
+        redisUtil.delete(adminAccessTokenPrefix + userId);
+        redisUtil.delete(adminRefreshTokenPrefix + userId);
         return Result.success("登出成功");
     }
 
