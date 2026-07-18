@@ -80,6 +80,9 @@ public class RegistrationScheduleManager {
                         item.getRegistrationDate().isBefore(LocalDate.now()
                                 .plusDays(currentAppointmentRule.getMaxAdvanceDays()))).toList();
 
+        if (registrationScheduleTemplateList.isEmpty()) {
+            return Result.success(new ArrayList<>());
+        }
         List<Long> registrationScheduleTemplateIdList = registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList();
 
         List<RegistrationSchedule> registrationSchedules = registrationScheduleService
@@ -151,10 +154,14 @@ public class RegistrationScheduleManager {
     public Result<Integer> getRegistrationPriceByRegistrationScheduleId(String registrationScheduleId) {
         RegistrationSchedule registrationSchedule = registrationScheduleService
                 .getRegistrationScheduleById(Long.valueOf(registrationScheduleId));
-
+        if (registrationSchedule == null) {
+            return Result.fail("挂号排班不存在");
+        }
         RegistrationScheduleTemplate registrationScheduleTemplate = registrationScheduleTemplateService
                 .getRegistrationScheduleTemplateById(registrationSchedule.getRegistrationScheduleTemplateId());
-
+        if (registrationScheduleTemplate == null) {
+            return Result.fail("挂号排班模板不存在");
+        }
         return Result.success(registrationScheduleTemplate.getPrice());
     }
 }
