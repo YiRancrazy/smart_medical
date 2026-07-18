@@ -53,19 +53,19 @@ public class PaymentRecordManager {
 
         // 根据用户id 获取所有订单
         List<Order> orders = orderService.getOrdersByUserId(userId);
+        if (orders == null || orders.isEmpty()) {
+            return Result.success(new ArrayList<>());
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
         // 根据用户id 获取用户所有的缴费记录
-        List<PaymentRecord> paymentRecords = paymentRecordService.listAllPaymentRecordsByOrderId(
-                orders.stream()
-                        .map(Order::getId)
-                        .collect(Collectors.toList())
-        );
+        List<PaymentRecord> paymentRecords = paymentRecordService.listAllPaymentRecordsByOrderId(orderIds);
 
 
         // 获取所有订单类型
         List<OrderType> orderTypes = orderTypeService.listAllOrderTypes();
 
         // 根据订单id获取所有订单项
-        List<OrderItem> orderItems = orderItemService.listOrdersItemByIds(orders.stream().map(Order::getId).collect(Collectors.toList()));
+        List<OrderItem> orderItems = orderItemService.listOrdersItemByIds(orderIds);
 
         List<PaymentMethod> allPaymentMethods = paymentMethodService.listAllPayMethods();
 
@@ -77,7 +77,7 @@ public class PaymentRecordManager {
                     .filter(item1 -> item1.getId().equals(paymentRecord.getOrderId()))
                     .findFirst()
                     .orElse(null);
-            assert order != null;
+            if (order == null) continue;
             OrderType orderType = orderTypes.stream()
                     .filter(item1 -> item1.getId().equals(order.getOrderTypeId()))
                     .findFirst()
@@ -87,13 +87,12 @@ public class PaymentRecordManager {
                     .filter(item1 -> item1.getOrderId().equals(order.getId()))
                     .toList();
 
-
+            if (orderType == null) continue;
 
             item.setPaymentRecordId(String.valueOf(paymentRecord.getId()));    // 设置支付记录id
             item.setPaymentTime(paymentRecord.getPaymentTime());
             item.setOrderId(String.valueOf(paymentRecord.getOrderId()));
             item.setOrderTypeId(String.valueOf(order.getOrderTypeId()));
-            assert orderType != null;
             item.setOrderType( orderType.getName());
             item.setOrderItems(
                     currentOrderItems.stream()

@@ -128,7 +128,7 @@ public class ExcelManager {
                 registrationSchedule.setEndTime(registrationSchedule.getStartTime().plusHours(1));
                 registrationSchedule.setDoctorId(registrationScheduleTemplate.getDoctorId());
                 registrationSchedule.setRegistrationScheduleTemplateId(registrationScheduleTemplate.getId());
-                registrationSchedule.setStatus(registrationSchedule.getStatus());
+                registrationSchedule.setStatus(1);
                 if(totalQuota - quota<0){
                     registrationSchedule.setRemainingQuota(totalQuota);
                 }else {

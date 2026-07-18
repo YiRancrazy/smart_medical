@@ -12,6 +12,7 @@ import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.List;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class RegistrationScheduleTemplateManager {
@@ -85,6 +87,7 @@ public class RegistrationScheduleTemplateManager {
         PageHelper.startPage(pageNum, pageSize);
         List<RegistrationScheduleTemplate> registrationScheduleTemplates = registrationScheduleTemplateService
                 .listAllRegistrationScheduleTemplates();
+        PageInfo<RegistrationScheduleTemplate> sourcePage = new PageInfo<>(registrationScheduleTemplates);
 
         List<Long> doctorIdList = registrationScheduleTemplates
                 .stream()
@@ -96,13 +99,17 @@ public class RegistrationScheduleTemplateManager {
                 .map(RegistrationScheduleTemplate::getId)
                 .toList();
 
-        List<Doctor> doctorList = doctorService.listDoctorsByIds(doctorIdList);
+        List<Doctor> doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
         List<Department> departmentList = departmentService.listAllDepartment();
         List<RegistrationSchedule> registrationScheduleList = registrationScheduleService
                 .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateIdList);
 
         for (RegistrationScheduleTemplate item : registrationScheduleTemplates) {
             Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
+            if (doctor == null) {
+                log.warn("跳过排班模板 {}：未找到医生 {}", item.getId(), item.getDoctorId());
+                continue;
+            }
             Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
             List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
@@ -114,7 +121,12 @@ public class RegistrationScheduleTemplateManager {
             registrationScheduleTemplateDetails.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
         }
 
-        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>(registrationScheduleTemplateDetails);
+        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
+        pageInfo.setTotal(sourcePage.getTotal());
+        pageInfo.setPageNum(sourcePage.getPageNum());
+        pageInfo.setPageSize(sourcePage.getPageSize());
+        pageInfo.setPages(sourcePage.getPages());
+        pageInfo.setList(registrationScheduleTemplateDetails);
 
         return Result.success(pageInfo);
     }
@@ -122,10 +134,10 @@ public class RegistrationScheduleTemplateManager {
     public AdminRegistrationScheduleTemplateDetail createAdminRegistrationScheduleTemplateDetail(RegistrationScheduleTemplate registrationScheduleTemplate, Doctor doctor, Department department, Integer remaining) {
         return new AdminRegistrationScheduleTemplateDetail(
                 String.valueOf(registrationScheduleTemplate.getId()),
-                String.valueOf(doctor.getId()),
-                doctor.getName(),
-                String.valueOf(department.getId()),
-                department.getName(),
+                doctor == null ? "" : String.valueOf(doctor.getId()),
+                doctor == null ? "" : doctor.getName(),
+                department == null ? "" : String.valueOf(department.getId()),
+                department == null ? "" : department.getName(),
                 String.valueOf(registrationScheduleTemplate.getRegistrationDate()),
                 String.valueOf(registrationScheduleTemplate.getRegistrationType()),
                 String.valueOf(registrationScheduleTemplate.getStartTime()),
@@ -162,6 +174,7 @@ public class RegistrationScheduleTemplateManager {
         List<Doctor> doctorList = null;
         List<RegistrationSchedule> registrationScheduleList;
         List<AdminRegistrationScheduleTemplateDetail> result = new ArrayList<>();
+        PageInfo<RegistrationScheduleTemplate> sourcePage = null;
 
         if (departmentId != null && doctorId == null) {
             List<Doctor> doctors = doctorService.listDoctorsByDepartmentId(departmentId);
@@ -169,12 +182,14 @@ public class RegistrationScheduleTemplateManager {
             PageHelper.startPage(pageNum, pageSize);
             List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
                     .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
+            sourcePage = new PageInfo<>(registrationScheduleTemplateList);
             registrationScheduleList = registrationScheduleService
                     .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
-            doctorList = doctorService.listDoctorsByIds(doctorIdList);
+            doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
 
             for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
                 Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
+                if (doctor == null) continue;
                 Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
                 List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
@@ -183,22 +198,21 @@ public class RegistrationScheduleTemplateManager {
                     remaining += r.getRemainingQuota();
                 }
 
-                assert doctor != null;
-                assert department != null;
                 result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
             }
         } else if (doctorId != null) {
             PageHelper.startPage(pageNum, pageSize);
             List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
                     .listRegistrationScheduleTemplatesByDoctorIdAndDate(doctorId, localStartDate, localEndDate);
+            sourcePage = new PageInfo<>(registrationScheduleTemplateList);
             registrationScheduleList = registrationScheduleService
                     .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
             Doctor doctor1 = doctorService.getDoctorById(doctorId);
-            doctorList = new ArrayList<>();
-            doctorList.add(doctor1);
+            doctorList = doctor1 == null ? List.of() : List.of(doctor1);
 
             for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
                 Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
+                if (doctor == null) continue;
                 Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
                 List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
@@ -207,8 +221,6 @@ public class RegistrationScheduleTemplateManager {
                     remaining += r.getRemainingQuota();
                 }
 
-                assert doctor != null;
-                assert department != null;
                 result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
             }
         } else {
@@ -217,12 +229,14 @@ public class RegistrationScheduleTemplateManager {
             PageHelper.startPage(pageNum, pageSize);
             List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
                     .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
+            sourcePage = new PageInfo<>(registrationScheduleTemplateList);
             registrationScheduleList = registrationScheduleService
                     .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
-            doctorList = doctorService.listDoctorsByIds(doctorIdList);
+            doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
 
             for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
                 Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
+                if (doctor == null) continue;
                 Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
                 List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
@@ -231,13 +245,18 @@ public class RegistrationScheduleTemplateManager {
                     remaining += r.getRemainingQuota();
                 }
 
-                assert doctor != null;
-                assert department != null;
                 result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
             }
         }
 
-        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>(result);
+        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
+        if (sourcePage != null) {
+            pageInfo.setTotal(sourcePage.getTotal());
+            pageInfo.setPageNum(sourcePage.getPageNum());
+            pageInfo.setPageSize(sourcePage.getPageSize());
+            pageInfo.setPages(sourcePage.getPages());
+        }
+        pageInfo.setList(result);
         return Result.success(pageInfo);
     }
 
@@ -264,6 +283,9 @@ public class RegistrationScheduleTemplateManager {
      */
     public Result<Integer> startReceiving(Long id) {
         RegistrationScheduleTemplate registrationScheduleTemplate = registrationScheduleTemplateService.getRegistrationScheduleTemplateById(id);
+        if (registrationScheduleTemplate == null) {
+            throw new BizException(BizErrorCode.SCHEDULE_TEMPLATE_NOT_FOUND);
+        }
         registrationScheduleTemplate.setEnabled(true);
 
         Integer result = registrationScheduleTemplateService.updateRegistrationScheduleTemplateById(registrationScheduleTemplate);

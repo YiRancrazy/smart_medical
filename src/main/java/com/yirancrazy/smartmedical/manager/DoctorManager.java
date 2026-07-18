@@ -124,7 +124,7 @@ public class DoctorManager {
         // 获取可挂号的医生列表
         List<Doctor> doctorList = doctorService.listDoctorsByDoctorIdsAndStatusAndMaxAdvanceDays(doctorIdListInCurrentDepartment, AppointmentRuleStatusEnum.NORMAL.getCode(), currentAppointmentRules.getMaxAdvanceDays());
 
-        System.out.println(doctorList);
+        log.debug("doctorList by departmentId={}", doctorList);
         Department department = departmentService.getDepartmentById(departmentId);
 
         List<RegistrationSchedule> recentRegistrationListByDoctorIdList = registrationScheduleService.getRecentRegistrationListByDoctorIdList(
@@ -133,17 +133,16 @@ public class DoctorManager {
                         .map(Doctor::getId)
                         .toList());
 
-        System.out.println("====================");
-        System.out.println(doctorList);
-        System.out.println("====================");
+        log.debug("doctorList size={}, scheduleList size={}", doctorList.size(), recentRegistrationListByDoctorIdList.size());
         List<RegistrationDoctorBaseInfo> result = new ArrayList<>();
         for (Doctor doctor : doctorList) {
             RegistrationDoctorBaseInfo temp = new RegistrationDoctorBaseInfo();
             temp.setDoctorId(String.valueOf(doctor.getId()));
             temp.setDoctorName(doctor.getName());
             temp.setDepartmentId(String.valueOf(doctor.getDepartmentId()));
-            temp.setDepartmentName(department.getName());
-            temp.setTags(Arrays.stream(doctor.getTags().split(",")).toList());
+            temp.setDepartmentName(department == null ? "" : department.getName());
+            String tags = doctor.getTags();
+            temp.setTags(tags == null || tags.isEmpty() ? List.of() : Arrays.stream(tags.split(",")).toList());
             temp.setDescription(doctor.getDescription());
             temp.setAvatar(doctor.getAvatar());
             temp.setPosition(String.valueOf(doctor.getDoctorPositionId()));
@@ -162,16 +161,19 @@ public class DoctorManager {
 
     public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(Long doctorId) {
         Doctor doctor = doctorService.getDoctorById(doctorId);
-        Department department = departmentService.getDepartmentById(doctor.getDepartmentId());
-        DoctorPosition doctorPosition = doctorPositionService.getPositionById(doctor.getDoctorPositionId());
+        if (doctor == null) {
+            return Result.fail("医生不存在");
+        }
+        Department department = doctor.getDepartmentId() == null ? null : departmentService.getDepartmentById(doctor.getDepartmentId());
+        DoctorPosition doctorPosition = doctor.getDoctorPositionId() == null ? null : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
         return Result.success(new RegistrationDoctorConfirmVo(
                 String.valueOf(doctor.getId()),
                 doctor.getName(),
                 String.valueOf(doctor.getDepartmentId()),
-                department.getName(),
+                department == null ? "" : department.getName(),
                 doctor.getAvatar(),
                 String.valueOf(doctor.getDoctorPositionId()),
-                doctorPosition.getName()
+                doctorPosition == null ? "" : doctorPosition.getName()
         ));
     }
 
@@ -179,12 +181,15 @@ public class DoctorManager {
         List<Doctor> doctorList = doctorService.listDoctorsSimpleResponseByDoctorName(name);
         List<AdminDoctorSimpleResponse> result = doctorList
                 .stream()
-                .map(item -> new AdminDoctorSimpleResponse(
+                .map(item -> {
+                    Department dept = item.getDepartmentId() == null ? null : departmentService.getDepartmentById(item.getDepartmentId());
+                    return new AdminDoctorSimpleResponse(
                         String.valueOf(item.getId()),
                         item.getName(),
                         String.valueOf(item.getDepartmentId()),
-                        departmentService.getDepartmentById(item.getDepartmentId()).getName()
-                ))
+                        dept == null ? "" : dept.getName()
+                    );
+                })
                 .toList();
         return Result.success(result);
     }

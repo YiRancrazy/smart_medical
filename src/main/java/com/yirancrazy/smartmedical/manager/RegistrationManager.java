@@ -64,12 +64,20 @@ public class RegistrationManager {
     public Result<String> addRegistration(Long paymentId, Long registrationScheduleId, Long uid, Long patientCardId){
         Registration registration = new Registration();
         Order order = new Order();
-        Long userId = Long.parseLong(redisUtil.get("uid_" + uid));
-
+        Long userId = uid;
 
         PatientCard patientCard = patientCardService.getPatientCardById(patientCardId);  // 获取患者卡信息
+        if (patientCard == null) {
+            return Result.fail("患者卡不存在");
+        }
         Patient patient = patientService.getPatientByPatientCardId(patientCardId); // 获取患者信息
+        if (patient == null) {
+            return Result.fail("患者信息不存在");
+        }
         RegistrationSchedule registrationSchedule = registrationScheduleService.getRegistrationScheduleById(registrationScheduleId); // 获取排班信息
+        if (registrationSchedule == null) {
+            return Result.fail("排班信息不存在");
+        }
 
         // 判断该用户是否已经预约过
         Registration existRegistration = registrationService

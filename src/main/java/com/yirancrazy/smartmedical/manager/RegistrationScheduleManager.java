@@ -11,6 +11,7 @@ import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -23,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class RegistrationScheduleManager {
@@ -40,6 +42,9 @@ public class RegistrationScheduleManager {
     public Result<List<RegistrationDateAndRemainQuotaVo>> listRegistrationsByDoctorIdAndMaxAdvanceDays(Long doctorId) {
 
         Doctor doctor = doctorService.getDoctorById(doctorId);
+        if (doctor == null) {
+            return Result.fail("医生不存在");
+        }
 
         List<AppointmentRule> appointmentRules = new ArrayList<>();
 
@@ -95,6 +100,10 @@ public class RegistrationScheduleManager {
             RegistrationSchedule registrationSchedule = registrationSchedules.stream()
                     .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
                     .findFirst().orElse(null);
+            if (registrationSchedule == null) {
+                log.warn("跳过排班模板 {}：未找到对应排班记录", registrationScheduleTemplate.getId());
+                continue;
+            }
             registrationDateAndRemainQuotaVo.setDoctorId(String.valueOf(registrationSchedule.getDoctorId()));
             registrationDateAndRemainQuotaVo.setDate(registrationScheduleTemplate.getRegistrationDate());
             registrationDateAndRemainQuotaVo.setTotalQuota(registrationScheduleTemplate.getTotalQuota());
