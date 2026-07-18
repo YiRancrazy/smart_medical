@@ -3,6 +3,8 @@ package com.yirancrazy.smartmedical.manager;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminRegistrationScheduleTemplateDetail;
 import com.yirancrazy.smartmedical.service.DepartmentService;
@@ -246,6 +248,9 @@ public class RegistrationScheduleTemplateManager {
      */
     public Result<Integer> stopReceiving(Long id) {
         RegistrationScheduleTemplate registrationScheduleTemplate = registrationScheduleTemplateService.getRegistrationScheduleTemplateById(id);
+        if (registrationScheduleTemplate == null) {
+            throw new BizException(BizErrorCode.SCHEDULE_TEMPLATE_NOT_FOUND);
+        }
         registrationScheduleTemplate.setEnabled(false);
 
         Integer result = registrationScheduleTemplateService.updateRegistrationScheduleTemplateById(registrationScheduleTemplate);
