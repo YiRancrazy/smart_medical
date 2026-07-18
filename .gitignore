@@ -55,3 +55,12 @@ res
 
 ## dev ##
 .dev
+
+## 测试文件
+test-*
+*.ps1
+*.tok
+.doctor-*
+.token
+.user-*
+req-admin.json
