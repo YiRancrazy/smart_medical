@@ -1,11 +1,13 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.DepartmentManager;
+import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.AdminDepartmentRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminDepartmentSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -120,5 +122,40 @@ public class AdminDepartmentControllerV1 {
     @Operation(summary = "获取所有科室列表树形结构")
     public Result<Map<AdminDepartmentSimpleResponse, List<AdminDepartmentSimpleResponse>>> listAllDepartmentsSimpleResponseByTree() {
         return departmentManager.listAllDepartmentsSimpleResponseByPageAndSnAscAndTree();
+    }
+
+    /**
+     * 根据ID获取科室
+     * @param id 科室ID
+     * @return 科室信息
+     */
+    @GetMapping("/{id:\\d+}")
+    @Operation(summary = "管理员端 - 科室详情")
+    @Parameter(name = "id", description = "科室ID", required = true)
+    public Result<Department> getDepartmentById(@PathVariable Long id) {
+        return departmentManager.getDepartmentById(id);
+    }
+
+    /**
+     * 更新科室
+     * @param department 科室信息
+     * @return 更新结果
+     */
+    @PutMapping("/update")
+    @Operation(summary = "管理员端 - 更新科室")
+    public Result<Integer> updateDepartment(@RequestBody Department department) {
+        return departmentManager.updateDepartment(department);
+    }
+
+    /**
+     * 删除科室
+     * @param id 科室ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/{id:\\d+}")
+    @Operation(summary = "管理员端 - 删除科室")
+    @Parameter(name = "id", description = "科室ID", required = true)
+    public Result<Integer> deleteDepartmentById(@PathVariable Long id) {
+        return departmentManager.deleteDepartmentById(id);
     }
 }
