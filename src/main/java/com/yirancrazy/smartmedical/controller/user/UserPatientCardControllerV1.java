@@ -35,8 +35,8 @@ public class UserPatientCardControllerV1 {
      */
     @GetMapping("/baseinfo")
     @Operation(summary = "获取默认就诊人基本信息", description = "获取默认就诊人基本信息接口")
-    public Result<OutPatientCardBaseInfo> getDefaultPatientBaseInfoByAccountId(@RequestParam("userId") String userId) {
-        return patientCardManager.getDefaultPatientBaseInfoByUid(Long.parseLong(userId));
+    public Result<OutPatientCardBaseInfo> getDefaultPatientBaseInfoByAccountId(@RequestAttribute("currentUserId") Long userId) {
+        return patientCardManager.getDefaultPatientBaseInfoByUid(userId);
     }
 
     /**
@@ -47,8 +47,8 @@ public class UserPatientCardControllerV1 {
      */
     @GetMapping("/confirm/baseinfo")
     @Operation(summary = "获取所有就诊人基本信息", description = "获取所有就诊人基本信息接口")
-    public Result<List<RegistrationConfirmPatientCardVo>> getAllPatientBaseInfoByUid(@RequestParam("userId") String userId){
-        return patientCardManager.getAllPatientBaseInfoByUserId(Long.valueOf(userId));
+    public Result<List<RegistrationConfirmPatientCardVo>> getAllPatientBaseInfoByUid(@RequestAttribute("currentUserId") Long userId){
+        return patientCardManager.getAllPatientBaseInfoByUserId(userId);
     }
 
     /**
@@ -56,9 +56,9 @@ public class UserPatientCardControllerV1 {
      * @param userId 账号id
      * @return 患者卡信息简单响应
      */
-    @GetMapping("/list/simple/response/{userId}")
+    @GetMapping("/list/simple/response")
     @Operation(summary = "获取所有患者卡信息简单响应", description = "获取所有患者卡信息简单响应接口")
-    public Result<List<PatientCardSimpleResponse>> listPatientCardSimpleResponseByUserId(@PathVariable("userId") String userId){
-        return patientCardManager.listPatientCardSimpleResponseByUserId(Long.valueOf(userId));
+    public Result<List<PatientCardSimpleResponse>> listPatientCardSimpleResponseByUserId(@RequestAttribute("currentUserId") Long userId){
+        return patientCardManager.listPatientCardSimpleResponseByUserId(userId);
     }
 }
