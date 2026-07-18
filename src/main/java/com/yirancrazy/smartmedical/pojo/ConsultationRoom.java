@@ -26,7 +26,7 @@ public class ConsultationRoom {
     private Long id;
 
     @Schema(description = "诊室编号")
-    private String sn;
+    private Long sn;
 
     @Schema(description = "诊室名称")
     private String name;
