@@ -7,6 +7,7 @@ import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -29,6 +30,8 @@ public class UserPatientRelationManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
 
+    private static final Long USER_ROLE = 4L;
+
 
     /**
      * 添加就诊人
@@ -44,8 +47,15 @@ public class UserPatientRelationManager {
 
         Long id = IdUtil.getSnowflakeNextId();
         User patientUser = userService.getUserByIdCard(idCard);
+        if (patientUser == null) {
+            List<Account> accounts = accountService.getAccountByPhone(phone);
+            if (accounts != null && !accounts.isEmpty()) {
+                patientUser = userService.getUserById(accounts.get(0).getUserId());
+            } else {
+                patientUser = createPatientUser(name, idCard, phone);
+            }
+        }
         Long patientUserId = patientUser.getId();
-        Patient patient = patientService.getPatientByUserId(patientUserId);
         Integer isAuthorized = 0;
 
         // 查询用户关系是否存在
@@ -152,5 +162,51 @@ public class UserPatientRelationManager {
      */
     public Result<Integer> deleteUserPatientRelationById(Long id) {
         return Result.success(userPatientRelationService.deleteUserPatientRelationById(id));
+    }
+
+    /**
+     * 为未注册的就诊人创建用户、账户、就诊卡及患者档案
+     * @param name 就诊人姓名
+     * @param idCard 身份证号
+     * @param phone 手机号
+     * @return 新建的用户
+     */
+    private User createPatientUser(String name, String idCard, String phone) {
+        User user = new User();
+        Long userId = IdUtil.getSnowflakeNextId();
+        user.setId(userId);
+        user.setNickname(name);
+        user.setUsername(name);
+        user.setIdCard(idCard);
+        user.setAvatar("");
+        userService.insertUser(user);
+
+        Account account = new Account();
+        account.setId(IdUtil.getSnowflakeNextId());
+        account.setUserId(userId);
+        account.setRoleId(USER_ROLE);
+        account.setPhone(phone);
+        account.setPassword(BCrypt.hashpw(String.valueOf(IdUtil.getSnowflakeNextId()), BCrypt.gensalt()));
+        account.setEnabled(true);
+        accountService.insertAccount(account);
+
+        PatientCard patientCard = new PatientCard();
+        patientCard.setId(IdUtil.getSnowflakeNextId());
+        patientCard.setSn(IdUtil.getSnowflakeNextId());
+        patientCard.setInpatientBalance(0);
+        patientCard.setOutpatientBalance(0);
+        patientCard.setPaymentPassword("");
+        patientCard.setStatus(0);
+        patientCard.setQrCode("");
+        patientCardService.insertPatientCard(patientCard);
+
+        Patient patient = new Patient();
+        patient.setId(IdUtil.getSnowflakeNextId());
+        patient.setUserId(userId);
+        patient.setPatientCardId(patientCard.getId());
+        patient.setEmergencyPhone(phone);
+        patientService.insertPatient(patient);
+
+        return user;
     }
 }

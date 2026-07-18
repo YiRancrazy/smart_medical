@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.UserPatientRelationManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.UserPatientRelationRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -25,13 +26,9 @@ public class UserPatientRelationControllerV1 {
     @Operation(summary = "添加就诊人", description = "添加就诊人")
     @PostMapping
     public Result<Integer> insertUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
-                                                     @RequestParam String name,
-                                                     @RequestParam String idCard,
-                                                     @RequestParam String phone,
-                                                     @RequestParam String relation,
-                                                     @RequestParam(required = false) String remark,
-                                                     @RequestParam(defaultValue = "false") String defaulted) {
-        return userPatientRelationManager.insertUserPatientRelation(currentUserId, name, idCard, phone, relation, remark, defaulted);
+                                                     @RequestBody UserPatientRelationRequest request) {
+        return userPatientRelationManager.insertUserPatientRelation(currentUserId, request.getName(), request.getIdCard(),
+                request.getPhone(), request.getRelation(), request.getRemark(), request.getDefaulted());
     }
 
     @Operation(summary = "修改就诊人", description = "修改就诊人")

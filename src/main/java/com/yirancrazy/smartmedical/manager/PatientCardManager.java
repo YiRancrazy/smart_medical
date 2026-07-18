@@ -59,7 +59,6 @@ public class PatientCardManager {
         List<UserPatientRelation> userPatientRelations =
                 userPatientRelationService.getUserPatientRelationsByUserId(userId);
 
-        System.out.println("userPatientRelations"+userPatientRelations);
         UserPatientRelation defaultUserPatientRelation = userPatientRelations
                         .stream()
                         .filter(UserPatientRelation::getDefaulted)
@@ -72,7 +71,7 @@ public class PatientCardManager {
 
 
         // 获取患者信息
-        Patient defaultPatient = patientService.getPatientById(defaultUserPatientRelation.getPatientUserId());
+        Patient defaultPatient = patientService.getPatientByUserId(defaultUserPatientRelation.getPatientUserId());
 
         // 获取患者用户信息
         User defaultPatientUser = userService.getUserById(defaultPatient.getUserId());
@@ -114,8 +113,8 @@ public class PatientCardManager {
                 .map(UserPatientRelation::getPatientUserId)
                 .collect(Collectors.toList());
 
-        // 通过患者idList获取患者信息
-        List<Patient> patients = patientService.getPatientsByIds(patientIds);
+        // 通过用户idList获取患者信息
+        List<Patient> patients = patientService.getPatientsByUserIds(patientIds);
 
         // 提取所有用户id
         List<Long> userIds = patients
@@ -138,7 +137,7 @@ public class PatientCardManager {
             User patientUser = userList.stream().filter(user -> user.getId().equals(patient.getUserId())).findFirst().orElse(null);
             UserPatientRelation userPatientRelation = userPatientRelations
                     .stream()
-                    .filter(item -> item.getPatientUserId().equals(patient.getId()))
+                    .filter(item -> item.getPatientUserId().equals(patient.getUserId()))
                     .findFirst()
                     .orElse(null);
 
@@ -189,7 +188,7 @@ public class PatientCardManager {
                 .toList();
 
         // 获取所有患者信息
-        List<Patient> patients = patientService.getPatientsByIds(patientIds);
+        List<Patient> patients = patientService.getPatientsByUserIds(patientIds);
 
         // 获取所有患者账户信息
         List<Account> patientAccounts = accountService.listAccountsByUserIds(patientIds);
@@ -213,7 +212,6 @@ public class PatientCardManager {
 //                    .filter(user -> user.getId().equals(patient.getUserId()))
 //                    .findFirst()
 //                    .orElse(null);
-            System.out.println(patient);
             User patientUser = patientUsers
                     .stream()
                     .filter(user -> user.getId().equals(patient.getUserId()))
@@ -231,7 +229,7 @@ public class PatientCardManager {
                     .orElse(null);
             UserPatientRelation currentUserPatientRelation = userPatientRelations
                     .stream()
-                    .filter(userPatientRelation -> userPatientRelation.getPatientUserId().equals(patient.getId()))
+                    .filter(userPatientRelation -> userPatientRelation.getPatientUserId().equals(patient.getUserId()))
                     .findFirst()
                     .orElse(null);
             assert patient != null;

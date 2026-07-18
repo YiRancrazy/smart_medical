@@ -111,7 +111,7 @@ public class AuthManager {
 
             redisUtil.setEx("refresh_token_"+account.getId().toString(),refreshJwt,7, TimeUnit.DAYS);
 
-            LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()));
+            LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), user.getNickname());
 
             response.setHeader("Authorization", "Bearer " + accessJwt);
 

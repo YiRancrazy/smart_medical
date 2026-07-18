@@ -76,4 +76,11 @@ public interface PatientService {
      * @return 患者信息
      */
     Patient getPatientByUserId(Long userId);
+
+    /**
+     * 根据用户id列表批量查询患者信息
+     * @param userIds 用户id列表
+     * @return 患者列表
+     */
+    List<Patient> getPatientsByUserIds(List<Long> userIds);
 }

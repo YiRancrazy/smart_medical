@@ -18,4 +18,6 @@ public class LoginVo {
     private String accountId;
     private String token;
     private String uid;
+    private String phone;
+    private String userName;
 }

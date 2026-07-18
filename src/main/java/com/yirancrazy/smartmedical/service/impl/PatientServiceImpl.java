@@ -100,4 +100,17 @@ public class PatientServiceImpl implements PatientService {
     public Patient getPatientByUserId(Long userId) {
         return patientMapper.selectOne(new LambdaQueryWrapper<Patient>().eq(Patient::getUserId, userId));
     }
+
+    /**
+     * 根据用户id列表批量查询患者
+     * @param userIds 用户id列表
+     * @return 患者列表
+     */
+    @Override
+    public List<Patient> getPatientsByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return patientMapper.selectList(new LambdaQueryWrapper<Patient>().in(Patient::getUserId, userIds));
+    }
 }
