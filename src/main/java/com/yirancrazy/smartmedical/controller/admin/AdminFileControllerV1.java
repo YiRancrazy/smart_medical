@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/admin/file")
+@RequestMapping("/api/admin/v1/file")
 @Tag(name = "文件管理接口")
 public class AdminFileControllerV1 {
     private final FileManager fileManager;

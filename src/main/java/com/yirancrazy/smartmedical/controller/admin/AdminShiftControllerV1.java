@@ -4,10 +4,12 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.manager.ShiftManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.ShiftSimpleResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,7 +33,8 @@ public class AdminShiftControllerV1 {
      * 获取所有班次信息
      * @return 班次信息
      */
-    @RequestMapping("/list")
+    @GetMapping("/list")
+    @Operation(summary = "管理员端 - 获取所有班次信息")
     public Result<List<ShiftSimpleResponse>> listShiftsSimpleResponse(){
         return shiftManager.listShiftsSimpleResponse();
     }

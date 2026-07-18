@@ -395,15 +395,14 @@ public class DepartmentManager {
                 status,
                 type,
                 name,
-                sn.isEmpty()?null:Long.parseLong(sn)
+                Convert.toLong(sn, null)
         );
-
-        if(departments.size()==0){
-            return Result.fail("没有找到任何科室");
-        }
 
         // 封装成 PageInfo 对象
         PageInfo<Department> pageinfo = new PageInfo<>(departments);
+        if (departments.isEmpty()) {
+            return Result.success(new PageResult<>(pageinfo, new ArrayList<>()));
+        }
         List<Long> managerIds = departments
                 .stream()
                 .map(Department::getManager)

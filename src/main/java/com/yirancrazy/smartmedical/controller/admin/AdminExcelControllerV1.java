@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/excel")
+@RequestMapping("/api/admin/v1/excel")
 @Tag(name = "管理员Excel接口")
 public class AdminExcelControllerV1 {
     private final ExcelManager excelManager;
