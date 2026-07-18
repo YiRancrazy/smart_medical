@@ -1,8 +1,5 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
-import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.manager.DoctorManager;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
@@ -34,7 +31,6 @@ import java.util.stream.Collectors;
 public class DoctorRegistrationControllerV1 {
 
     private final DoctorManager doctorManager;
-    private final RegistrationMapper registrationMapper;
 
     /**
      * 医生端 - 待叫号列表（status=REPORTED）
@@ -57,11 +53,7 @@ public class DoctorRegistrationControllerV1 {
     @Operation(summary = "医生端 - 就诊中列表")
     @GetMapping("/in-progress")
     public Result<List<WaitingPatientVO>> inProgress(@RequestAttribute("currentDoctorId") Long doctorId) {
-        List<Registration> list = registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
-                        .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode())
-                        .orderByAsc(Registration::getCheckInTime));
+        List<Registration> list = doctorManager.listInProgress(doctorId);
         List<WaitingPatientVO> result = list.stream().map(this::toWaitingVO).collect(Collectors.toList());
         return Result.success(result);
     }

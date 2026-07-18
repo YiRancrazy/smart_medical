@@ -329,4 +329,26 @@ public class DoctorManager {
                         .eq(Registration::getStatus, RegistrationStatusEnum.REPORTED.getCode())
                         .orderByAsc(Registration::getCheckInTime));
     }
+
+    /**
+     * 医生就诊中列表（status=IN_TREATMENT 或 PENDING_PAYMENT，按当前医生过滤）
+     * @param doctorId 医生ID
+     * @return 就诊中挂号列表
+     */
+    public List<Registration> listInProgress(Long doctorId) {
+        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
+                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
+        if (templates == null || templates.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> templateIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getId)
+                .collect(Collectors.toList());
+        return registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
+                        .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
+                                .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode()))
+                        .orderByAsc(Registration::getCheckInTime));
+    }
 }
