@@ -159,10 +159,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String resolveTokenKey(String uri, String userId) {
-        if (uri.startsWith("/api/admin/")) {
-            return adminAccessTokenPrefix + userId;
-        }
-        return "access_token_" + userId;
+        // 登录时所有角色都写入 adminAccessTokenPrefix + userId，filter 一致读取
+        return adminAccessTokenPrefix + userId;
     }
 
     private void unauthorized(HttpServletResponse response, String message) throws IOException {
