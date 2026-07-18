@@ -50,10 +50,11 @@ public class UserRegistrationControllerV1 {
      */
     @PostMapping("/")
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
-    public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request) {
+    public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request,
+                                             @RequestAttribute("currentUserId") Long userId) {
         return registrationManager.addRegistration(Long.valueOf(request.getPaymentMethodId()),
                 Long.valueOf(request.getRegistrationScheduleId()),
-                Long.valueOf(request.getUserId()),
+                userId,
                 Long.valueOf(request.getPatientCardId()));
     }
 
@@ -62,11 +63,10 @@ public class UserRegistrationControllerV1 {
      * @param patientId 用户ID
      * @return 挂号记录
      */
-    @GetMapping("/simple/list/{patientId}")
-    @Operation(summary = "根据患者ID获取挂号记录", description = "根据患者ID获取挂号记录")
-    @Parameter(name = "patientId", description = "患者id", required = true)
-    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(@PathVariable String patientId) {
-        return registrationManager.getRegistrationByUid(Long.valueOf(patientId));
+    @GetMapping("/simple/list")
+    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录")
+    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(@RequestAttribute("currentUserId") Long userId) {
+        return registrationManager.getRegistrationByUid(userId);
     }
 
     /**
