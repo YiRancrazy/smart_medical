@@ -155,7 +155,7 @@ public class PatientCardManager {
             registrationConfirmPatientCardVo.setPatientCardNo("");
             registrationConfirmPatientCardVo.setRelation(userPatientRelation.getRelation());
             registrationConfirmPatientCardVo.setDefaultPatientCard(userPatientRelation.getDefaulted());
-            registrationConfirmPatientCardVo.setPatientPhone(DesensitizedUtil.idCardNum(patientAccount.getPhone(),3,4));
+            registrationConfirmPatientCardVo.setPatientPhone(DesensitizedUtil.mobilePhone(patientAccount.getPhone()));
             result.add(registrationConfirmPatientCardVo);
         }
 
@@ -247,7 +247,7 @@ public class PatientCardManager {
 
             item.setPatientName(patientUser.getUsername());  //  姓名
             item.setPatientIdCard(patientUser.getIdCard());  // 身份证
-            item.setPatientPhone(DesensitizedUtil.idCardNum(currentAccount.getPhone(),3,4));
+            item.setPatientPhone(DesensitizedUtil.mobilePhone(currentAccount.getPhone()));
             item.setPatientCardSn(String.valueOf(currentPatientCard.getSn())); // 患者卡号
             item.setPatientCardId(String.valueOf(currentPatientCard.getId()));
             item.setRelation(currentUserPatientRelation.getRelation());
