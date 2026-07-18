@@ -101,11 +101,11 @@ public class PaymentRecordManager {
                             .collect(Collectors.toList())
             );
             item.setPaymentMethodId(String.valueOf(paymentRecord.getPaymentMethodId()));
-            item.setPaymentMethodName(String.valueOf(allPaymentMethods
-                    .stream()
-                    .map(item1-> false)
+            item.setPaymentMethodName(allPaymentMethods.stream()
+                    .filter(pm -> pm.getId().equals(paymentRecord.getPaymentMethodId()))
                     .findFirst()
-                    .orElse(null)));
+                    .map(PaymentMethod::getName)
+                    .orElse("未知"));
             item.setPaymentStatus(String.valueOf(paymentRecord.getStatus()));
             item.setPaymentAmount(String.valueOf(paymentRecord.getTotalAmount()));
             result.add(item);
