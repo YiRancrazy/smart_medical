@@ -50,6 +50,7 @@ INSERT INTO `account` VALUES (7, 1, 7, 0, 'e10adc3949ba59abbe56e057f20f883e', 'z
 INSERT INTO `account` VALUES (8, 1, 8, 2, 'e10adc3949ba59abbe56e057f20f883e', 'wushi@example.com', '18731647525', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (10, 1, 2, 2, '123123', 'doctor2@hospital.com', '15264835030', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (11, 1, 1, 1, 'e10adc3949ba59abbe56e057f20f883e', '123123', '19350051049', '2026-03-05 18:50:34', '2026-03-05 18:50:36', 0);
+INSERT INTO `account` VALUES (12, 1, 3, 6, 'e10adc3949ba59abbe56e057f20f883e', 'pharmacist@hospital.com', '18512345678', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for admin
