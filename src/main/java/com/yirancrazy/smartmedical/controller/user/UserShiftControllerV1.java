@@ -29,7 +29,7 @@ public class UserShiftControllerV1 {
         return shiftManager.addShift(shift);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取班次", description = "根据班次ID获取班次信息")
     @Parameter(name = "id", description = "班次ID", required = true)
     public Shift getShiftById(@PathVariable String id) {

@@ -5,8 +5,8 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.booking.confirm.PayMethodVo;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.yirancrazy.smartmedical.manager.PayMethodManager;
 
@@ -33,9 +33,9 @@ public class UserPayMethodControllerV1 {
      * @param id 支付类型ID
      * @return 支付类型
      */
-    @RequestMapping("/{id}")
-    public Result<PaymentMethod> getPayMethodById(@RequestParam("id") String id) {
-        return PayMethodManager.getPayMethodById(Long.parseLong(id));
+    @RequestMapping("/{id:\\d+}")
+    public Result<PaymentMethod> getPayMethodById(@PathVariable("id") Long id) {
+        return PayMethodManager.getPayMethodById(id);
     }
 
     /**

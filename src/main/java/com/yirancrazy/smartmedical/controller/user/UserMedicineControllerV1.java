@@ -29,7 +29,7 @@ public class UserMedicineControllerV1 {
         return medicineManager.addMedicine(medicine);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取药品", description = "根据药品ID获取药品信息")
     @Parameter(name = "id", description = "药品ID", required = true)
     public Medicine getMedicineById(@PathVariable String id) {

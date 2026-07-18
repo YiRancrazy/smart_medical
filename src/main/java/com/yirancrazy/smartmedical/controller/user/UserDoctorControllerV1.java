@@ -35,7 +35,7 @@ public class UserDoctorControllerV1 {
 //        return doctorManager.addDoctor(doctor);
 //    }
 //
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取医生", description = "根据医生ID获取医生信息")
     @Parameter(name = "id", description = "医生ID", required = true)
     public Result<DoctorVo
@@ -50,6 +50,22 @@ public class UserDoctorControllerV1 {
         return doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(Long.parseLong(departmentId));
     }
 
+
+    @GetMapping("/list")
+    @Operation(summary = "分页查询医生", description = "分页查询医生列表")
+    public Result<?> listDoctorsByPage(
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "departmentId", required = false) Long departmentId,
+            @RequestParam(value = "pageNum", required = false, defaultValue = "1") Integer pageNum,
+            @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize) {
+        return doctorManager.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentIdAndPage(name, departmentId, pageNum, pageSize);
+    }
+
+    @GetMapping("/detail/{id:\\d+}")
+    @Operation(summary = "医生详情", description = "根据医生ID获取医生详情")
+    public Result<DoctorVo> getDoctorDetail(@PathVariable("id") Long id) {
+        return doctorManager.getDoctorById(id);
+    }
 
     @GetMapping("/registration/confirm")
     @Operation(summary = "获取挂号确认信息", description = "根据医生ID获取挂号确认信息")

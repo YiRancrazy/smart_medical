@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理
@@ -28,6 +29,15 @@ public class GlobalExceptionHandler {
     public Result<Void> handleOptimisticLock(OptimisticLockingFailureException e) {
         log.warn("[Lock] {}", e.getMessage());
         return Result.fail(BizErrorCode.CONCURRENT_OPERATION.getCode(), BizErrorCode.CONCURRENT_OPERATION.getDefaultMessage());
+    }
+
+    /**
+     * 404 接口不存在不应被吞为 500
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResource(NoResourceFoundException e) {
+        log.warn("[404] {}", e.getMessage());
+        return Result.fail(404, "接口不存在");
     }
 
     @ExceptionHandler(Exception.class)

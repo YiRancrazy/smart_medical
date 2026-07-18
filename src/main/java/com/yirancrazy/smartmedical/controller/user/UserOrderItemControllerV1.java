@@ -29,7 +29,7 @@ public class UserOrderItemControllerV1 {
         return orderItemManager.addOrderItem(orderItem);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取订单明细", description = "根据订单明细ID获取订单明细信息")
     @Parameter(name = "id", description = "订单明细ID", required = true)
     public OrderItem getOrderItemById(@PathVariable String id) {

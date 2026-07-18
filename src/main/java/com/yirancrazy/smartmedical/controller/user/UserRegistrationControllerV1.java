@@ -36,7 +36,7 @@ public class UserRegistrationControllerV1 {
         return registrationManager.addRegistration(registration);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
     public Result<Registration> getRegistrationById(@PathVariable String id) {

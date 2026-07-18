@@ -36,7 +36,7 @@ public class UserDepartmentControllerV1 {
      * @param id 科室ID
      * @return 科室信息
      */
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取科室", description = "根据科室ID获取科室信息")
     @Parameter(name = "id", description = "科室ID", required = true)
     public Result<Department> getDepartmentById(@PathVariable String id) {
@@ -70,6 +70,12 @@ public class UserDepartmentControllerV1 {
      * 获取所有科室列表
      * @return 科室列表
      */
+    @GetMapping("/tree")
+    @Operation(summary = "获取所有科室树形结构")
+    public Result<?> listAllDepartmentsTree() {
+        return departmentManager.listAllDepartmentsSimpleResponseByPageAndSnAscAndTree();
+    }
+
     @GetMapping("/list")
     @Operation(summary = "获取所有科室", description = "获取所有科室列表")
     public Result<List<Department>> getAllDepartments() {
