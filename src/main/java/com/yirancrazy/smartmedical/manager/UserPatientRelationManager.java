@@ -40,7 +40,7 @@ public class UserPatientRelationManager {
      * @return 添加结果
      */
     @Transactional
-    public Result<Integer> insertUserPatientRelation(String currentUserId,String name, String idCard, String phone, String relation, String remark, String defaulted) {
+    public Result<Integer> insertUserPatientRelation(Long currentUserId,String name, String idCard, String phone, String relation, String remark, String defaulted) {
 
         Long id = IdUtil.getSnowflakeNextId();
         User patientUser = userService.getUserByIdCard(idCard);
@@ -49,7 +49,7 @@ public class UserPatientRelationManager {
         Integer isAuthorized = 0;
 
         // 查询用户关系是否存在
-        List<UserPatientRelation> userPatientRelationList = userPatientRelationService.getUserPatientRelationsByUserId(Long.valueOf(currentUserId));
+        List<UserPatientRelation> userPatientRelationList = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
         UserPatientRelation isExistUserPatientRelation = userPatientRelationList
                 .stream()
                 .filter(userPatientRelation -> userPatientRelation.getPatientUserId().equals(patientUserId))
@@ -62,7 +62,7 @@ public class UserPatientRelationManager {
         // 如果设置了默认就诊人，则将原来的默认就诊人设置为非默认
         if (Boolean.parseBoolean(defaulted)) {
             // 获取所有用户的就诊人关系
-            List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(Long.valueOf(currentUserId));
+            List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
             // 找到默认就诊人
             UserPatientRelation userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
 
@@ -76,7 +76,7 @@ public class UserPatientRelationManager {
         // 此时没有默认就诊人，将当前插入对象设置为默认就诊人
         UserPatientRelation userPatientRelation = new UserPatientRelation();
         userPatientRelation.setId(id);
-        userPatientRelation.setUserId(Long.valueOf(currentUserId));
+        userPatientRelation.setUserId(currentUserId);
         userPatientRelation.setPatientUserId(patientUserId);
         userPatientRelation.setIsAuthorized(isAuthorized);
         userPatientRelation.setDefaulted(Boolean.valueOf(defaulted));
@@ -97,9 +97,9 @@ public class UserPatientRelationManager {
      * @return 修改结果
      */
     @Transactional
-    public Result<Integer> updateUserPatientRelationById(String currentUserId, Long id, String relation, String remark, String defaulted) {
+    public Result<Integer> updateUserPatientRelationById(Long currentUserId, Long id, String relation, String remark, String defaulted) {
         UserPatientRelation userPatientRelation = null;
-        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(Long.valueOf(currentUserId));
+        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
         // 获取当前用户下所欲就诊人关系，目的为了获取默认就诊人
         userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
 
@@ -108,7 +108,6 @@ public class UserPatientRelationManager {
                 assert userPatientRelation != null;
                 userPatientRelation.setDefaulted(false);
                 userPatientRelationService.updateUserPatientRelationById(userPatientRelation);
-                System.out.println("--------------------------------122222222");
             }
             case "false" -> {
                 if (userPatientRelation == null) {
@@ -132,9 +131,9 @@ public class UserPatientRelationManager {
      * @return 设置结果
      */
     @Transactional
-    public Result<Integer> setDefaultUserPatientRelation(String currentUserId, Long id) {
+    public Result<Integer> setDefaultUserPatientRelation(Long currentUserId, Long id) {
         UserPatientRelation userPatientRelation = null;
-        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(Long.valueOf(currentUserId));
+        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
         // 获取当前用户下所欲就诊人关系，目的为了获取默认就诊人
         userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
         if (userPatientRelation != null) {
