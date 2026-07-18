@@ -2,10 +2,13 @@ package com.yirancrazy.smartmedical.manager.loader.impl;
 
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.DepartmentConstant;
+import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.service.DepartmentService;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -16,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 @Manager
 @RequiredArgsConstructor
+@Slf4j
 public class DepartmentLoaderManager {
     private final DepartmentService departmentService;
 
@@ -24,6 +28,8 @@ public class DepartmentLoaderManager {
      */
     @PostConstruct
     public void loadAllDepartments(){
-        DepartmentConstant.DEPARTMENT_LIST.addAll(departmentService.listAllDepartment());
+        List<Department> departments = departmentService.listAllDepartment();
+        DepartmentConstant.DEPARTMENT_LIST.addAll(departments);
+        log.info("[loader] 科室数据加载完成，共{}个", departments.size());
     }
 }

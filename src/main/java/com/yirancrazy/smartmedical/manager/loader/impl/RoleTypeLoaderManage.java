@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.service.RoleService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
@@ -20,6 +21,7 @@ import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 
 @Manager
 @RequiredArgsConstructor
+@Slf4j
 public class RoleTypeLoaderManage {
 
     private final RoleService roleService;
@@ -28,7 +30,6 @@ public class RoleTypeLoaderManage {
     public void loadRoleType() {
         List<Role> roles = roleService.listAllRoles();
         ROLE_LIST.addAll(roles);
-        System.out.println("角色数据加载完成，共加载 " + roles.size() + " 个角色");
-
+        log.info("[loader] 角色数据加载完成，共{}个", roles.size());
     }
 }
