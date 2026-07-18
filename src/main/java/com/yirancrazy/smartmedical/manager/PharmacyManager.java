@@ -44,8 +44,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PharmacyManager {
 
+    /** 库存异动类型:入库 */
+    private static final int TXN_INBOUND = 1;
     /** 库存异动类型:出库 */
     private static final int TXN_OUTBOUND = 2;
+    /** 库存异动类型:盘点调整 */
+    private static final int TXN_ADJUST = 3;
 
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
@@ -205,5 +209,79 @@ public class PharmacyManager {
                         a.getStockQuantity() - a.getMinStock(),
                         b.getStockQuantity() - b.getMinStock()))
                 .toList();
+    }
+
+    /**
+     * 库存入库
+     * @param drugId 药品ID
+     * @param quantity 入库数量（正整数）
+     * @param warehouseId 仓库ID
+     * @param operatorId 操作人ID
+     * @return 入库后的库存
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public DrugInventory stockIn(Long drugId, Integer quantity, Long warehouseId, Long operatorId) {
+        DrugInventory inv = drugInventoryService.selectForUpdate(drugId);
+        if (inv == null) {
+            throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + drugId);
+        }
+        int beforeAvailable = inv.getAvailableQuantity();
+        inv.setStockQuantity(inv.getStockQuantity() + quantity);
+        inv.setAvailableQuantity(inv.getAvailableQuantity() + quantity);
+        drugInventoryService.updateDrugInventoryById(inv);
+
+        InventoryTransaction txn = new InventoryTransaction();
+        txn.setId(IdUtil.getSnowflakeNextId());
+        txn.setDrugId(drugId);
+        txn.setWarehouseId(warehouseId);
+        txn.setTransactionType(TXN_INBOUND);
+        txn.setQuantityChange(quantity);
+        txn.setQuantityBefore(beforeAvailable);
+        txn.setQuantityAfter(inv.getAvailableQuantity());
+        txn.setOperatorId(operatorId);
+        txn.setOperatorName("pharmacist");
+        txn.setRemark("手动入库");
+        inventoryTransactionService.insertInventoryTransaction(txn);
+
+        log.info("[pharmacy-stockIn] drugId={}, +{}, after={}", drugId, quantity, inv.getAvailableQuantity());
+        return inv;
+    }
+
+    /**
+     * 盘点调整（校正实际库存数量）
+     * @param drugId 药品ID
+     * @param actualQuantity 实际盘点数量
+     * @param warehouseId 仓库ID
+     * @param operatorId 操作人ID
+     * @param remark 备注
+     * @return 调整后的库存
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public DrugInventory stockAdjust(Long drugId, Integer actualQuantity, Long warehouseId, Long operatorId, String remark) {
+        DrugInventory inv = drugInventoryService.selectForUpdate(drugId);
+        if (inv == null) {
+            throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + drugId);
+        }
+        int beforeAvailable = inv.getAvailableQuantity();
+        int change = actualQuantity - beforeAvailable;
+        inv.setStockQuantity(inv.getStockQuantity() + change);
+        inv.setAvailableQuantity(actualQuantity);
+        drugInventoryService.updateDrugInventoryById(inv);
+
+        InventoryTransaction txn = new InventoryTransaction();
+        txn.setId(IdUtil.getSnowflakeNextId());
+        txn.setDrugId(drugId);
+        txn.setWarehouseId(warehouseId);
+        txn.setTransactionType(TXN_ADJUST);
+        txn.setQuantityChange(change);
+        txn.setQuantityBefore(beforeAvailable);
+        txn.setQuantityAfter(inv.getAvailableQuantity());
+        txn.setOperatorId(operatorId);
+        txn.setOperatorName("pharmacist");
+        txn.setRemark(remark != null ? remark : "盘点调整");
+        inventoryTransactionService.insertInventoryTransaction(txn);
+
+        log.info("[pharmacy-stockAdjust] drugId={}, {}→{}", drugId, beforeAvailable, actualQuantity);
+        return inv;
     }
 }
