@@ -91,10 +91,26 @@ public class DepartmentManager {
 
     /**
      * 更新科室信息
-     * @param department 科室信息
+     * @param id 科室ID
+     * @param item 科室信息请求参数
      * @return 更新结果
      */
-    public Result<Integer> updateDepartment(Department department) {
+    public Result<Integer> updateDepartment(Long id, AdminDepartmentRequest item) {
+        if (id == null) {
+            return Result.fail("科室ID不能为空");
+        }
+        Department department = new Department();
+        department.setId(id);
+        department.setSn(Convert.toLong(item.getSn(), null));
+        department.setName(item.getName());
+        department.setType(item.getType());
+        department.setParentDepartmentId(Convert.toLong(item.getParentDepartmentId(), 0L));
+        department.setManager(Convert.toLong(item.getManagerId(), null));
+        department.setPhone(item.getPhone());
+        department.setAddress(item.getAddress());
+        department.setStatus(Convert.toInt(item.getStatus(), 1));
+        department.setDescription(item.getDescription());
+
         int result = departmentService.updateDepartmentById(department);
         return Result.success(result);
     }

@@ -79,13 +79,13 @@ public class AdminDepartmentControllerV1 {
     /**
      * 获取所有子级科室列表
      * @param current 当前页
-     * @param page 每页数量
+     * @param size 每页数量
      * @return 子级科室列表
      */
-    @GetMapping("/list/child/{current}/{page}")
+    @GetMapping("/list/child/{current}/{size}")
     @Operation(summary = "获取所有子级科室列表")
-    public Result<PageResult<AdminDepartmentSimpleResponse>> listAllChildDepartmentSimpleResponse( @PathVariable Integer current, @PathVariable Integer page) {
-        return departmentManager.listAllChildDepartmentsSimpleResponse( current, page );
+    public Result<PageResult<AdminDepartmentSimpleResponse>> listAllChildDepartmentSimpleResponse( @PathVariable Integer current, @PathVariable Integer size) {
+        return departmentManager.listAllChildDepartmentsSimpleResponse( current, size );
     }
 
 
@@ -138,13 +138,15 @@ public class AdminDepartmentControllerV1 {
 
     /**
      * 更新科室
-     * @param department 科室信息
+     * @param id 科室ID
+     * @param adminDepartmentRequest 科室信息请求参数
      * @return 更新结果
      */
-    @PutMapping("/update")
+    @PutMapping("/{id:\\d+}")
     @Operation(summary = "管理员端 - 更新科室")
-    public Result<Integer> updateDepartment(@RequestBody Department department) {
-        return departmentManager.updateDepartment(department);
+    @Parameter(name = "id", description = "科室ID", required = true)
+    public Result<Integer> updateDepartment(@PathVariable Long id, @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
+        return departmentManager.updateDepartment(id, adminDepartmentRequest);
     }
 
     /**

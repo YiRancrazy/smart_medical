@@ -45,13 +45,15 @@ public class UserDepartmentControllerV1 {
 
     /**
      * 更新科室信息
-     * @param department 科室信息
+     * @param id 科室ID
+     * @param adminDepartmentRequest 科室信息请求参数
      * @return 更新结果
      */
-    @PutMapping("/update")
+    @PutMapping("/{id:\\d+}")
     @Operation(summary = "更新科室", description = "更新科室信息")
-    public Result<Integer> updateDepartment(@RequestBody Department department) {
-        return departmentManager.updateDepartment(department);
+    @Parameter(name = "id", description = "科室ID", required = true)
+    public Result<Integer> updateDepartment(@PathVariable Long id, @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
+        return departmentManager.updateDepartment(id, adminDepartmentRequest);
     }
 
     /**
