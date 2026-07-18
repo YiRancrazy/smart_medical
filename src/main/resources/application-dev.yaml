@@ -11,6 +11,8 @@ spring:
       password: ${REDIS_PASSWORD:dev-redis-password-placeholder}
       database: ${REDIS_DATABASE:0}
       timeout: ${REDIS_TIMEOUT:2000ms}
+
+pagehelper:
   reasonable: true
   support-methods-arguments: true
   page-size-zero: true

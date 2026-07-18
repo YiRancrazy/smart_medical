@@ -43,7 +43,7 @@ CREATE TABLE `account`  (
 -- ----------------------------
 INSERT INTO `account` VALUES (2, 1, 2, 1, 'e10adc3949ba59abbe56e057f20f883e', 'lisi@example.com', '13996001338', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (3, 1, 3, 0, 'e10adc3949ba59abbe56e057f20f883e', 'wangwu@example.com', '15808386379', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (4, 1, 4, 0, 'e10adc3949ba59abbe56e057f20f883e', 'zhaoliu@example.com', '13702654235', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (4, 1, 4, 4, 'e10adc3949ba59abbe56e057f20f883e', 'zhaoliu@example.com', '13702654235', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (5, 1, 5, 1, 'e10adc3949ba59abbe56e057f20f883e', 'qianqi@example.com', '13916155940', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (6, 1, 6, 0, 'e10adc3949ba59abbe56e057f20f883e', 'sunba@example.com', '18278161849', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (7, 1, 7, 0, 'e10adc3949ba59abbe56e057f20f883e', 'zhoujiu@example.com', '18859310341', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);

@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWTPayload;
@@ -75,7 +76,7 @@ public class AuthManager {
             if(account==null){
                 return Result.info(10001,"账号不存在", null);
             }
-            if(!BCrypt.checkpw(password, account.getPassword())){
+            if(!checkPassword(password, account.getPassword())){
                 return Result.info(10002,"用户名或密码错误", null);
             }
             User user = userService.getUserById(account.getUserId());
@@ -246,5 +247,21 @@ public class AuthManager {
         patient.setUserId(userId);
         patient.setPatientCardId(patientCard.getId());
         patientService.insertPatient(patient);
+    }
+
+    /**
+     * 密码校验：BCrypt > MD5 > 明文（兼容种子数据）
+     */
+    private boolean checkPassword(String rawPassword, String encodedPassword) {
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            return false;
+        }
+        if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
+            return BCrypt.checkpw(rawPassword, encodedPassword);
+        }
+        if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
+            return true;
+        }
+        return rawPassword.equals(encodedPassword);
     }
 }
