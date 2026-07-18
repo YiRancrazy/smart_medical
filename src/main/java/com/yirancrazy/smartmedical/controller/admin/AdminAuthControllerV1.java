@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.AdminAuthManager;
-import com.yirancrazy.smartmedical.manager.AdminManager;
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.AdminLoginByPhoneAndPasswordRequest;
@@ -27,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAuthControllerV1 {
 
     private final AdminAuthManager authManager;
+    private final AuthManager userAuthManager;
 
     /**
      * 管理员手机号密码登录
@@ -54,6 +54,19 @@ public class AdminAuthControllerV1 {
     @Operation(summary = "获取当前登录管理员信息")
     public Result<AdminResponseSimple> getCurrentAdminBaseInfo(HttpServletRequest request) {
         return authManager.getCurrentAdminBaseInfo(request);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "管理员端 - 刷新token")
+    public Result<String> refresh(@CookieValue("Refresh-token") String refreshToken,
+                                   HttpServletResponse response) {
+        return userAuthManager.refresh(refreshToken, response);
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "管理员端 - 登出")
+    public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
+        return userAuthManager.logout(userId);
     }
 
 }

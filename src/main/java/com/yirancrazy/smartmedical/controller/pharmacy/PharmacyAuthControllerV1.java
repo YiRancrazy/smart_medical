@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.controller.pharmacy;
 
 import com.yirancrazy.smartmedical.manager.AdminAuthManager;
+import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.AdminLoginByPhoneAndPasswordRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,10 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -30,6 +28,7 @@ public class PharmacyAuthControllerV1 {
     private static final Long PHARMACIST_ROLE_ID = 6L;
 
     private final AdminAuthManager authManager;
+    private final AuthManager userAuthManager;
 
     @PostMapping("/login")
     @Operation(summary = "药师端 - 手机号密码登录")
@@ -43,5 +42,18 @@ public class PharmacyAuthControllerV1 {
                 loginRequest.getRemember(),
                 request,
                 response);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "药师端 - 刷新token")
+    public Result<String> refresh(@CookieValue("Refresh-token") String refreshToken,
+                                   HttpServletResponse response) {
+        return userAuthManager.refresh(refreshToken, response);
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "药师端 - 登出")
+    public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
+        return userAuthManager.logout(userId);
     }
 }

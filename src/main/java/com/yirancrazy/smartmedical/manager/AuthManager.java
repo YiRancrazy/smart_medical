@@ -168,6 +168,68 @@ public class AuthManager {
         return Result.success("登出成功");
     }
 
+    /**
+     * 刷新 access token（消费 Refresh-token Cookie）
+     * @param refreshToken Cookie 中的 refresh JWT
+     * @param response 用于写入新 Authorization header
+     * @return 新 access JWT 或失败信息
+     */
+    public Result<String> refresh(String refreshToken, HttpServletResponse response) {
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            return Result.fail("Refresh token 缺失");
+        }
+        try {
+            if (!JWTUtil.verify(refreshToken, refreshSecretKey.getBytes())) {
+                return Result.fail("Refresh token 无效");
+            }
+            JWTPayload payload = JWTUtil.parseToken(refreshToken).getPayload();
+            String accountId = String.valueOf(payload.getClaim("sub"));
+            Long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
+            if (exp == null || exp < System.currentTimeMillis()) {
+                return Result.fail("Refresh token 已过期");
+            }
+            // Redis 比对：统一用 adminRefreshTokenPrefix + accountId（所有角色共用）
+            String redisRefresh = redisUtil.get(adminRefreshTokenPrefix + accountId);
+            if (redisRefresh == null || !redisRefresh.equals(refreshToken)) {
+                return Result.fail("Refresh token 已失效");
+            }
+
+            // 签发新 access JWT（从旧 access JWT 取 role_id）
+            Map<String, Object> accessHeader = new HashMap<>();
+            accessHeader.put("alg", "HS256");
+            accessHeader.put("typ", "JWT");
+            Map<String, Object> accessPayload = new HashMap<>();
+            Long currentTimeMillis = System.currentTimeMillis();
+            accessPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
+            accessPayload.put(JWTPayload.SUBJECT, accountId);
+            // 从 Redis 旧 access JWT 解析 role_id
+            Long roleId = 4L; // 默认 user
+            String oldAccessJwt = redisUtil.get(adminAccessTokenPrefix + accountId);
+            if (oldAccessJwt != null) {
+                try {
+                    JWTPayload oldPayload = JWTUtil.parseToken(oldAccessJwt).getPayload();
+                    Object rid = oldPayload.getClaim("role_id");
+                    if (rid != null) roleId = Long.parseLong(String.valueOf(rid));
+                } catch (Exception ignored) {}
+            }
+            accessPayload.put("role_id", roleId);
+            accessPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 7);
+            accessPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
+            accessPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+            accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+            String newAccessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
+
+            // 覆盖旧 access（旧 token 立即失效）
+            redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 7, TimeUnit.DAYS);
+
+            response.setHeader("Authorization", "Bearer " + newAccessJwt);
+            return Result.success(newAccessJwt);
+        } catch (Exception e) {
+            log.error("[refresh] 刷新token异常", e);
+            return Result.fail("刷新token失败");
+        }
+    }
+
     private void registerInit(Long userId){
         PatientCard patientCard = new PatientCard();
         patientCard.setId(IdUtil.getSnowflakeNextId());
