@@ -4,6 +4,7 @@ import com.yirancrazy.smartmedical.manager.AdminAuthManager;
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.AdminLoginByPhoneAndPasswordRequest;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,5 +56,11 @@ public class PharmacyAuthControllerV1 {
     @Operation(summary = "药师端 - 登出")
     public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
         return userAuthManager.logout(userId);
+    }
+
+    @GetMapping("/current")
+    @Operation(summary = "药师端 - 获取当前登录用户信息")
+    public Result<AdminResponseSimple> getCurrentUser(HttpServletRequest request) {
+        return authManager.getCurrentAdminBaseInfo(request);
     }
 }

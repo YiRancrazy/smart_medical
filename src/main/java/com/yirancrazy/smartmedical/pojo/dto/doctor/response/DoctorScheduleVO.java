@@ -23,6 +23,24 @@ public class DoctorScheduleVO {
     @Schema(description = "挂号状态")
     private Integer status;
 
+    @Schema(description = "班次名称")
+    private String shiftName;
+
     @Schema(description = "开始时间")
     private LocalDateTime startTime;
+
+    @Schema(description = "结束时间")
+    private LocalDateTime endTime;
+
+    @Schema(description = "患者ID")
+    private Long patientId;
+
+    @Schema(description = "患者姓名")
+    private String patientName;
+
+    @Schema(description = "患者手机号")
+    private String patientPhone;
+
+    @Schema(description = "挂号时间")
+    private LocalDateTime registrationTime;
 }

@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
 import com.yirancrazy.smartmedical.manager.DoctorManager;
-import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -34,34 +32,28 @@ public class DoctorRegistrationControllerV1 {
 
     /**
      * 医生端 - 待叫号列表（status=REPORTED）
-     * @param doctorId 医生ID（来自 JWT context）
-     * @return 待叫号挂号列表
+     * @param doctorId 医生ID（JWT 自动注入）
      */
     @Operation(summary = "医生端 - 待叫号列表")
     @GetMapping("/waiting")
     public Result<List<WaitingPatientVO>> waiting(@RequestAttribute("currentDoctorId") Long doctorId) {
-        List<Registration> list = doctorManager.listWaiting(doctorId);
-        List<WaitingPatientVO> result = list.stream().map(this::toWaitingVO).collect(Collectors.toList());
-        return Result.success(result);
+        return Result.success(doctorManager.listWaiting(doctorId));
     }
 
     /**
      * 医生端 - 就诊中列表（status=IN_TREATMENT 或 PENDING_PAYMENT）
-     * @param doctorId 医生ID（来自 JWT context）
-     * @return 就诊中挂号列表
+     * @param doctorId 医生ID（JWT 自动注入）
      */
     @Operation(summary = "医生端 - 就诊中列表")
     @GetMapping("/in-progress")
     public Result<List<WaitingPatientVO>> inProgress(@RequestAttribute("currentDoctorId") Long doctorId) {
-        List<Registration> list = doctorManager.listInProgress(doctorId);
-        List<WaitingPatientVO> result = list.stream().map(this::toWaitingVO).collect(Collectors.toList());
-        return Result.success(result);
+        return Result.success(doctorManager.listInProgress(doctorId));
     }
 
     /**
      * 医生端 - 叫号接诊
      * @param regId 挂号记录ID
-     * @param doctorId 医生ID（来自 JWT context）
+     * @param doctorId 医生ID（JWT 自动注入）
      */
     @Operation(summary = "医生端 - 叫号接诊")
     @PostMapping("/{id}/call")
@@ -69,13 +61,5 @@ public class DoctorRegistrationControllerV1 {
                              @RequestAttribute("currentDoctorId") Long doctorId) {
         doctorManager.callPatient(regId, doctorId);
         return Result.success(null);
-    }
-
-    private WaitingPatientVO toWaitingVO(Registration reg) {
-        WaitingPatientVO vo = new WaitingPatientVO();
-        vo.setRegistrationId(reg.getId());
-        vo.setPatientId(reg.getUserId());
-        vo.setCheckInTime(reg.getCheckInTime());
-        return vo;
     }
 }

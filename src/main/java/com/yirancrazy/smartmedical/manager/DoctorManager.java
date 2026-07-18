@@ -12,6 +12,8 @@ import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.*;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleVO;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
@@ -50,6 +52,8 @@ public class DoctorManager {
     private final RegistrationService registrationService;
     private final RegistrationMapper registrationMapper;
     private final RegistrationStatusLogManager statusLogManager;
+    private final UserService userService;
+    private final AccountService accountService;
     public int addDoctor(Doctor doctor) {
         doctor.setId(IdUtil.getSnowflakeNextId());
         return doctorService.insertDoctor(doctor);
@@ -297,50 +301,80 @@ public class DoctorManager {
     /**
      * 医生今日排班列表（按 registration_schedule_template.doctorId 过滤）
      * @param doctorId 医生ID
-     * @return 当日挂号列表
+     * @return 当日挂号 VO 列表
      */
-    public List<Registration> listTodaySchedule(Long doctorId) {
+    public List<DoctorScheduleVO> listTodaySchedule(Long doctorId) {
         List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
                 .getRegistrationScheduleTemplateByDoctorIdAndDate(doctorId, LocalDate.now());
         if (templates == null || templates.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Long> templateIds = templates.stream()
-                .map(RegistrationScheduleTemplate::getId)
-                .collect(Collectors.toList());
-        return registrationMapper.selectList(
+        Map<Long, RegistrationScheduleTemplate> templateMap = templates.stream()
+                .collect(Collectors.toMap(RegistrationScheduleTemplate::getId, t -> t));
+        List<Long> templateIds = new ArrayList<>(templateMap.keySet());
+        List<Registration> registrations = registrationMapper.selectList(
                 new LambdaQueryWrapper<Registration>()
                         .in(Registration::getRegistrationScheduleTemplateId, templateIds)
                         .orderByAsc(Registration::getRegistrationTime));
+        Map<Long, User> userMap = batchLoadUsers(registrations);
+        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
+        return registrations.stream().map(reg -> {
+            DoctorScheduleVO vo = new DoctorScheduleVO();
+            vo.setRegistrationId(reg.getId());
+            vo.setStatus(reg.getStatus());
+            vo.setRegistrationTime(reg.getRegistrationTime());
+            RegistrationScheduleTemplate t = templateMap.get(reg.getRegistrationScheduleTemplateId());
+            if (t != null) {
+                vo.setShiftName(t.getName());
+                vo.setStartTime(t.getStartTime() != null ? t.getStartTime().atDate(LocalDate.now()) : null);
+                vo.setEndTime(t.getEndTime() != null ? t.getEndTime().atDate(LocalDate.now()) : null);
+            }
+            fillPatientInfo(vo, reg, userMap, accountMap);
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     /**
      * 医生待叫号列表（status=REPORTED）
      * @param doctorId 医生ID
-     * @return 已报到待叫号挂号列表
+     * @return 已报到待叫号 VO 列表
      */
-    public List<Registration> listWaiting(Long doctorId) {
-        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
-                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
-        if (templates == null || templates.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Long> templateIds = templates.stream()
-                .map(RegistrationScheduleTemplate::getId)
+    public List<WaitingPatientVO> listWaiting(Long doctorId) {
+        List<Registration> registrations = listRegistrationsByDoctorIdAndStatus(
+                doctorId, RegistrationStatusEnum.REPORTED.getCode());
+        Map<Long, User> userMap = batchLoadUsers(registrations);
+        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
+        return registrations.stream().map(reg -> toWaitingVO(reg, userMap, accountMap))
                 .collect(Collectors.toList());
-        return registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
-                        .eq(Registration::getStatus, RegistrationStatusEnum.REPORTED.getCode())
-                        .orderByAsc(Registration::getCheckInTime));
     }
 
     /**
      * 医生就诊中列表（status=IN_TREATMENT 或 PENDING_PAYMENT，按当前医生过滤）
      * @param doctorId 医生ID
-     * @return 就诊中挂号列表
+     * @return 就诊中 VO 列表
      */
-    public List<Registration> listInProgress(Long doctorId) {
+    public List<WaitingPatientVO> listInProgress(Long doctorId) {
+        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
+                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
+        if (templates == null || templates.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> templateIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getId)
+                .collect(Collectors.toList());
+        List<Registration> registrations = registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
+                        .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
+                                .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode()))
+                        .orderByAsc(Registration::getCheckInTime));
+        Map<Long, User> userMap = batchLoadUsers(registrations);
+        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
+        return registrations.stream().map(reg -> toWaitingVO(reg, userMap, accountMap))
+                .collect(Collectors.toList());
+    }
+
+    private List<Registration> listRegistrationsByDoctorIdAndStatus(Long doctorId, Integer status) {
         List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
                 .listRegistrationScheduleTemplatesByDoctorId(doctorId);
         if (templates == null || templates.isEmpty()) {
@@ -352,8 +386,48 @@ public class DoctorManager {
         return registrationMapper.selectList(
                 new LambdaQueryWrapper<Registration>()
                         .in(Registration::getRegistrationScheduleTemplateId, templateIds)
-                        .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
-                                .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode()))
+                        .eq(Registration::getStatus, status)
                         .orderByAsc(Registration::getCheckInTime));
+    }
+
+    private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, User> userMap, Map<Long, Account> accountMap) {
+        WaitingPatientVO vo = new WaitingPatientVO();
+        vo.setRegistrationId(reg.getId());
+        vo.setPatientId(reg.getUserId());
+        vo.setStatus(reg.getStatus());
+        vo.setCheckInTime(reg.getCheckInTime());
+        vo.setRegistrationTime(reg.getRegistrationTime());
+        User user = userMap.get(reg.getUserId());
+        Account account = accountMap.get(reg.getUserId());
+        vo.setPatientName(user != null ? user.getNickname() : null);
+        vo.setPatientPhone(account != null ? account.getPhone() : null);
+        return vo;
+    }
+
+    private void fillPatientInfo(DoctorScheduleVO vo, Registration reg,
+                                  Map<Long, User> userMap, Map<Long, Account> accountMap) {
+        vo.setPatientId(reg.getUserId());
+        User user = userMap.get(reg.getUserId());
+        Account account = accountMap.get(reg.getUserId());
+        vo.setPatientName(user != null ? user.getNickname() : null);
+        vo.setPatientPhone(account != null ? account.getPhone() : null);
+    }
+
+    /** 批量加载用户信息（userId → User） */
+    private Map<Long, User> batchLoadUsers(List<Registration> registrations) {
+        List<Long> userIds = registrations.stream()
+                .map(Registration::getUserId).distinct().collect(Collectors.toList());
+        if (userIds.isEmpty()) return Collections.emptyMap();
+        return userService.listUsersByUserIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+    }
+
+    /** 批量加载账户信息（userId → Account） */
+    private Map<Long, Account> batchLoadAccounts(List<Registration> registrations) {
+        List<Long> userIds = registrations.stream()
+                .map(Registration::getUserId).distinct().collect(Collectors.toList());
+        if (userIds.isEmpty()) return Collections.emptyMap();
+        return accountService.listAccountsByUserIds(userIds).stream()
+                .collect(Collectors.toMap(Account::getUserId, a -> a));
     }
 }
