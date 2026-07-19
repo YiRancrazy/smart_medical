@@ -80,10 +80,11 @@ public class RegistrationScheduleManager {
 
         List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService.listRegistrationScheduleTemplatesByDoctorId(doctorId);
 
+        LocalDate today = LocalDate.now();
+        LocalDate maxDate = today.plusDays(currentAppointmentRule.getMaxAdvanceDays());
         registrationScheduleTemplateList = registrationScheduleTemplateList.stream()
-                .filter(item -> item.getRegistrationDate().isAfter(LocalDate.now()) &&
-                        item.getRegistrationDate().isBefore(LocalDate.now()
-                                .plusDays(currentAppointmentRule.getMaxAdvanceDays()))).toList();
+                .filter(item -> !item.getRegistrationDate().isBefore(today) &&
+                        !item.getRegistrationDate().isAfter(maxDate)).toList();
 
         if (registrationScheduleTemplateList.isEmpty()) {
             return Result.success(new ArrayList<>());
@@ -106,11 +107,12 @@ public class RegistrationScheduleManager {
             }
             registrationDateAndRemainQuotaVo.setDoctorId(String.valueOf(registrationSchedule.getDoctorId()));
             registrationDateAndRemainQuotaVo.setDate(registrationScheduleTemplate.getRegistrationDate());
-            registrationDateAndRemainQuotaVo.setTotalQuota(registrationScheduleTemplate.getTotalQuota());
-            registrationDateAndRemainQuotaVo.setRemainQuota(registrationScheduleTemplate.getTotalQuota() - registrationSchedules.stream()
+            int remainQuota = registrationSchedules.stream()
                     .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
                     .mapToInt(RegistrationSchedule::getRemainingQuota)
-                    .sum());
+                    .sum();
+            registrationDateAndRemainQuotaVo.setTotalQuota(registrationScheduleTemplate.getTotalQuota());
+            registrationDateAndRemainQuotaVo.setRemainQuota(remainQuota);
             registrationDateAndRemainQuotaVoList.add(registrationDateAndRemainQuotaVo);
         }
 

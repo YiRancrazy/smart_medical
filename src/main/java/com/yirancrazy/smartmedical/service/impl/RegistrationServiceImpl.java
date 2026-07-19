@@ -132,4 +132,15 @@ public class RegistrationServiceImpl implements RegistrationService {
     public List<Registration> listRegistrationsByUserId(Long userId) {
         return registrationMapper.selectList(new QueryWrapper<Registration>().eq("user_id", userId));
     }
+
+    /**
+     * 根据订单ID获取挂号信息
+     * @param orderId 订单ID
+     * @return 挂号信息
+     */
+    @Override
+    public Registration getRegistrationByOrderId(Long orderId) {
+        return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
+                .eq(Registration::getOrderId, orderId));
+    }
 }

@@ -127,7 +127,7 @@ public class RegistrationManager {
         orderItem.setQuantity(1);
         orderItemService.insertOrderItem(orderItem);
 
-        return Result.success(String.valueOf(order.getSn()));
+        return Result.success(String.valueOf(order.getId()));
     }
 
     /**
@@ -147,12 +147,10 @@ public class RegistrationManager {
 
         for (Registration registration : registrationList) {
             AppointmentResponseSimple item = new AppointmentResponseSimple();
-            item.setRegistrationId(String.valueOf(registration.getId()));
-            item.setRegistrationStatus(registration.getStatus());
+            item.setId(String.valueOf(registration.getId()));
+            item.setOrderId(registration.getOrderId() == null ? "" : String.valueOf(registration.getOrderId()));
+            item.setStatus(registration.getStatus());
             item.setPatientName(patientName);
-            item.setAppointmentData("");
-            item.setAppointmentStartTime("");
-            item.setAppointmentEndTime("");
             item.setRegistrationPrice(0.0);
 
             if (registration.getRegistrationScheduleTemplateId() == null) {
@@ -178,6 +176,9 @@ public class RegistrationManager {
                     ? null
                     : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
 
+            item.setScheduleDate(template.getRegistrationDate() == null ? "" : template.getRegistrationDate().toString());
+            item.setScheduleTime(template.getStartTime() == null ? "" : template.getStartTime().toString());
+            item.setRegistrationPrice(template.getPrice() == null ? 0.0 : template.getPrice() / 100.0);
             item.setDoctorId(String.valueOf(doctor.getId()));
             item.setDoctorName(doctor.getName());
             item.setDoctorAvatar(doctor.getAvatar());

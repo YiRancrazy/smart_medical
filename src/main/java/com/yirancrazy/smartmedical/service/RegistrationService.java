@@ -109,4 +109,11 @@ public interface RegistrationService {
      * @return 挂号信息
      */
     List<Registration> listRegistrationsByUserId(Long userId);
+
+    /**
+     * 根据订单ID获取挂号信息
+     * @param orderId 订单ID
+     * @return 挂号信息
+     */
+    Registration getRegistrationByOrderId(Long orderId);
 }

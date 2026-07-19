@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
@@ -43,6 +44,8 @@ public class PaymentRecordManager {
     private final ProductionTypeService productionTypeService;
     private final PayMethodService paymentMethodService;
     private final PrescriptionManager prescriptionManager;
+    private final RegistrationService registrationService;
+    private final RegistrationStatusLogManager registrationStatusLogManager;
 
     /**
      * 获取用户所有的缴费记录
@@ -130,9 +133,10 @@ public class PaymentRecordManager {
         if (order == null) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单不存在");
         }
-        // 幂等:已支付直接返回
+        // 幂等:已支付则联动校验挂号状态并返回
         if (order.getStatus() != null && order.getStatus() == OrderStatus.PAID.getCode()) {
             log.info("[payment-success] orderId={} already paid, skip", orderId);
+            syncRegistrationStatusPaid(orderId);
             return Result.success(null);
         }
         if (order.getStatus() == null || order.getStatus() != OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
@@ -156,11 +160,33 @@ public class PaymentRecordManager {
         order.setStatus(OrderStatus.PAID.getCode());
         orderService.updateOrderById(order);
 
-        // 4. 联动处方:标记处方为已支付
+        // 4. 联动挂号:标记挂号为支付成功/待就诊
+        Registration registration = registrationService.getRegistrationByOrderId(orderId);
+        if (registration != null) {
+            registrationStatusLogManager.transition(registration,
+                    RegistrationStatusEnum.SUCCESS.getCode(),
+                    registration.getUserId(), "user", "支付成功");
+        }
+
+        // 5. 联动处方:标记处方为已支付
         prescriptionManager.markAsPaid(orderId);
 
         log.info("[payment-success] orderId={}, paymentMethodId={}, realAmount={}",
                 orderId, paymentMethodId, realAmount);
         return Result.success(null);
+    }
+
+    /**
+     * 同步挂号状态为已支付（用于订单已支付但挂号未同步的兜底场景）
+     * @param orderId 订单ID
+     */
+    private void syncRegistrationStatusPaid(Long orderId) {
+        Registration registration = registrationService.getRegistrationByOrderId(orderId);
+        if (registration != null
+                && !Integer.valueOf(RegistrationStatusEnum.SUCCESS.getCode()).equals(registration.getStatus())) {
+            registrationStatusLogManager.transition(registration,
+                    RegistrationStatusEnum.SUCCESS.getCode(),
+                    registration.getUserId(), "user", "支付成功(补同步)");
+        }
     }
 }

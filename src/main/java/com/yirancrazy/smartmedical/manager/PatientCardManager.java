@@ -128,16 +128,22 @@ public class PatientCardManager {
         // 获取用户账户信息
         Account patientAccount = accountService.getAccountByUserId(userId);
 
+        // 获取所有患者卡信息
+        List<PatientCard> patientCards = patientCardService.getPatientCardsByIds(
+                patients.stream().map(Patient::getPatientCardId).collect(Collectors.toList()));
+
         // 获取用户所有患者卡信息
         List<RegistrationConfirmPatientCardVo> result = new ArrayList<>();
-
-
 
         for (Patient patient : patients) {
             User patientUser = userList.stream().filter(user -> user.getId().equals(patient.getUserId())).findFirst().orElse(null);
             UserPatientRelation userPatientRelation = userPatientRelations
                     .stream()
                     .filter(item -> item.getPatientUserId().equals(patient.getUserId()))
+                    .findFirst()
+                    .orElse(null);
+            PatientCard patientCard = patientCards.stream()
+                    .filter(card -> card.getId().equals(patient.getPatientCardId()))
                     .findFirst()
                     .orElse(null);
 
@@ -150,8 +156,8 @@ public class PatientCardManager {
             registrationConfirmPatientCardVo.setPatientUserId(String.valueOf(patientUser.getId()));
             registrationConfirmPatientCardVo.setPatientName(patientUser.getNickname());
             registrationConfirmPatientCardVo.setPatientAvatar(patientUser.getAvatar());
-            registrationConfirmPatientCardVo.setPatientIdCard("");
-            registrationConfirmPatientCardVo.setPatientCardNo("");
+            registrationConfirmPatientCardVo.setPatientIdCard(patientUser.getIdCard());
+            registrationConfirmPatientCardVo.setPatientCardNo(patientCard == null ? "" : String.valueOf(patientCard.getId()));
             registrationConfirmPatientCardVo.setRelation(userPatientRelation.getRelation());
             registrationConfirmPatientCardVo.setDefaultPatientCard(userPatientRelation.getDefaulted());
             registrationConfirmPatientCardVo.setPatientPhone(DesensitizedUtil.mobilePhone(patientAccount.getPhone()));
