@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.controller.user;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
@@ -15,7 +16,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +37,50 @@ public class UserPrescriptionControllerV1 {
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
     private final MedicalRecordService medicalRecordService;
+
+    @Operation(summary = "用户端 - 我的处方列表")
+    @GetMapping("/list")
+    public Result<List<PrescriptionListVO>> list(@RequestAttribute("currentUserId") Long userId) {
+        List<MedicalRecord> records = medicalRecordService.list(
+                new LambdaQueryWrapper<MedicalRecord>()
+                        .eq(MedicalRecord::getPatientId, userId));
+        if (records.isEmpty()) {
+            return Result.success(Collections.emptyList());
+        }
+        List<Long> recordIds = records.stream()
+                .map(MedicalRecord::getId)
+                .collect(Collectors.toList());
+
+        List<Prescription> prescriptions = prescriptionService.list(
+                new LambdaQueryWrapper<Prescription>()
+                        .in(Prescription::getMedicalRecordId, recordIds)
+                        .eq(Prescription::getDeleted, false)
+                        .orderByDesc(Prescription::getCreateTime));
+        if (prescriptions.isEmpty()) {
+            return Result.success(Collections.emptyList());
+        }
+
+        List<Long> prescriptionIds = prescriptions.stream()
+                .map(Prescription::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> itemCountMap = prescriptionItemService.list(
+                        new LambdaQueryWrapper<PrescriptionItem>()
+                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+                .stream()
+                .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
+
+        List<PrescriptionListVO> voList = prescriptions.stream().map(rx -> {
+            PrescriptionListVO vo = new PrescriptionListVO();
+            vo.setId(rx.getId());
+            vo.setMedicalRecordId(rx.getMedicalRecordId());
+            vo.setTotalAmount(rx.getTotalAmount());
+            vo.setStatus(rx.getStatus());
+            vo.setItemCount(itemCountMap.getOrDefault(rx.getId(), 0L).intValue());
+            vo.setCreateTime(rx.getCreateTime());
+            return vo;
+        }).collect(Collectors.toList());
+        return Result.success(voList);
+    }
 
     @Operation(summary = "用户端 - 处方详情")
     @Parameter(name = "id", description = "处方ID", required = true)
