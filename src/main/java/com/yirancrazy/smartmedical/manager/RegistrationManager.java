@@ -100,12 +100,17 @@ public class RegistrationManager {
             return Result.fail("该排班已无号源");
         }
 
+        RegistrationScheduleTemplate registrationScheduleTemplate = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateById(registrationSchedule.getRegistrationScheduleTemplateId());
+        int price = registrationScheduleTemplate == null || registrationScheduleTemplate.getPrice() == null
+                ? 0 : registrationScheduleTemplate.getPrice();
+
         order.setId(IdUtil.getSnowflakeNextId());
         order.setSn(IdUtil.getSnowflakeNextId());
         order.setUserId(patient.getUserId());
         order.setOrderTypeId(1L);
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
-        order.setTotalAmount(0);
+        order.setTotalAmount(price);
         order.setOrderCreateTime(LocalDateTime.now());
         order.setOrderUpdateTime(LocalDateTime.now());
 

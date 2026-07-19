@@ -162,7 +162,14 @@ public class DoctorManager {
            for (RegistrationSchedule registrationSchedule : recentRegistrationListByDoctorIdList){
                if (registrationSchedule.getDoctorId().equals(doctor.getId())){
 //                   temp.setRecentWorkTime(registrationSchedule.getStartTime());
-                   temp.setPrice(BigDecimal.ZERO);
+                   // 注意：getRecentRegistrationListByDoctorIdList 查询的是模板行，id 字段即为模板 ID
+                   Long templateId = registrationSchedule.getRegistrationScheduleTemplateId() != null
+                           ? registrationSchedule.getRegistrationScheduleTemplateId()
+                           : registrationSchedule.getId();
+                   RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                           .getRegistrationScheduleTemplateById(templateId);
+                   int price = template == null || template.getPrice() == null ? 0 : template.getPrice();
+                   temp.setPrice(BigDecimal.valueOf(price).divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP));
                 break;
                }
            }

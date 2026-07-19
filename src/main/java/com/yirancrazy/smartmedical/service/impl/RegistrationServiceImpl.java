@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.RegistrationService;
@@ -125,7 +126,8 @@ public class RegistrationServiceImpl implements RegistrationService {
     public Registration getRegistrationByRegistrationScheduleTemplateIdAndUserId(Long registrationScheduleTemplateId, Long userId) {
         return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
                 .eq(Registration::getRegistrationScheduleTemplateId, registrationScheduleTemplateId)
-                .eq(Registration::getUserId, userId));
+                .eq(Registration::getUserId, userId)
+                .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode()));
     }
 
     @Override
