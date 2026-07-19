@@ -144,6 +144,7 @@ public class DoctorManager {
                         .toList());
 
         log.debug("doctorList size={}, scheduleList size={}", doctorList.size(), recentRegistrationListByDoctorIdList.size());
+        List<DoctorPosition> doctorPositions = doctorPositionService.listDoctorPositions();
         List<RegistrationDoctorBaseInfo> result = new ArrayList<>();
         for (Doctor doctor : doctorList) {
             RegistrationDoctorBaseInfo temp = new RegistrationDoctorBaseInfo();
@@ -155,7 +156,9 @@ public class DoctorManager {
             temp.setTags(tags == null || tags.isEmpty() ? List.of() : Arrays.stream(tags.split(",")).toList());
             temp.setDescription(doctor.getDescription());
             temp.setAvatar(doctor.getAvatar());
-            temp.setPosition(String.valueOf(doctor.getDoctorPositionId()));
+            DoctorPosition position = doctor.getDoctorPositionId() == null ? null : doctorPositions.stream()
+                    .filter(p -> p.getId().equals(doctor.getDoctorPositionId())).findFirst().orElse(null);
+            temp.setPosition(position == null ? "" : position.getName());
            for (RegistrationSchedule registrationSchedule : recentRegistrationListByDoctorIdList){
                if (registrationSchedule.getDoctorId().equals(doctor.getId())){
 //                   temp.setRecentWorkTime(registrationSchedule.getStartTime());
