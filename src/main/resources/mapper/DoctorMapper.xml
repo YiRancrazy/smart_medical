@@ -27,11 +27,11 @@
             #{item}
         </foreach>
         AND EXISTS (
-        SELECT 1 FROM registration_schedule_template rst
-        WHERE rst.doctor_id = d.id
-        AND rst.registration_date &gt;= CURDATE()
-        AND rst.registration_date &lt;= DATE_ADD(CURDATE(), INTERVAL #{maxAdvanceDays} DAY)
-        AND rst.status = #{status}
+            SELECT 1 FROM registration_schedule rs
+            WHERE rs.doctor_id = d.id
+            AND rs.start_time &gt;= CURDATE()
+            AND rs.start_time &lt;= DATE_ADD(CURDATE(), INTERVAL #{maxAdvanceDays} DAY)
+            AND (rs.status IS NULL OR rs.status = #{status})
         )
         ORDER BY d.id ASC
     </select>

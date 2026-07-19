@@ -24,6 +24,9 @@ public class DoctorVo {
     @Schema(description = "科室id")
     private Long departmentId;                   // 科室id
 
+    @Schema(description = "科室名称")
+    private String departmentName;                 // 科室名称
+
     @Schema(description = "姓名")
     private String doctorName;                     // 姓名
 
@@ -33,8 +36,14 @@ public class DoctorVo {
     @Schema(description = "医生职位id")
     private String doctorPositionId;               // 医生职位id
 
+    @Schema(description = "医生职位名称")
+    private String positionName;                   // 医生职位名称
+
     @Schema(description = "学历")
     private String degreeId;                       // 学历
+
+    @Schema(description = "学历名称")
+    private String degreeName;                     // 学历名称
 
     @Schema(description = "家庭住址")
     private String address;                        // 家庭住址

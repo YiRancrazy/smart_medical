@@ -66,19 +66,25 @@ public class DoctorManager {
             return Result.info(404,"医生不存在",null);
         }
 
-        DoctorVo doctorVo = new DoctorVo(
-                String.valueOf(doctor.getId()),
-                doctor.getDepartmentId(),
-                doctor.getName(),
-                doctor.getAvatar(),
-                String.valueOf(doctor.getDoctorPositionId()),
-                String.valueOf(doctor.getDegreeId()),
-                doctor.getAddress(),
-                doctor.getScope(),
-                doctor.getTags(),
-                doctor.getDescription(),
-                doctor.getStatus()
-        );
+        Department department = doctor.getDepartmentId() == null ? null : departmentService.getDepartmentById(doctor.getDepartmentId());
+        DoctorPosition doctorPosition = doctor.getDoctorPositionId() == null ? null : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
+        Degree degree = doctor.getDegreeId() == null ? null : degreeService.getDegreeById(doctor.getDegreeId());
+
+        DoctorVo doctorVo = new DoctorVo();
+        doctorVo.setDoctorId(String.valueOf(doctor.getId()));
+        doctorVo.setDepartmentId(doctor.getDepartmentId());
+        doctorVo.setDepartmentName(department == null ? "" : department.getName());
+        doctorVo.setDoctorName(doctor.getName());
+        doctorVo.setAvatar(doctor.getAvatar());
+        doctorVo.setDoctorPositionId(String.valueOf(doctor.getDoctorPositionId()));
+        doctorVo.setPositionName(doctorPosition == null ? "" : doctorPosition.getName());
+        doctorVo.setDegreeId(String.valueOf(doctor.getDegreeId()));
+        doctorVo.setDegreeName(degree == null ? "" : degree.getName());
+        doctorVo.setAddress(doctor.getAddress());
+        doctorVo.setScope(doctor.getScope());
+        doctorVo.setTags(doctor.getTags());
+        doctorVo.setDescription(doctor.getDescription());
+        doctorVo.setStatus(doctor.getStatus());
         return Result.success(doctorVo);
     }
 

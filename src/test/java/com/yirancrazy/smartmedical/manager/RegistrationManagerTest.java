@@ -131,7 +131,7 @@ class RegistrationManagerTest {
         assertEquals(200, result.getCode());
         assertEquals(1, result.getData().size());
         AppointmentResponseSimple item = result.getData().get(0);
-        assertEquals("101", item.getRegistrationId());
+        assertEquals("101", item.getId());
         assertEquals("55", item.getDoctorId());
         assertEquals("张三", item.getDoctorName());
         assertEquals("李四", item.getPatientName());
