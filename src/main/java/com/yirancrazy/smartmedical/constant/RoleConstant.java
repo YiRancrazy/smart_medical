@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 角色常量
  * @Datetime: 2026-03-06 09:03
  * @Version: 1.0
  */

@@ -1,12 +1,15 @@
 package com.yirancrazy.smartmedical.config;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+/**
+ * @Author: YiRanCrazy@gmail.com
+ * @Description: 跨域配置类
+ * @DateTime: 2024/4/10 12:01
+ * @Version: 1.0
+ **/
 
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {

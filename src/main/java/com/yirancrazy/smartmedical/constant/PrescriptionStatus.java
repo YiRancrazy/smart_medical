@@ -6,7 +6,7 @@ import lombok.Getter;
 /**
  * 处方状态
  * @Author: YiRanCrazy@gmail.com
- * @Description: 处方状态机：0-待支付 → 1-已支付 → 2-已发药；任意状态可走 → 3-已取消
+ * @Description: 处方状态机
  * @Datetime: 2026-07-11 10:00
  * @Version: 1.0
  */

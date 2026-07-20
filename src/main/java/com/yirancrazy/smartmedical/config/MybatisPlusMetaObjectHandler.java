@@ -6,9 +6,8 @@ import org.apache.ibatis.reflection.MetaObject;
 import java.time.LocalDateTime;
 
 /**
- * MyBatis-Plus 字段自动填充
  * @Author: YiRanCrazy@gmail.com
- * @Description: insert 时填 createTime/updateTime/deleted；update 时填 updateTime
+ * @Description:  MyBatis-Plus 配置 insert 时填 createTime/updateTime/deleted；update 时填 updateTime
  * @Datetime: 2026-02-02 13:20
  * @Version: 1.0
  */

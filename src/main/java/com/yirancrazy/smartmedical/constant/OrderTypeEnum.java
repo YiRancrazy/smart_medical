@@ -4,7 +4,7 @@ import com.yirancrazy.smartmedical.pojo.OrderType;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 缴费单类型枚举
  * @Datetime: 2026-02-22 16:59
  * @Version: 1.0
  */

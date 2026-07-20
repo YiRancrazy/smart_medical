@@ -5,7 +5,7 @@ import lombok.Getter;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 挂号状态机
  * @Datetime: 2026-02-22 18:18
  * @Version: 1.0
  */

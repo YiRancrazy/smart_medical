@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.constant;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 支付状态机
  * @Datetime: 2026-02-22 18:25
  * @Version: 1.0
  */

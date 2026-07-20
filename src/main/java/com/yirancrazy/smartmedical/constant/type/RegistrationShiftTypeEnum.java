@@ -6,7 +6,7 @@ import lombok.Getter;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 排班类型
  * @Datetime: 2026-03-18 19:34
  * @Version: 1.0
  */

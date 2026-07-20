@@ -4,9 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * MyBatis-Plus 配置
  * @Author: YiRanCrazy@gmail.com
- * @Description: 注册自动填充处理器（create_time/update_time/deleted）
+ * @Description: MyBatis-Plus 配置注册
  * @Datetime: 2026-02-02 19:11
  * @Version: 1.0
  */

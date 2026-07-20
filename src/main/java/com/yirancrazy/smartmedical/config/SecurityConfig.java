@@ -24,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
- * Spring Security 配置
  * @Author: YiRanCrazy@gmail.com
  * @Description: 无状态 API；JWT 过滤器在 UsernamePasswordAuthenticationFilter 之前执行；
  *              登录端点放行，其余接口统一鉴权。
