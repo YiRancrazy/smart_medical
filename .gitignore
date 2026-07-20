@@ -64,3 +64,4 @@ test-*
 .token
 .user-*
 req-admin.json
+.mcp.json
