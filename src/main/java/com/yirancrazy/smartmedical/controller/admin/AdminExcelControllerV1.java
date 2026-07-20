@@ -5,6 +5,12 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,5 +35,15 @@ public class AdminExcelControllerV1 {
     @Operation(summary = "上传挂号模板")
     public Result<Integer> uploadRegistrationTemplate(@RequestParam("file") MultipartFile file) {
         return excelManager.uploadRegistrationTemplate(file);
+    }
+
+    @GetMapping("/download/registration/template")
+    @Operation(summary = "下载挂号排班导入模板")
+    public ResponseEntity<Resource> downloadRegistrationTemplate() {
+        Resource resource = new ClassPathResource("ScheduleImportTemplate.csv");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"挂号排班导入模板.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(resource);
     }
 }

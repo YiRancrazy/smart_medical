@@ -4,7 +4,6 @@ import com.yirancrazy.smartmedical.pojo.File;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.simple.AdminFileSimpleResponse;
 import com.yirancrazy.smartmedical.service.FileService;
-import com.yirancrazy.smartmedical.utils.MinIOUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,8 +15,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,24 +25,21 @@ import static org.mockito.Mockito.when;
 class FileManagerTest {
 
     @Mock private FileService fileService;
-    @Mock private MinIOUtil minIOUtil;
 
     @InjectMocks
     private FileManager fileManager;
 
     @Test
-    void getRegistrationTemplate_returnsEnabledFile() throws Exception {
+    void getRegistrationTemplate_returnsEnabledFile() {
         File file = new File();
         file.setId(1L);
-        file.setName("挂号排班模板.cvs");
+        file.setName("挂号排班模板.csv");
         file.setEnable(true);
         file.setMd5("md5");
         file.setSize(1024L);
-        file.setPath("/path/template.cvs");
+        file.setPath("/path/template.csv");
 
-        when(fileService.listFileByName("挂号排班模板.cvs")).thenReturn(List.of(file));
-        when(minIOUtil.getPresignedObjectUrlOnExpire(eq("smartmedical"), eq("/path/template.cvs"), anyInt()))
-                .thenReturn("https://signed-url");
+        when(fileService.listFileByName("挂号排班模板.csv")).thenReturn(List.of(file));
 
         Result<AdminFileSimpleResponse> result = fileManager.getRegistrationTemplate();
 
@@ -53,21 +47,22 @@ class FileManagerTest {
         AdminFileSimpleResponse dto = result.getData();
         assertNotNull(dto);
         assertEquals(1L, dto.getId());
-        assertEquals("挂号排班模板.cvs", dto.getName());
-        assertEquals("https://signed-url", dto.getPath());
+        assertEquals("挂号排班模板.csv", dto.getName());
+        assertEquals("/api/admin/v1/excel/download/registration/template", dto.getPath());
     }
 
     @Test
-    void getRegistrationTemplate_noFilesFound_doesNotInvokeMinio() throws Exception {
-        when(fileService.listFileByName("挂号排班模板.cvs")).thenReturn(Collections.emptyList());
+    void getRegistrationTemplate_noFilesFound_returnsStaticDownloadUrl() {
+        when(fileService.listFileByName("挂号排班模板.csv")).thenReturn(Collections.emptyList());
 
-        // FileManager 会在 enabled==null 时 NPE；这里只确认 listFileByName 被转发
-        try {
-            fileManager.getRegistrationTemplate();
-        } catch (Exception ignored) {
-            // 期望失败
-        }
-        verify(fileService).listFileByName("挂号排班模板.cvs");
+        Result<AdminFileSimpleResponse> result = fileManager.getRegistrationTemplate();
+
+        assertEquals(200, result.getCode());
+        AdminFileSimpleResponse dto = result.getData();
+        assertNotNull(dto);
+        assertEquals("挂号排班导入模板.csv", dto.getName());
+        assertEquals("/api/admin/v1/excel/download/registration/template", dto.getPath());
+        verify(fileService).listFileByName("挂号排班模板.csv");
     }
 
     @Test

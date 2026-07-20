@@ -1,12 +1,10 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.annotation.Manager;
-import com.yirancrazy.smartmedical.constant.FilePath;
 import com.yirancrazy.smartmedical.pojo.File;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.simple.AdminFileSimpleResponse;
 import com.yirancrazy.smartmedical.service.FileService;
-import com.yirancrazy.smartmedical.utils.MinIOUtil;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
@@ -22,29 +20,27 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FileManager {
     private final FileService fileService;
-    private final MinIOUtil minIOUtil;
+
+    private static final String REGISTRATION_TEMPLATE_DOWNLOAD_URL = "/api/admin/v1/excel/download/registration/template";
 
     /**
      * 获取挂号排班模板
      * @return 文件对象
      */
     public Result<AdminFileSimpleResponse> getRegistrationTemplate() {
-        List<File> files = this.listFileByName("挂号排班模板.cvs");
-        File file = files.stream().filter(f->f.getEnable().equals(true)).findFirst().orElse(null);
+        List<File> files = this.listFileByName("挂号排班模板.csv");
+        File file = files.stream().filter(f -> Boolean.TRUE.equals(f.getEnable())).findFirst().orElse(null);
 
-
-        // 通过file 中的真实 path 生成临时访问链接，时效12小时
-        String url = "";
-        try {
-            url = minIOUtil.getPresignedObjectUrlOnExpire(FilePath.SMART_MEDICAL_MINIO_BUCKET_NAME,file.getPath(), 12);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        if (file == null) {
+            AdminFileSimpleResponse response = new AdminFileSimpleResponse();
+            response.setName("挂号排班导入模板.csv");
+            response.setPath(REGISTRATION_TEMPLATE_DOWNLOAD_URL);
+            return Result.success(response);
         }
-        file.setPath(url);
 
-
+        file.setPath(REGISTRATION_TEMPLATE_DOWNLOAD_URL);
         return Result.success(createAdminFileSimpleResponse(file));
-    };
+    }
 
     /**
      * 根据文件名获取文件
