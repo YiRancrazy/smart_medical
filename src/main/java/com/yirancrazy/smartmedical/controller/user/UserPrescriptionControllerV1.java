@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yirancrazy.smartmedical.manager.PatientManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
@@ -37,13 +38,20 @@ public class UserPrescriptionControllerV1 {
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
     private final MedicalRecordService medicalRecordService;
+    private final PatientManager patientManager;
 
     @Operation(summary = "用户端 - 我的处方列表")
     @GetMapping("/list")
-    public Result<List<PrescriptionListVO>> list(@RequestAttribute("currentUserId") Long userId) {
+    @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
+    public Result<List<PrescriptionListVO>> list(@RequestAttribute("currentUserId") Long userId,
+                                                 @RequestParam(required = false) Long patientCardId) {
+        List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(userId, patientCardId);
+        if (patientUserIds.isEmpty()) {
+            return Result.success(Collections.emptyList());
+        }
         List<MedicalRecord> records = medicalRecordService.list(
                 new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getPatientId, userId));
+                        .in(MedicalRecord::getPatientId, patientUserIds));
         if (records.isEmpty()) {
             return Result.success(Collections.emptyList());
         }

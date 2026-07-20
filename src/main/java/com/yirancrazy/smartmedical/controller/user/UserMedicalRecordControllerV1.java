@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yirancrazy.smartmedical.manager.PatientManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,13 +30,20 @@ import java.util.stream.Collectors;
 public class UserMedicalRecordControllerV1 {
 
     private final MedicalRecordService medicalRecordService;
+    private final PatientManager patientManager;
 
     @Operation(summary = "用户端 - 我的病历列表")
     @GetMapping("/list")
-    public Result<List<MedicalRecordListVO>> list(@RequestAttribute("currentUserId") Long userId) {
+    @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
+    public Result<List<MedicalRecordListVO>> list(@RequestAttribute("currentUserId") Long userId,
+                                                  @RequestParam(required = false) Long patientCardId) {
+        List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(userId, patientCardId);
+        if (patientUserIds.isEmpty()) {
+            return Result.success(Collections.emptyList());
+        }
         List<MedicalRecord> records = medicalRecordService.list(
                 new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getPatientId, userId)
+                        .in(MedicalRecord::getPatientId, patientUserIds)
                         .orderByDesc(MedicalRecord::getCreateTime));
         return Result.success(records.stream().map(this::toVO).collect(Collectors.toList()));
     }

@@ -135,6 +135,16 @@ public class RegistrationServiceImpl implements RegistrationService {
         return registrationMapper.selectList(new QueryWrapper<Registration>().eq("user_id", userId));
     }
 
+    @Override
+    public List<Registration> listRegistrationsByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .in(Registration::getUserId, userIds)
+                .orderByDesc(Registration::getCreateTime));
+    }
+
     /**
      * 根据订单ID获取挂号信息
      * @param orderId 订单ID

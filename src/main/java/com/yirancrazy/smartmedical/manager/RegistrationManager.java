@@ -32,6 +32,7 @@ public class RegistrationManager {
     private final RedisUtil redisUtil;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
+    private final PatientManager patientManager;
     private final OrderService orderService;
     private final OrderTypeService orderTypeService;
     private final OrderItemService orderItemService;
@@ -137,13 +138,13 @@ public class RegistrationManager {
 
     /**
      * 获取用户预约列表
-     * @param patientId 用户id
+     * @param currentUserId 当前登录用户id
+     * @param patientCardId 就诊卡id（为 null 时返回全部关联就诊人）
      * @return 用户预约信息简单响应列表
      */
-    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(Long patientId) {
-        List<Registration> registrationList = registrationService.listRegistrationsByUserId(patientId);
-        User user = userService.getUserById(patientId);
-        String patientName = user == null ? "" : user.getNickname();
+    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(Long currentUserId, Long patientCardId) {
+        List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(currentUserId, patientCardId);
+        List<Registration> registrationList = registrationService.listRegistrationsByUserIds(patientUserIds);
 
         List<AppointmentResponseSimple> result = new ArrayList<>();
         if (registrationList == null || registrationList.isEmpty()) {
@@ -155,8 +156,10 @@ public class RegistrationManager {
             item.setId(String.valueOf(registration.getId()));
             item.setOrderId(registration.getOrderId() == null ? "" : String.valueOf(registration.getOrderId()));
             item.setStatus(registration.getStatus());
-            item.setPatientName(patientName);
             item.setRegistrationPrice(0.0);
+
+            User patientUser = userService.getUserById(registration.getUserId());
+            item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
 
             if (registration.getRegistrationScheduleTemplateId() == null) {
                 log.warn("跳过挂号 {}：未关联排班模板", registration.getId());

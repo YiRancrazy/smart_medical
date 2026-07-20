@@ -60,13 +60,16 @@ public class UserRegistrationControllerV1 {
 
     /**
      * 根据用户ID获取挂号记录
-     * @param patientId 用户ID
+     * @param userId 当前登录用户ID
+     * @param patientCardId 就诊卡ID（可选，传入则只返回该就诊人挂号记录）
      * @return 挂号记录
      */
     @GetMapping("/simple/list")
-    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录")
-    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(@RequestAttribute("currentUserId") Long userId) {
-        return registrationManager.getRegistrationByUid(userId);
+    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录；可指定就诊卡过滤")
+    @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
+    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(@RequestAttribute("currentUserId") Long userId,
+                                                                       @RequestParam(required = false) Long patientCardId) {
+        return registrationManager.getRegistrationByUid(userId, patientCardId);
     }
 
     /**
