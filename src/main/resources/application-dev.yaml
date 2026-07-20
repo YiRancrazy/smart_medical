@@ -36,13 +36,13 @@ springdoc:
   group-configs:
     - group: 'default'
       paths-to-match: '/**'
-      # 需要修改的是这部分，改为自己的controller所在的位置
-#      packages-to-scan: com.xiaominfo.knife4j.demo.web
+      packages-to-scan: com.yirancrazy.smartmedical.controller
 # knife4j的增强配置，不需要增强可以不配
 knife4j:
   enable: true
   setting:
     language: zh_cn
+
 
 
 minio:
