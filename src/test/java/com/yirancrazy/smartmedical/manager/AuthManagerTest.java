@@ -53,6 +53,8 @@ class AuthManagerTest {
         AuthManager m = new AuthManager(accountService, userService, redisUtil, patientCardService, patientService);
         ReflectionTestUtils.setField(m, "accessSecretKey", "test-access-secret");
         ReflectionTestUtils.setField(m, "refreshSecretKey", "test-refresh-secret");
+        ReflectionTestUtils.setField(m, "adminAccessTokenPrefix", "access_token_");
+        ReflectionTestUtils.setField(m, "adminRefreshTokenPrefix", "refresh_token_");
         return m;
     }
 
@@ -67,7 +69,7 @@ class AuthManagerTest {
         account.setUserId(7L);
         account.setPhone("13800000000");
         account.setPassword(new BCryptPasswordEncoder().encode("raw"));
-        account.setRoleId(1L);
+        account.setRoleId(4L);
 
         when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(account));
         when(userService.getUserById(7L)).thenReturn(user);
@@ -98,7 +100,7 @@ class AuthManagerTest {
         Account account = new Account();
         account.setId(1L);
         account.setPassword(new BCryptPasswordEncoder().encode("correct"));
-        account.setRoleId(1L);
+        account.setRoleId(4L);
         when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(account));
 
         Result<LoginVo> result = m.login("13800000000", "wrong", response);
