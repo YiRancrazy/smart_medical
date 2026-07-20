@@ -24,9 +24,12 @@ public enum RegistrationShiftTypeEnum {
     private final String message;
 
     public static Integer getCodeByName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String trimmed = name.trim();
         for (RegistrationShiftTypeEnum type : values()) {
-            System.out.println(type.name());
-            if (type.getMessage().equals(name)) {
+            if (type.getMessage().equals(trimmed)) {
                 return type.code;
             }
         }

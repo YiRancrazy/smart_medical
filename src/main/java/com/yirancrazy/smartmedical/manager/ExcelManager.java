@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.event.AnalysisEventListener;
@@ -10,11 +11,10 @@ import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.excel.ExcelRegistrationTemplate;
-import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -23,12 +23,15 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Excel 导入管理器
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 挂号排班模板 Excel 解析与导入
  * @Datetime: 2026-03-18 18:03
  * @Version: 1.0
  */
@@ -39,6 +42,8 @@ import java.util.List;
 public class ExcelManager {
     private final RegistrationScheduleService registrationScheduleService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
+
+    private static final DateTimeFormatter SLASH_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy/M/d");
 
     /**
      * 上传挂号排班 excel 文件
@@ -77,73 +82,191 @@ public class ExcelManager {
                 public void doAfterAllAnalysed(AnalysisContext analysisContext) {
                     log.info("[excel] 读取完成，共{}行", rows.size());
                 }
-            }).sheet().doReadSync();
+            }).charset(java.nio.charset.StandardCharsets.UTF_8).sheet().headRowNumber(1).doReadSync();
         } finally {
             file.delete();
         }
 
+        List<String> errors = new ArrayList<>();
+        List<RegistrationScheduleTemplate> templates = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            RegistrationScheduleTemplate template = convert(list.get(i), i + 1, errors);
+            if (template != null) {
+                templates.add(template);
+            }
+        }
 
-        // 读取 excel 文件记录，将其转换为 RegistrationScheduleTemplate 对象
-        List<RegistrationScheduleTemplate> list1 = list.stream().map(
-                excelRegistrationTemplate -> {
-                    RegistrationScheduleTemplate registrationScheduleTemplate = new RegistrationScheduleTemplate();  // 创建挂号排班模板对象
-                    registrationScheduleTemplate.setId(IdUtil.getSnowflakeNextId()); // 设置id
-                    registrationScheduleTemplate.setName(excelRegistrationTemplate.getDoctorName()+"医生普通门诊"); // 设置挂号排班模板名称
-                    registrationScheduleTemplate.setDoctorId(Long.valueOf(excelRegistrationTemplate.getDoctorId())); // 设置关联医生id
-                    registrationScheduleTemplate.setRegistrationType(RegistrationShiftTypeEnum
-                            .getCodeByName(excelRegistrationTemplate.getRegistrationType())); // 挂号类型
-                    // 挂号日期
-                    registrationScheduleTemplate.setRegistrationDate(LocalDate
-                            .parse(excelRegistrationTemplate
-                                    .getRegistrationDate()));
-                    registrationScheduleTemplate.setStartTime(LocalTime.parse(excelRegistrationTemplate.getStartTime())); // 开始时间
-                    registrationScheduleTemplate.setEndTime(LocalTime.parse(excelRegistrationTemplate.getEndTime())); // 结束时间
-                    registrationScheduleTemplate.setTotalQuota(excelRegistrationTemplate.getTotal()); // 总数
-                    registrationScheduleTemplate.setPrice(Integer.valueOf(excelRegistrationTemplate.getPrice())); //  价格
-                    registrationScheduleTemplate.setPriority(0);  // 优先级
-                    registrationScheduleTemplate.setEnabled(true); // 设置是否启用
-                    registrationScheduleTemplate.setConsultationRoomId(Long.valueOf(excelRegistrationTemplate.getSn())); // 诊室编号
-                    registrationScheduleTemplate.setRemark(excelRegistrationTemplate.getRemark());  // 设置备注
-                    return registrationScheduleTemplate;
-                }
-        ).toList();
+        if (!errors.isEmpty()) {
+            return Result.fail(String.join("; ", errors));
+        }
+        if (templates.isEmpty()) {
+            return Result.fail("未读取到有效数据，请检查文件内容");
+        }
 
-        registrationScheduleTemplateService.insertRegistrationScheduleTemplates(list1);
+        registrationScheduleTemplateService.insertRegistrationScheduleTemplates(templates);
 
-        List<RegistrationSchedule> list2= new ArrayList<>();
-        // 生成对应的医生排班表
-        for (RegistrationScheduleTemplate registrationScheduleTemplate : list1) {
-            // 计算时间间隔
-            Duration duration = Duration.between(registrationScheduleTemplate.getStartTime(), registrationScheduleTemplate.getEndTime());
-            // 生成挂号排班对象
+        List<RegistrationSchedule> schedules = buildSchedules(templates);
+        registrationScheduleService.insertRegistrationScheduleList(schedules);
 
-            Integer totalQuota = registrationScheduleTemplate.getTotalQuota();
-            int quota = Math.toIntExact(registrationScheduleTemplate.getTotalQuota() / duration.toHours());
-            for (int i = 0; i < duration.toHours(); i++) {
-                RegistrationSchedule registrationSchedule = new RegistrationSchedule();
+        return Result.success(templates.size());
+    }
 
-                registrationSchedule.setStartTime(
-                        LocalDateTime.of(registrationScheduleTemplate.getRegistrationDate(),registrationScheduleTemplate.getStartTime().plusHours(i))
-                );
-                registrationSchedule.setEndTime(registrationSchedule.getStartTime().plusHours(1));
-                registrationSchedule.setDoctorId(registrationScheduleTemplate.getDoctorId());
-                registrationSchedule.setRegistrationScheduleTemplateId(registrationScheduleTemplate.getId());
-                registrationSchedule.setStatus(1);
-                if(totalQuota - quota<0){
-                    registrationSchedule.setRemainingQuota(totalQuota);
-                }else {
-                    registrationSchedule.setRemainingQuota(quota);
-                }
-                totalQuota-=quota;
-                registrationSchedule.setId(IdUtil.getSnowflakeNextId()); // 多条记录需要重新生成id
+    /**
+     * 将 Excel 行转换为挂号排班模板对象
+     * @param row Excel 行数据
+     * @param rowNo 行号（从 1 开始）
+     * @param errors 错误收集列表
+     * @return 转换后的模板对象；数据非法时返回 null 并向 errors 追加错误信息
+     */
+    private RegistrationScheduleTemplate convert(ExcelRegistrationTemplate row, int rowNo, List<String> errors) {
+        if (isBlank(row.getDoctorId())) {
+            errors.add("第" + rowNo + "行：医生id为空");
+            return null;
+        }
+        if (isBlank(row.getDoctorName())) {
+            errors.add("第" + rowNo + "行：医生姓名为空");
+            return null;
+        }
+        if (isBlank(row.getRegistrationDate())) {
+            errors.add("第" + rowNo + "行：排班日期为空");
+            return null;
+        }
+        if (isBlank(row.getStartTime()) || isBlank(row.getEndTime())) {
+            errors.add("第" + rowNo + "行：开始时间或结束时间为空");
+            return null;
+        }
+        if (row.getTotal() == null) {
+            errors.add("第" + rowNo + "行：号源数量为空");
+            return null;
+        }
+        if (isBlank(row.getPrice())) {
+            errors.add("第" + rowNo + "行：挂号价格为空");
+            return null;
+        }
+        if (isBlank(row.getSn())) {
+            errors.add("第" + rowNo + "行：诊室编号为空");
+            return null;
+        }
 
-                list2.add(registrationSchedule);
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(IdUtil.getSnowflakeNextId());
+        template.setName(row.getDoctorName() + "医生普通门诊");
+
+        try {
+            template.setDoctorId(Long.valueOf(row.getDoctorId().trim()));
+        } catch (NumberFormatException e) {
+            errors.add("第" + rowNo + "行：医生id格式错误");
+            return null;
+        }
+
+        Integer registrationType = RegistrationShiftTypeEnum.getCodeByName(row.getRegistrationType());
+        if (registrationType == null) {
+            errors.add("第" + rowNo + "行：班次类型非法");
+            return null;
+        }
+        template.setRegistrationType(registrationType);
+
+        LocalDate date = parseDate(row.getRegistrationDate());
+        if (date == null) {
+            errors.add("第" + rowNo + "行：排班日期格式错误，支持 yyyy-MM-dd 或 yyyy/M/d");
+            return null;
+        }
+        template.setRegistrationDate(date);
+
+        try {
+            template.setStartTime(LocalTime.parse(row.getStartTime().trim()));
+            template.setEndTime(LocalTime.parse(row.getEndTime().trim()));
+        } catch (DateTimeParseException e) {
+            errors.add("第" + rowNo + "行：时间格式错误，支持 HH:mm 或 HH:mm:ss");
+            return null;
+        }
+
+        template.setTotalQuota(row.getTotal());
+
+        try {
+            template.setPrice(Integer.valueOf(row.getPrice().trim()));
+        } catch (NumberFormatException e) {
+            errors.add("第" + rowNo + "行：挂号价格格式错误");
+            return null;
+        }
+
+        template.setPriority(0);
+        template.setEnabled(true);
+
+        try {
+            template.setConsultationRoomId(Long.valueOf(row.getSn().trim()));
+        } catch (NumberFormatException e) {
+            errors.add("第" + rowNo + "行：诊室编号格式错误");
+            return null;
+        }
+
+        template.setRemark(row.getRemark());
+        return template;
+    }
+
+    /**
+     * 根据模板生成医生排班列表
+     * @param templates 挂号排班模板列表
+     * @return 医生排班列表
+     */
+    private List<RegistrationSchedule> buildSchedules(List<RegistrationScheduleTemplate> templates) {
+        List<RegistrationSchedule> schedules = new ArrayList<>();
+        for (RegistrationScheduleTemplate template : templates) {
+            Duration duration = Duration.between(template.getStartTime(), template.getEndTime());
+            long hours = duration.toHours();
+            if (hours <= 0) {
+                log.warn("[excel] 模板 {} 时间区间不合法，跳过生成排班", template.getId());
+                continue;
             }
 
+            Integer totalQuota = template.getTotalQuota();
+            int quota = Math.toIntExact(template.getTotalQuota() / hours);
+            int remaining = totalQuota;
+
+            for (int i = 0; i < hours; i++) {
+                RegistrationSchedule schedule = new RegistrationSchedule();
+                schedule.setStartTime(LocalDateTime.of(template.getRegistrationDate(), template.getStartTime().plusHours(i)));
+                schedule.setEndTime(schedule.getStartTime().plusHours(1));
+                schedule.setDoctorId(template.getDoctorId());
+                schedule.setRegistrationScheduleTemplateId(template.getId());
+                schedule.setStatus(1);
+                if (remaining - quota < 0) {
+                    schedule.setRemainingQuota(remaining);
+                } else {
+                    schedule.setRemainingQuota(quota);
+                }
+                remaining -= schedule.getRemainingQuota();
+                schedule.setId(IdUtil.getSnowflakeNextId());
+                schedules.add(schedule);
+            }
         }
-        registrationScheduleService.insertRegistrationScheduleList(list2);
+        return schedules;
+    }
 
+    /**
+     * 解析日期，支持 yyyy-MM-dd 与 yyyy/M/d
+     * @param dateStr 日期字符串
+     * @return 解析后的日期；失败返回 null
+     */
+    private LocalDate parseDate(String dateStr) {
+        String trimmed = dateStr.trim();
+        try {
+            return LocalDate.parse(trimmed);
+        } catch (DateTimeParseException e) {
+            try {
+                return LocalDate.parse(trimmed, SLASH_DATE_FORMATTER);
+            } catch (DateTimeParseException ex) {
+                return null;
+            }
+        }
+    }
 
-        return Result.success(1);
+    /**
+     * 判断字符串是否为空或空白
+     * @param str 字符串
+     * @return 是否为空
+     */
+    private boolean isBlank(String str) {
+        return StrUtil.isBlank(str);
     }
 }
