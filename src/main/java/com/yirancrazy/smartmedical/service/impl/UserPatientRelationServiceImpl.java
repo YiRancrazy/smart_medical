@@ -89,6 +89,20 @@ public class UserPatientRelationServiceImpl implements UserPatientRelationServic
         return userPatientRelationMapper.deleteById(id);
     }
 
+    /**
+     * 检查用户是否有代理权限
+     * @param userId 用户ID
+     * @param patientUserId 患者用户ID
+     * @return 是否有代理权限
+     */
+    @Override
+    public boolean hasAuthorization(Long userId, Long patientUserId) {
+        return userPatientRelationMapper.selectCount(new QueryWrapper<UserPatientRelation>()
+                .eq("user_id", userId)
+                .eq("patient_user_id", patientUserId)
+                .eq("is_authorized", 1)) > 0;
+    }
+
 //    @Override
 //    public UserPatientRelation getDefaultUserPatientRelationByUserId(Long userId) {
 //        return userPatientRelationMapper.selectOne(new QueryWrapper<UserPatientRelation>()

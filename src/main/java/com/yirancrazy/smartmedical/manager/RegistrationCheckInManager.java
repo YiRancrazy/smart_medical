@@ -10,9 +10,12 @@ import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +43,8 @@ public class RegistrationCheckInManager {
     private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
 
     private final RegistrationService registrationService;
+    private final PatientService patientService;
+    private final UserPatientRelationService userPatientRelationService;
     private final OrdersMapper ordersMapper;
     private final PaymentRecordMapper paymentRecordMapper;
     private final RegistrationStatusLogManager statusLogManager;
@@ -83,7 +88,14 @@ public class RegistrationCheckInManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
-        if (!userId.equals(reg.getUserId())) {
+
+        // 权限校验：挂号记录的 userId 或有代理权限
+        boolean hasPermission = userId.equals(reg.getUserId());
+        if (!hasPermission) {
+            // 检查是否有代理权限（user_patient_relation 表）
+            hasPermission = userPatientRelationService.hasAuthorization(userId, reg.getUserId());
+        }
+        if (!hasPermission) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         Integer curStatus = reg.getStatus();

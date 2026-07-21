@@ -55,5 +55,13 @@ public interface UserPatientRelationService {
      */
     Integer deleteUserPatientRelationById(Long id);
 
+    /**
+     * 检查用户是否有代理权限
+     * @param userId 用户ID
+     * @param patientUserId 患者用户ID
+     * @return 是否有代理权限
+     */
+    boolean hasAuthorization(Long userId, Long patientUserId);
+
 //    UserPatientRelation getDefaultUserPatientRelationByUserId(Long userId);
 }

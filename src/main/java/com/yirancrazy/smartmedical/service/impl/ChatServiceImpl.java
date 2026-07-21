@@ -95,4 +95,23 @@ public class ChatServiceImpl implements ChatService {
     public Integer deleteBatch(List<Long> idList) {
         return chatMapper.deleteByIds(idList);
     }
+
+    /**
+     * 查询与某用户的所有聊天记录（双向）
+     * @param userId1 用户ID1
+     * @param userId2 用户ID2
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页的聊天记录
+     */
+    @Override
+    public PageInfo<Chat> listChatsBetweenUsers(Long userId1, Long userId2, Integer pageNum, Integer pageSize) {
+        PageHelper.startPage(pageNum, pageSize);
+        LambdaQueryWrapper<Chat> wrapper = new LambdaQueryWrapper<>();
+        wrapper.and(w -> w.eq(Chat::getSendId, userId1).eq(Chat::getReceiveId, userId2))
+                .or(w -> w.eq(Chat::getSendId, userId2).eq(Chat::getReceiveId, userId1))
+                .orderByDesc(Chat::getCreateTime);
+        List<Chat> chats = chatMapper.selectList(wrapper);
+        return new PageInfo<>(chats);
+    }
 }

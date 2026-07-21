@@ -125,16 +125,18 @@ public class AdminAuthManager {
             return Result.fail("用户名或密码错误");
         }
 
-        // accessJWT 和 refreshJwt 写入 redis 中
-        String accessJwt = createAccessJwt(roleAccount.getPhone(), roleAccount.getId().toString(), roleAccount.getRoleId());
-        String refreshJwt = createRefreshJwt(roleAccount.getPhone(), roleAccount.getId().toString());
-        redisUtil.setEx(adminAccessTokenPrefix + roleAccount.getId(), accessJwt, 7, TimeUnit.DAYS);
-        redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 7, TimeUnit.DAYS);
+        // accessJWT 和 refreshJwt 写入 redis 中（admin前缀用于所有角色，统一管理）
+        Long currentTimeMillis = System.currentTimeMillis();
+        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getRoleId(), currentTimeMillis);
+        String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getRoleId(), currentTimeMillis);
+        redisUtil.setEx(adminAccessTokenPrefix + roleAccount.getId(), accessJwt, 30, TimeUnit.MINUTES);
+        redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
+        // 统一通过响应头返回access token，前端从Authorization头提取
         response.setHeader("Authorization", "Bearer " + accessJwt);
 
         Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-        cookie.setMaxAge(7 * 24 * 60 * 60);
+        cookie.setMaxAge(30 * 24 * 60 * 60);
         cookie.setPath("/api");
         cookie.setHttpOnly(true);
         cookie.setSecure(cookieSecure);
@@ -143,33 +145,44 @@ public class AdminAuthManager {
         return Result.success(accessJwt);
     }
 
-    private  String createAccessJwt(String username, String accountId, Long roleId){
-        Map<String,Object> accessJwtHeader = new HashMap<>();
-        accessJwtHeader.put("alg","HS256");
-        accessJwtHeader.put("typ","JWT");
-        Map<String,Object> accessJwtPayload = new HashMap<>();
-        accessJwtPayload.put(JWTPayload.ISSUER,username);
-        accessJwtPayload.put(JWTPayload.SUBJECT,accountId);
-        accessJwtPayload.put("role_id", roleId);
-        accessJwtPayload.put(JWTPayload.EXPIRES_AT,System.currentTimeMillis()+1000*60*60*24*7);
-        accessJwtPayload.put(JWTPayload.NOT_BEFORE,System.currentTimeMillis());
-        accessJwtPayload.put(JWTPayload.ISSUED_AT,System.currentTimeMillis());
-        accessJwtPayload.put(JWTPayload.JWT_ID,String.valueOf(IdUtil.getSnowflakeNextId()));
-        return JWTUtil.createToken(accessJwtHeader,accessJwtPayload,accessSecretKey.getBytes());
+    /**
+     * 生成访问JWT（30分钟有效期）
+     */
+    private String createAccessJwt(String accountId, Long roleId, Long currentTimeMillis) {
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("role", roleId); // 统一字段名为role
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 30);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, accessSecretKey.getBytes());
     }
 
-    private  String createRefreshJwt(String username, String accountId){
-        Map<String,Object> refreshJwtHeader = new HashMap<>();
-        refreshJwtHeader.put("alg","HS256");
-        refreshJwtHeader.put("typ","JWT");
-        Map<String,Object> refreshJwtPayload = new HashMap<>();
-        refreshJwtPayload.put(JWTPayload.EXPIRES_AT,System.currentTimeMillis()+1000*60*60*24*7);
-        refreshJwtPayload.put(JWTPayload.NOT_BEFORE,System.currentTimeMillis());
-        refreshJwtPayload.put(JWTPayload.ISSUER,username);
-        refreshJwtPayload.put(JWTPayload.SUBJECT,accountId);
-        refreshJwtPayload.put(JWTPayload.ISSUED_AT,System.currentTimeMillis());
-        refreshJwtPayload.put(JWTPayload.JWT_ID,String.valueOf(IdUtil.getSnowflakeNextId()));
-        return JWTUtil.createToken(refreshJwtHeader,refreshJwtPayload,refreshSecretKey.getBytes());
+    /**
+     * 生成刷新JWT（30天有效期，包含role信息）
+     */
+    private String createRefreshJwt(String accountId, Long roleId, Long currentTimeMillis) {
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("role", roleId); // refresh token包含role，刷新时直接解析
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 30);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());
     }
 
     /**

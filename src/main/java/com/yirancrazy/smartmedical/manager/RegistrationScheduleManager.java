@@ -173,6 +173,10 @@ public class RegistrationScheduleManager {
         if (registrationScheduleTemplate == null) {
             return Result.fail("挂号排班模板不存在");
         }
-        return Result.success(registrationScheduleTemplate.getPrice());
+        // 数据库存储为"元"，API返回"分"（乘以100）
+        Integer priceInYuan = registrationScheduleTemplate.getPrice();
+        Integer priceInFen = priceInYuan * 100;
+        log.info("[getPrice] scheduleId={}, priceInYuan={}, priceInFen={}", registrationScheduleId, priceInYuan, priceInFen);
+        return Result.success(priceInFen);
     }
 }

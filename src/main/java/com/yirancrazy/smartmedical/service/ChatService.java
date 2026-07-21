@@ -62,4 +62,14 @@ public interface ChatService {
      * @return 删除的聊天记录ID列表
      */
     Integer deleteBatch(List<Long> ids);
+
+    /**
+     * 查询与某用户的所有聊天记录（双向）
+     * @param userId1 用户ID1
+     * @param userId2 用户ID2
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页的聊天记录
+     */
+    PageInfo<Chat> listChatsBetweenUsers(Long userId1, Long userId2, Integer pageNum, Integer pageSize);
 }

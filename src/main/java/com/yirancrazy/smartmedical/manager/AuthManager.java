@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONUtil;
+import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
@@ -43,16 +44,16 @@ import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 @Slf4j
 public class AuthManager {
 
-    @Value("${jwt.accessSecretKey}")
+    @Value("${jwt.accessSecretKey}")                       // 访问 jwt 加密密钥
     private String accessSecretKey;
-    @Value("${jwt.refreshSecretKey}")
+    @Value("${jwt.refreshSecretKey}")                      // 刷新 jwt 加密密钥
     private String refreshSecretKey;
     @Value("${jwt.admin.adminAccessTokenPrefix}")
-    private String adminAccessTokenPrefix;
+    private String adminAccessTokenPrefix;                 // 管理员 jwt 访问加密密钥
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
-    private String adminRefreshTokenPrefix;
+    private String adminRefreshTokenPrefix;                // 管理员 jwt 刷新加密密钥
     @Value("${cookie.secure:false}")
-    private boolean cookieSecure;
+    private boolean cookieSecure;                          // 决定 cookie 是否只允许通过 https 传输
     private final AccountService accountService;
     private final UserService userService;
     private final RedisUtil redisUtil;
@@ -60,8 +61,16 @@ public class AuthManager {
     private final PatientService patientService;
     private final Long USER_ROLE = 4L;
 
+    /**
+     * 用户登录
+     * @param phone 用户手机号
+     * @param password 用户密码
+     * @param response HttpServletResponse 响应对象
+     * @return 登录结果
+     */
     public Result<LoginVo> login(String phone, String password, HttpServletResponse response) {
         try{
+
 
             List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
@@ -74,67 +83,62 @@ public class AuthManager {
                     .orElse(null);
 
             if(account==null){
+                log.warn("[login] 账号不存在, phone={}", phone);
                 return Result.info(10001,"账号不存在", null);
             }
+
+            // 校验原始密码和加密后的密码
             if(!checkPassword(password, account.getPassword())){
+                log.warn("[login] 密码错误, phone={}", phone);
                 return Result.info(10002,"用户名或密码错误", null);
             }
+
+            // 获取用户信息
             User user = userService.getUserById(account.getUserId());
 
-            Map<String, Object> accessHeader = new HashMap<>();
-            accessHeader.put("alg", "HS256");
-            accessHeader.put("typ", "JWT");
-            Map<String, Object> accessPayload = new HashMap<>();
-            accessPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
-            accessPayload.put(JWTPayload.SUBJECT, account.getId().toString());
-            accessPayload.put("role_id", account.getRoleId());
+            // 生成JWT访问令牌
             Long currentTimeMillis = System.currentTimeMillis();
-            accessPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000 * 60 * 60 * 24 *7);
-            accessPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-            accessPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
-            accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
-            String accessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
+            String accessJwt = generateAccessJwt(account.getId().toString(), account.getRoleId(), currentTimeMillis);
 
-            redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 7, TimeUnit.DAYS);
+            // 存储JWT访问令牌（admin前缀用于所有角色，统一管理）
+            redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 30, TimeUnit.MINUTES);
 
-            Map<String, Object> refreshHeader = new HashMap<>();
-            refreshHeader.put("alg", "HS256");
-            refreshHeader.put("typ", "JWT");
-            Map<String, Object> refreshPayload = new HashMap<>();
-            refreshPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
-            refreshPayload.put(JWTPayload.SUBJECT, account.getId().toString());
-            refreshPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000 * 60 * 60 * 24 * 7);
-            refreshPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-            refreshPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
-            refreshPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
-            String refreshJwt = JWTUtil.createToken(refreshHeader, refreshPayload, refreshSecretKey.getBytes());
+            // 生成JWT 刷新令牌（包含role信息，刷新时直接解析）
+            String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getRoleId(), currentTimeMillis);
 
-            redisUtil.setEx("refresh_token_"+account.getId().toString(),refreshJwt,7, TimeUnit.DAYS);
+            // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
+            redisUtil.setEx(adminRefreshTokenPrefix+account.getId().toString(),refreshJwt,30, TimeUnit.DAYS);
 
             LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), user.getNickname());
 
+            // 统一通过响应头返回access token，前端从Authorization头提取
             response.setHeader("Authorization", "Bearer " + accessJwt);
 
+            // 设置 Refresh-token Cookie，带回jwt 刷新token
             Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-            cookie.setMaxAge(7 * 24 * 60 * 60);
+            cookie.setMaxAge(30 * 24 * 60 * 60);
             cookie.setPath("/api");
             cookie.setHttpOnly(true);
             cookie.setSecure(cookieSecure);
+            // SameSite=None 必须配合 Secure=true（HTTPS），开发环境（HTTP）不设置让浏览器用默认 Lax
+            if (cookieSecure) {
+                cookie.setAttribute("SameSite", "None");
+            }
             response.addCookie(cookie);
-            logInitialize(user);
 
             return Result.success(loginVo);
         } catch (Exception e){
-            log.error("登录异常", e);
+            log.error("[login] 登录异常, phone={}", phone, e);
             return Result.fail("登录失败");
         }
     }
 
-    private void logInitialize(User user) {
-        redisUtil.setEx("uid_"+String.valueOf(user.getId()),user.getId().toString(),30, TimeUnit.DAYS);
-
-    }
-
+    /**
+     * 用户注册
+     * @param phone 用户手机号
+     * @param password 用户密码
+     * @return 注册结果
+     */
     @Transactional
     public Result<String> register(String phone, String password) {
 
@@ -142,14 +146,14 @@ public class AuthManager {
             return Result.info(10001,"账号已存在", null);
         }
 
+        // 生成用户
         User user = new User();
         user.setId(IdUtil.getSnowflakeNextId());
-        user.setUsername(NicknameGenerator.generateRandomNickname());
-        user.setAvatar("");
+        user.setUsername(NicknameGenerator.generateRandomNickname());  // 生成随机昵称
+        user.setAvatar("");   // todo 后续添加随机头像
         userService.insertUser(user);
 
-
-
+        // 生成账号
         Account account = new Account();
         account.setId(IdUtil.getSnowflakeNextId());
         account.setUserId(user.getId());
@@ -163,6 +167,11 @@ public class AuthManager {
         return Result.success("注册成功");
     }
 
+    /**
+     * 用户登出
+     * @param userId 用户ID
+     * @return 登出结果
+     */
     public Result<String> logout(Long userId) {
         redisUtil.delete(adminAccessTokenPrefix + userId);
         redisUtil.delete(adminRefreshTokenPrefix + userId);
@@ -180,13 +189,24 @@ public class AuthManager {
             return Result.fail("Refresh token 缺失");
         }
         try {
-            if (!JWTUtil.verify(refreshToken, refreshSecretKey.getBytes())) {
+            JWT jwt = JWTUtil.parseToken(refreshToken);
+            if (!jwt.verify()) {
                 return Result.fail("Refresh token 无效");
             }
-            JWTPayload payload = JWTUtil.parseToken(refreshToken).getPayload();
+            JWTPayload payload = jwt.getPayload();
             String accountId = String.valueOf(payload.getClaim("sub"));
-            Long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
-            if (exp == null || exp < System.currentTimeMillis()) {
+
+            // 从refresh token直接解析role，不依赖旧access token
+            Long roleId;
+            try {
+                Object roleObj = payload.getClaim("role");
+                roleId = roleObj != null ? Long.parseLong(String.valueOf(roleObj)) : 4L;
+            } catch (Exception e) {
+                roleId = 4L; // 默认user
+            }
+
+            long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
+            if (exp < System.currentTimeMillis()) {
                 return Result.fail("Refresh token 已过期");
             }
             // Redis 比对：统一用 adminRefreshTokenPrefix + accountId（所有角色共用）
@@ -195,33 +215,12 @@ public class AuthManager {
                 return Result.fail("Refresh token 已失效");
             }
 
-            // 签发新 access JWT（从旧 access JWT 取 role_id）
-            Map<String, Object> accessHeader = new HashMap<>();
-            accessHeader.put("alg", "HS256");
-            accessHeader.put("typ", "JWT");
-            Map<String, Object> accessPayload = new HashMap<>();
+            // 签发新 access JWT（统一30分钟有效期）
             Long currentTimeMillis = System.currentTimeMillis();
-            accessPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
-            accessPayload.put(JWTPayload.SUBJECT, accountId);
-            // 从 Redis 旧 access JWT 解析 role_id
-            Long roleId = 4L; // 默认 user
-            String oldAccessJwt = redisUtil.get(adminAccessTokenPrefix + accountId);
-            if (oldAccessJwt != null) {
-                try {
-                    JWTPayload oldPayload = JWTUtil.parseToken(oldAccessJwt).getPayload();
-                    Object rid = oldPayload.getClaim("role_id");
-                    if (rid != null) roleId = Long.parseLong(String.valueOf(rid));
-                } catch (Exception ignored) {}
-            }
-            accessPayload.put("role_id", roleId);
-            accessPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 7);
-            accessPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-            accessPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
-            accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
-            String newAccessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
+            String newAccessJwt = generateAccessJwt(accountId, roleId, currentTimeMillis);
 
             // 覆盖旧 access（旧 token 立即失效）
-            redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 7, TimeUnit.DAYS);
+            redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 30, TimeUnit.MINUTES);
 
             response.setHeader("Authorization", "Bearer " + newAccessJwt);
             return Result.success(newAccessJwt);
@@ -229,6 +228,46 @@ public class AuthManager {
             log.error("[refresh] 刷新token异常", e);
             return Result.fail("刷新token失败");
         }
+    }
+
+    /**
+     * 生成访问JWT（30分钟有效期）
+     */
+    private String generateAccessJwt(String accountId, Long roleId, Long currentTimeMillis) {
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("role", roleId);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 30);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, accessSecretKey.getBytes());
+    }
+
+    /**
+     * 生成刷新JWT（30天有效期，包含role信息）
+     */
+    private String generateRefreshJwt(String accountId, Long roleId, Long currentTimeMillis) {
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("role", roleId); // refresh token包含role，刷新时直接解析
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 30);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());
     }
 
     private void registerInit(Long userId){
@@ -250,18 +289,27 @@ public class AuthManager {
     }
 
     /**
-     * 密码校验：BCrypt > MD5 > 明文（兼容种子数据）
+     * 校验原始密码和加密后的密码，兼容历史数据：先匹配By
+     * @param rawPassword 原始密码
+     * @param encodedPassword 加密后的密码
+     * @return 匹配返回true，否则返回false
      */
     private boolean checkPassword(String rawPassword, String encodedPassword) {
         if (encodedPassword == null || encodedPassword.isBlank()) {
             return false;
         }
+
+        // BCrypt加密校验
         if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
             return BCrypt.checkpw(rawPassword, encodedPassword);
         }
+
+        // MD5加密校验（仅作兼容旧系统）
         if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
             return true;
         }
+
+        // 明文密码兜底校验（仅作兼容旧系统）
         return rawPassword.equals(encodedPassword);
     }
 }

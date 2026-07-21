@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("api/user/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "账号管理", description = "账号相关接口")
+@Tag(name = "用户账号管理", description = "账号相关接口")
 public class UserAuthControllerV1 {
 
     private final AuthManager authManager;

@@ -66,7 +66,7 @@ CREATE TABLE `admin`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '管理员信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of admin
@@ -164,9 +164,9 @@ CREATE TABLE `chat`  (
   `content` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '内容',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
-  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '聊天表',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '聊天消息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of chat
@@ -183,12 +183,12 @@ CREATE TABLE `consultation_room`  (
   `department_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '所属科室',
   `location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '具体位置',
   `equipment_desc` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '设备描述',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint NULL DEFAULT 0,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `fk_room_department`(`department_id` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '诊室信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of consultation_room
@@ -212,11 +212,11 @@ CREATE TABLE `consultation_room_status`  (
   `occupancy_start_time` datetime NULL DEFAULT NULL COMMENT '占用开始时间',
   `occupancy_end_time` datetime NULL DEFAULT NULL COMMENT '占用结束时间',
   `occupancy_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '占用原因（如：设备维护、会议、午休等）',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '诊室占用状态记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of consultation_room_status
@@ -260,14 +260,14 @@ CREATE TABLE `department`  (
   `parent_department_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '上级科室ID',
   `manager` bigint UNSIGNED NULL DEFAULT NULL COMMENT '部门负责人id',
   `phone` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '科室电话',
-  `address` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `address` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '科室地址',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '状态(1启用/0停用)',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '描述',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '记录更新时间',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '删除（1是0否）',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '科室信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of department
@@ -308,7 +308,7 @@ CREATE TABLE `doctor`  (
   INDEX `doctor_degree_id_fk`(`degree_id` ASC) USING BTREE,
   INDEX `doctor_department_id_fk`(`department_id` ASC) USING BTREE,
   INDEX `doctor_doctor_position_id_fk`(`doctor_position_id` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '医生信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of doctor
@@ -336,7 +336,7 @@ CREATE TABLE `doctor_position`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '医生职位字典表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of doctor_position
@@ -467,7 +467,7 @@ INSERT INTO `drug_inventory` VALUES (10, 10, 2, 1200, 1180, 20, 120, 2500, '2024
 -- ----------------------------
 DROP TABLE IF EXISTS `file`;
 CREATE TABLE `file`  (
-  `id` bigint UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL COMMENT '文件ID',
   `admin_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '上传管理员id',
   `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件名',
   `md5` char(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件md5值',
@@ -478,7 +478,7 @@ CREATE TABLE `file`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '文件上传记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of file
@@ -490,7 +490,7 @@ INSERT INTO `file` VALUES (1, 1, '挂号排班模板.cvs', '123123', 'admin/regi
 -- ----------------------------
 DROP TABLE IF EXISTS `inventory_transaction`;
 CREATE TABLE `inventory_transaction`  (
-  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '库存异动流水ID',
   `drug_id` bigint UNSIGNED NOT NULL COMMENT '药品ID',
   `warehouse_id` bigint UNSIGNED NOT NULL COMMENT '仓库ID',
   `transaction_type` tinyint NOT NULL COMMENT '异动类型(1:入库,2:出库,3:盘点调整,4:锁定,5:解锁)',
@@ -567,7 +567,7 @@ CREATE TABLE `order`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `order_order_type_id_fk`(`order_type_id` ASC) USING BTREE,
   INDEX `order_user_id_fk`(`user_id` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '订单主表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of order
@@ -594,7 +594,7 @@ CREATE TABLE `order_item`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '订单明细项id',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '订单id',
   `production_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '项目明细ID',
-  `production_type_id` bigint UNSIGNED NULL DEFAULT NULL,
+  `production_type_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '项目类型ID',
   `production_name` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '订单名称 冗余字段',
   `quantity` int NULL DEFAULT NULL COMMENT '购买数量',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
@@ -604,7 +604,7 @@ CREATE TABLE `order_item`  (
   INDEX `order_item_drug_id_fk`(`production_id` ASC) USING BTREE,
   INDEX `order_item_order_id_fk`(`order_id` ASC) USING BTREE,
   INDEX `order_item_production_type_id_fk`(`production_type_id` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '订单明细表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of order_item
@@ -665,7 +665,7 @@ CREATE TABLE `order_type`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '订单类型字典表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of order_type
@@ -683,7 +683,7 @@ DROP TABLE IF EXISTS `patient`;
 CREATE TABLE `patient`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '就诊卡id',
   `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '用户id',
-  `patient_card_id` bigint UNSIGNED NULL DEFAULT NULL,
+  `patient_card_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '就诊卡ID',
   `emergency_phone` char(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '紧急联系电话',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
@@ -691,7 +691,7 @@ CREATE TABLE `patient`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `patient_patient_card_id_fk`(`patient_card_id` ASC) USING BTREE,
   INDEX `patient_user_id_fk`(`user_id` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '就诊人档案表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of patient
@@ -716,13 +716,13 @@ CREATE TABLE `patient_card`  (
   `outpatient_balance` int NULL DEFAULT NULL COMMENT '门诊余额',
   `payment_password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '支付密码（加密存储）',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '就诊卡状态，0-正常，1-冻结 2-注销',
-  `qr_code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `qr_code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '就诊卡二维码URL',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `sn_unique`(`sn` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '就诊卡信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of patient_card
@@ -748,12 +748,12 @@ CREATE TABLE `payment_method`  (
   `is_default` tinyint(1) NULL DEFAULT NULL COMMENT '是否是默认支付方式',
   `sort` tinyint(1) NULL DEFAULT NULL COMMENT '排序',
   `is_enabled` tinyint(1) NULL DEFAULT NULL COMMENT '是否启用',
-  `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '支付方式描述',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '支付方式字典表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of payment_method
@@ -770,7 +770,7 @@ INSERT INTO `payment_method` VALUES (5, '银行卡', NULL, 'card_icon', 0, 5, 1,
 DROP TABLE IF EXISTS `payment_record`;
 CREATE TABLE `payment_record`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '支付记录ID',
-  `sn` bigint UNSIGNED NULL DEFAULT NULL,
+  `sn` bigint UNSIGNED NULL DEFAULT NULL COMMENT '支付流水号',
   `order_id` bigint UNSIGNED NOT NULL COMMENT '关联订单ID',
   `total_amount` int NOT NULL COMMENT '支付金额',
   `real_amount` int NULL DEFAULT NULL COMMENT '实际支付金额',
@@ -833,7 +833,7 @@ CREATE TABLE `production_type`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '项目类型字典表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of production_type
@@ -865,7 +865,7 @@ CREATE TABLE `registration`  (
   INDEX `registration_doctor_id_fk`(`registration_schedule_template_id` ASC) USING BTREE,
   INDEX `registration_order_id_fk`(`order_id` ASC) USING BTREE,
   INDEX `registration_user_id_fk`(`user_id` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of registration
@@ -939,9 +939,9 @@ CREATE TABLE `registration_schedule_template`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
-  `status` int NULL DEFAULT NULL,
+  `status` int NULL DEFAULT NULL COMMENT '模板状态',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号排班模板表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of registration_schedule_template
@@ -963,7 +963,7 @@ CREATE TABLE `role`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统角色字典表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of role
@@ -990,7 +990,7 @@ CREATE TABLE `shift`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '班次字典表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of shift
@@ -1008,7 +1008,7 @@ DROP TABLE IF EXISTS `user`;
 CREATE TABLE `user`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '用户id',
   `nickname` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用户姓名',
-  `username` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `username` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '登录用户名（冗余字段）',
   `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '头像',
   `address` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '家庭住址',
   `sex` tinyint(1) NULL DEFAULT NULL COMMENT '性别（0男，1女)',
@@ -1017,7 +1017,7 @@ CREATE TABLE `user`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '患者/用户信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of user
@@ -1077,9 +1077,9 @@ CREATE TABLE `warehouse`  (
   `manager` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '负责人',
   `status` tinyint(1) NULL DEFAULT 1 COMMENT '状态(0停用1启用)',
   `is_default` tinyint(1) NULL DEFAULT 0 COMMENT '是否默认仓库',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_warehouse_code`(`code` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 9000000000000000002 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仓库/药房表' ROW_FORMAT = Dynamic;
@@ -1099,18 +1099,18 @@ DROP TABLE IF EXISTS `medical_record`;
 CREATE TABLE `medical_record`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '病历ID',
   `registration_id` bigint UNSIGNED NOT NULL COMMENT '挂号ID(强绑定)',
-  `doctor_id` bigint UNSIGNED NOT NULL,
-  `patient_id` bigint UNSIGNED NOT NULL,
-  `chief_complaint` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `present_illness` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
-  `past_history` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
-  `physical_exam` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
-  `diagnosis` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `treatment_plan` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+  `doctor_id` bigint UNSIGNED NOT NULL COMMENT '接诊医生ID',
+  `patient_id` bigint UNSIGNED NOT NULL COMMENT '就诊人ID',
+  `chief_complaint` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '主诉',
+  `present_illness` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '现病史',
+  `past_history` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '既往史',
+  `physical_exam` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '体格检查',
+  `diagnosis` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '诊断结果',
+  `treatment_plan` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '治疗方案',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-草稿 1-已提交',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_registration_id`(`registration_id` ASC) USING BTREE,
   INDEX `idx_doctor_id`(`doctor_id` ASC) USING BTREE,
@@ -1123,17 +1123,17 @@ CREATE TABLE `medical_record`  (
 DROP TABLE IF EXISTS `prescription`;
 CREATE TABLE `prescription`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '处方ID',
-  `medical_record_id` bigint UNSIGNED NOT NULL,
+  `medical_record_id` bigint UNSIGNED NOT NULL COMMENT '关联病历ID',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联药品订单',
   `total_amount` int NULL DEFAULT NULL COMMENT '处方金额(分)',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-待支付 1-已支付 2-已发药 3-已取消',
   `pharmacist_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '发药药师ID',
-  `dispensed_at` datetime NULL DEFAULT NULL,
+  `dispensed_at` datetime NULL DEFAULT NULL COMMENT '发药时间',
   `version` int NULL DEFAULT 0 COMMENT '乐观锁',
-  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_medical_record_id`(`medical_record_id` ASC) USING BTREE,
   INDEX `idx_order_id`(`order_id` ASC) USING BTREE,
@@ -1145,15 +1145,15 @@ CREATE TABLE `prescription`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `prescription_item`;
 CREATE TABLE `prescription_item`  (
-  `id` bigint UNSIGNED NOT NULL,
-  `prescription_id` bigint UNSIGNED NOT NULL,
-  `drug_id` bigint UNSIGNED NOT NULL,
-  `quantity` int NOT NULL,
+  `id` bigint UNSIGNED NOT NULL COMMENT '处方明细ID',
+  `prescription_id` bigint UNSIGNED NOT NULL COMMENT '处方ID',
+  `drug_id` bigint UNSIGNED NOT NULL COMMENT '药品ID',
+  `quantity` int NOT NULL COMMENT '数量',
   `unit_price` int NOT NULL COMMENT '快照单价(分)',
-  `usage_method` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NULL DEFAULT 0,
+  `usage_method` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用药方式',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_prescription_id`(`prescription_id` ASC) USING BTREE,
   INDEX `idx_drug_id`(`drug_id` ASC) USING BTREE
@@ -1164,16 +1164,16 @@ CREATE TABLE `prescription_item`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `registration_status_log`;
 CREATE TABLE `registration_status_log`  (
-  `id` bigint UNSIGNED NOT NULL,
-  `registration_id` bigint UNSIGNED NOT NULL,
-  `from_status` tinyint(1) NOT NULL,
-  `to_status` tinyint(1) NOT NULL,
-  `operator_id` bigint UNSIGNED NOT NULL COMMENT '0=系统/患者自助',
-  `operator_role` varchar(19) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'user/doctor/pharmacist/system',
-  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  `id` bigint UNSIGNED NOT NULL COMMENT '日志ID',
+  `registration_id` bigint UNSIGNED NOT NULL COMMENT '挂号记录ID',
+  `from_status` tinyint(1) NOT NULL COMMENT '变更前状态',
+  `to_status` tinyint(1) NOT NULL COMMENT '变更后状态',
+  `operator_id` bigint UNSIGNED NOT NULL COMMENT '操作人ID (0=系统/患者自助)',
+  `operator_role` varchar(19) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '操作人角色 user/doctor/pharmacist/system',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '变更备注/原因',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_registration_id`(`registration_id` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
