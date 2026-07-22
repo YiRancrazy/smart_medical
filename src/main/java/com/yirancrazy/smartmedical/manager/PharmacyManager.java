@@ -138,8 +138,8 @@ public class PharmacyManager {
             }
 
             int beforeAvailable = inv.getAvailableQuantity();
+            // 锁定时已扣减 available，发药仅扣减 stock 与 locked
             inv.setStockQuantity(inv.getStockQuantity() - item.getQuantity());
-            inv.setAvailableQuantity(inv.getAvailableQuantity() - item.getQuantity());
             inv.setLockedQuantity(inv.getLockedQuantity() - item.getQuantity());
             inv.setLastOutboundTime(LocalDateTime.now());
             drugInventoryService.updateDrugInventoryById(inv);

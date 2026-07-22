@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
@@ -195,13 +196,32 @@ public class PrescriptionManager {
             orderItem.setProductionName(drug.getCommonName());
             orderItemService.insertOrderItem(orderItem);
 
-            // 锁定库存(累加 locked,available 不变)
+            // 锁定库存：locked += q, available -= q，原子扣减防止并发超卖
             DrugInventory inv = drugInventoryMapper.selectOne(
                     new LambdaQueryWrapper<DrugInventory>()
                             .eq(DrugInventory::getDrugId, item.getDrugId())
                             .last("LIMIT 1"));
-            inv.setLockedQuantity(inv.getLockedQuantity() + item.getQuantity());
-            drugInventoryMapper.updateById(inv);
+            if (inv == null) {
+                throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
+                        "药品库存不存在：drugId=" + item.getDrugId());
+            }
+            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
+            if (qtyBefore < item.getQuantity()) {
+                throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
+                        "可用库存不足：drugId=" + item.getDrugId());
+            }
+            int rows = drugInventoryMapper.update(null,
+                    new UpdateWrapper<DrugInventory>()
+                            .eq("id", inv.getId())
+                            .ge("available_quantity", item.getQuantity())
+                            .setSql("locked_quantity = locked_quantity + " + item.getQuantity())
+                            .setSql("available_quantity = available_quantity - " + item.getQuantity()));
+            if (rows == 0) {
+                throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
+                        "库存锁定失败(并发)：drugId=" + item.getDrugId());
+            }
+            inv.setLockedQuantity((inv.getLockedQuantity() == null ? 0 : inv.getLockedQuantity()) + item.getQuantity());
+            inv.setAvailableQuantity(qtyBefore - item.getQuantity());
 
             InventoryTransaction txn = new InventoryTransaction();
             txn.setId(IdUtil.getSnowflakeNextId());
@@ -210,8 +230,8 @@ public class PrescriptionManager {
             txn.setTransactionType(TXN_LOCK);
             txn.setRelatedOrder(String.valueOf(order.getSn()));
             txn.setQuantityChange(item.getQuantity());
-            txn.setQuantityBefore(inv.getAvailableQuantity());
-            txn.setQuantityAfter(inv.getAvailableQuantity());
+            txn.setQuantityBefore(qtyBefore);
+            txn.setQuantityAfter(qtyBefore - item.getQuantity());
             txn.setOperatorId(doctorId);
             txn.setOperatorName("doctor");
             inventoryTransactionService.insertInventoryTransaction(txn);
@@ -294,7 +314,7 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "只能作废待支付处方");
         }
 
-        // 释放锁定库存
+        // 释放锁定库存：locked -= q, available += q
         List<PrescriptionItem> items = prescriptionItemService.list(
                 new LambdaQueryWrapper<PrescriptionItem>()
                         .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
@@ -303,17 +323,26 @@ public class PrescriptionManager {
                     new LambdaQueryWrapper<DrugInventory>()
                             .eq(DrugInventory::getDrugId, item.getDrugId())
                             .last("LIMIT 1"));
-            if (inv != null) {
-                inv.setLockedQuantity(inv.getLockedQuantity() - item.getQuantity());
-                drugInventoryMapper.updateById(inv);
+            if (inv == null) {
+                continue;
             }
+            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
+            drugInventoryMapper.update(null,
+                    new UpdateWrapper<DrugInventory>()
+                            .eq("id", inv.getId())
+                            .setSql("locked_quantity = GREATEST(locked_quantity - " + item.getQuantity() + ", 0)")
+                            .setSql("available_quantity = available_quantity + " + item.getQuantity()));
+            inv.setAvailableQuantity(qtyBefore + item.getQuantity());
+
             InventoryTransaction txn = new InventoryTransaction();
             txn.setId(IdUtil.getSnowflakeNextId());
             txn.setDrugId(item.getDrugId());
-            txn.setWarehouseId(inv != null ? inv.getWarehouseId() : null);
+            txn.setWarehouseId(inv.getWarehouseId());
             txn.setTransactionType(TXN_UNLOCK);
             txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
             txn.setQuantityChange(-item.getQuantity());
+            txn.setQuantityBefore(qtyBefore);
+            txn.setQuantityAfter(qtyBefore + item.getQuantity());
             txn.setOperatorId(doctorId);
             txn.setOperatorName("doctor");
             inventoryTransactionService.insertInventoryTransaction(txn);
