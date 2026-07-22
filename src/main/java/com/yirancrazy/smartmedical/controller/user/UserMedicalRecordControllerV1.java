@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
 import com.yirancrazy.smartmedical.manager.PatientManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -31,6 +31,7 @@ public class UserMedicalRecordControllerV1 {
 
     private final MedicalRecordService medicalRecordService;
     private final PatientManager patientManager;
+    private final MedicalRecordManager medicalRecordManager;
 
     @Operation(summary = "用户端 - 我的病历列表")
     @GetMapping("/list")
@@ -45,7 +46,7 @@ public class UserMedicalRecordControllerV1 {
                 new LambdaQueryWrapper<MedicalRecord>()
                         .in(MedicalRecord::getPatientId, patientUserIds)
                         .orderByDesc(MedicalRecord::getCreateTime));
-        return Result.success(records.stream().map(this::toVO).collect(Collectors.toList()));
+        return Result.success(medicalRecordManager.toListVOs(records));
     }
 
     @Operation(summary = "用户端 - 病历详情")
@@ -58,14 +59,5 @@ public class UserMedicalRecordControllerV1 {
             return Result.fail("无权查看该病历");
         }
         return Result.success(record);
-    }
-
-    private MedicalRecordListVO toVO(MedicalRecord record) {
-        MedicalRecordListVO vo = new MedicalRecordListVO();
-        vo.setId(record.getId());
-        vo.setRegistrationId(record.getRegistrationId());
-        vo.setDiagnosis(record.getDiagnosis());
-        vo.setCreatedAt(record.getCreateTime());
-        return vo;
     }
 }

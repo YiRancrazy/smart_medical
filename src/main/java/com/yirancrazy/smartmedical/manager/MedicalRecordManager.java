@@ -7,21 +7,31 @@ import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.Department;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
 import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.DepartmentService;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
+import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 病历业务编排
@@ -41,6 +51,9 @@ public class MedicalRecordManager {
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final UserService userService;
     private final AccountService accountService;
+    private final DoctorService doctorService;
+    private final DepartmentService departmentService;
+    private final PrescriptionService prescriptionService;
 
     /**
      * 保存病历草稿（status=0）
@@ -126,6 +139,74 @@ public class MedicalRecordManager {
         Account account = accountService.getAccountByUserId(patientId);
         if (account != null) {
             vo.setPatientPhone(account.getPhone());
+        }
+    }
+
+    /**
+     * 批量将病历实体转换为用户端列表 VO，补充科室/医生/就诊日期/处方ID
+     * ponytail: 逐条查询 N+1，单用户病历列表 < 100，可接受；若量大可改为批量 IN
+     * @param records 病历列表
+     * @return 列表 VO 列表
+     */
+    public List<MedicalRecordListVO> toListVOs(List<MedicalRecord> records) {
+        List<MedicalRecordListVO> result = new ArrayList<>(records.size());
+        for (MedicalRecord record : records) {
+            MedicalRecordListVO vo = new MedicalRecordListVO();
+            vo.setId(record.getId());
+            vo.setRegistrationId(record.getRegistrationId());
+            vo.setDiagnosis(record.getDiagnosis());
+            vo.setCreatedAt(record.getCreateTime());
+            fillPatientName(vo, record.getPatientId());
+            fillDoctorAndDepartment(vo, record.getDoctorId());
+            fillVisitDateAndPrescription(vo, record);
+            result.add(vo);
+        }
+        return result;
+    }
+
+    private void fillPatientName(MedicalRecordListVO vo, Long patientId) {
+        if (patientId == null) {
+            return;
+        }
+        User user = userService.getUserById(patientId);
+        if (user != null) {
+            vo.setPatientName(user.getNickname());
+        }
+    }
+
+    private void fillDoctorAndDepartment(MedicalRecordListVO vo, Long doctorId) {
+        if (doctorId == null) {
+            return;
+        }
+        Doctor doctor = doctorService.getDoctorById(doctorId);
+        if (doctor != null) {
+            vo.setDoctorName(doctor.getName());
+            if (doctor.getDepartmentId() != null) {
+                Department dept = departmentService.getDepartmentById(doctor.getDepartmentId());
+                if (dept != null) {
+                    vo.setDepartmentName(dept.getName());
+                }
+            }
+        }
+    }
+
+    private void fillVisitDateAndPrescription(MedicalRecordListVO vo, MedicalRecord record) {
+        if (record.getRegistrationId() != null) {
+            Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
+            if (reg != null && reg.getRegistrationScheduleId() != null) {
+                RegistrationSchedule schedule = registrationScheduleService
+                        .getRegistrationScheduleById(reg.getRegistrationScheduleId());
+                if (schedule != null) {
+                    vo.setVisitDate(schedule.getStartTime());
+                }
+            }
+        }
+        Prescription prescription = prescriptionService.getOne(
+                new LambdaQueryWrapper<Prescription>()
+                        .eq(Prescription::getMedicalRecordId, record.getId())
+                        .last("LIMIT 1"));
+        if (prescription != null) {
+            vo.setPrescriptionId(prescription.getId());
         }
     }
 }
