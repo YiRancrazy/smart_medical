@@ -94,7 +94,7 @@ public class RegistrationScheduleTemplateManager {
                 .map(RegistrationScheduleTemplate::getDoctorId)
                 .toList();
 
-        List<Long> registrationScheduleTemplateIdList = registrationScheduleTemplates
+        List<Long> registrationScheduleIdList = registrationScheduleTemplates
                 .stream()
                 .map(RegistrationScheduleTemplate::getId)
                 .toList();
@@ -102,7 +102,7 @@ public class RegistrationScheduleTemplateManager {
         List<Doctor> doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
         List<Department> departmentList = departmentService.listAllDepartment();
         List<RegistrationSchedule> registrationScheduleList = registrationScheduleService
-                .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateIdList);
+                .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleIdList);
 
         for (RegistrationScheduleTemplate item : registrationScheduleTemplates) {
             Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
@@ -184,7 +184,7 @@ public class RegistrationScheduleTemplateManager {
                     .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
             sourcePage = new PageInfo<>(registrationScheduleTemplateList);
             registrationScheduleList = registrationScheduleService
-                    .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
+                    .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
             doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
 
             for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
@@ -193,20 +193,20 @@ public class RegistrationScheduleTemplateManager {
                 Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
                 List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
-                Integer remaining = 0;
-                for (RegistrationSchedule r : registrationSchedules) {
-                    remaining += r.getRemainingQuota();
-                }
-
-                result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
+            Integer remaining = 0;
+            for (RegistrationSchedule r : registrationSchedules) {
+                remaining += r.getRemainingQuota();
             }
-        } else if (doctorId != null) {
+
+            result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
+        }
+    } else if (doctorId != null) {
             PageHelper.startPage(pageNum, pageSize);
             List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
                     .listRegistrationScheduleTemplatesByDoctorIdAndDate(doctorId, localStartDate, localEndDate);
             sourcePage = new PageInfo<>(registrationScheduleTemplateList);
             registrationScheduleList = registrationScheduleService
-                    .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
+                    .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
             Doctor doctor1 = doctorService.getDoctorById(doctorId);
             doctorList = doctor1 == null ? List.of() : List.of(doctor1);
 
@@ -231,7 +231,7 @@ public class RegistrationScheduleTemplateManager {
                     .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
             sourcePage = new PageInfo<>(registrationScheduleTemplateList);
             registrationScheduleList = registrationScheduleService
-                    .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
+                    .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
             doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
 
             for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {

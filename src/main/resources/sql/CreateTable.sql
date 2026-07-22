@@ -171,6 +171,9 @@ CREATE TABLE `chat`  (
 -- ----------------------------
 -- Records of chat
 -- ----------------------------
+INSERT INTO `chat` VALUES (2043000000000009001, 1, 2, 1, 0, '医生您好，我想咨询心悸的问题', NOW(), NOW(), 0);
+INSERT INTO `chat` VALUES (2043000000000009002, 2, 1, 2, 0, '您好，心悸多久了？有没有伴随其他症状？', NOW(), NOW(), 0);
+INSERT INTO `chat` VALUES (2043000000000009003, 1, 2, 1, 0, '大概一周了，晚上比较明显', NOW(), NOW(), 0);
 
 -- ----------------------------
 -- Table structure for consultation_room
@@ -221,6 +224,8 @@ CREATE TABLE `consultation_room_status`  (
 -- ----------------------------
 -- Records of consultation_room_status
 -- ----------------------------
+INSERT INTO `consultation_room_status` VALUES (2043000000000008001, 1, '2026-07-22 09:00:00', '2026-07-22 12:00:00', '门诊接诊', NOW(), NOW(), 0);
+INSERT INTO `consultation_room_status` VALUES (2043000000000008002, 2, '2026-07-22 14:00:00', '2026-07-22 17:00:00', '门诊接诊', NOW(), NOW(), 0);
 
 -- ----------------------------
 -- Table structure for degree
@@ -851,7 +856,7 @@ DROP TABLE IF EXISTS `registration`;
 CREATE TABLE `registration`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '挂号记录ID',
   `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联用户ID',
-  `registration_schedule_template_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联挂号规则id',
+  `registration_schedule_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联挂号时段id',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联订单ID',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-已预约 1-待就诊(历史值) 2-已就诊 3-已取消 4-已退号 5-已报到 6-就诊中 7-待支付',
   `registration_time` datetime NULL DEFAULT NULL COMMENT '挂号时间',
@@ -862,7 +867,7 @@ CREATE TABLE `registration`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `registration_doctor_id_fk`(`registration_schedule_template_id` ASC) USING BTREE,
+  INDEX `registration_schedule_id_fk`(`registration_schedule_id` ASC) USING BTREE,
   INDEX `registration_order_id_fk`(`order_id` ASC) USING BTREE,
   INDEX `registration_user_id_fk`(`user_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号记录表' ROW_FORMAT = Dynamic;
@@ -870,19 +875,11 @@ CREATE TABLE `registration`  (
 -- ----------------------------
 -- Records of registration
 -- ----------------------------
--- 说明: 表新增了 check_in_time / visit_start_time / visit_end_time 3 列, 原 dump 缺这些字段, 改用显式列名让缺省列回退到 NULL DEFAULT
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2, 2, 3, 2, 2, '2024-03-02 15:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (3, 3, 5, NULL, 1, '2024-03-05 09:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (4, 4, 2, NULL, 1, '2024-03-06 14:30:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (5, 5, 6, NULL, 3, '2024-03-03 11:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (6, 1, 4, 5, 2, '2024-03-05 16:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (7, 6, 7, NULL, 1, '2024-03-07 10:30:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (8, 7, 8, 8, 2, '2024-03-08 09:00:00', '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2027996897424269312, 1, 1, 2027996897420075008, 0, '2026-03-01 14:38:33', '2026-03-01 14:38:33', '2026-03-01 14:38:33', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042210115264798720, 1, 2042202396713648128, 2042210115260604416, 0, '2026-04-09 19:56:49', '2026-04-09 19:56:49', '2026-04-09 19:56:49', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042212491958747138, 8, 2042202396713648128, 2042212491958747136, 0, '2026-04-09 20:06:15', '2026-04-09 20:06:15', '2026-04-09 20:06:15', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042772523234447360, 1, 2042772024481386496, 2042772523230253056, 0, '2026-04-11 09:11:37', '2026-04-11 09:11:37', '2026-04-11 09:11:37', 0);
-INSERT INTO `registration` (`id`, `user_id`, `registration_schedule_template_id`, `order_id`, `status`, `registration_time`, `create_time`, `update_time`, `is_deleted`) VALUES (2042772688670380034, 1, 2042772024489775105, 2042772688670380032, 0, '2026-04-11 09:12:17', '2026-04-11 09:12:17', '2026-04-11 09:12:17', 0);
+INSERT INTO `registration` VALUES (2043000000000003001, 1, 2043000000000002001, NULL, 0, '2026-07-22 09:00:00', NULL, NULL, NULL, NOW(), NOW(), 0);
+INSERT INTO `registration` VALUES (2043000000000003002, 2, 2043000000000002002, NULL, 5, '2026-07-22 10:00:00', '2026-07-22 09:55:00', NULL, NULL, NOW(), NOW(), 0);
+INSERT INTO `registration` VALUES (2043000000000003003, 3, 2043000000000002004, NULL, 6, '2026-07-22 14:00:00', '2026-07-22 13:58:00', '2026-07-22 14:00:00', NULL, NOW(), NOW(), 0);
+INSERT INTO `registration` VALUES (2043000000000003004, 4, 2043000000000002007, NULL, 2, '2026-07-23 09:00:00', '2026-07-23 08:50:00', '2026-07-23 09:00:00', '2026-07-23 09:30:00', NOW(), NOW(), 0);
+INSERT INTO `registration` VALUES (2043000000000003005, 5, 2043000000000002010, NULL, 3, '2026-07-23 14:00:00', NULL, NULL, NULL, NOW(), NOW(), 0);
 
 -- ----------------------------
 -- Table structure for registration_schedule
@@ -907,16 +904,21 @@ CREATE TABLE `registration_schedule`  (
 -- ----------------------------
 -- Records of registration_schedule
 -- ----------------------------
-INSERT INTO `registration_schedule` VALUES (2042772024561078272, 1, 2042772024481386496, '2026-07-18 09:00:00', '2026-07-18 10:00:00', 1, 20, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078273, 1, 2042772024481386496, '2026-07-18 10:00:00', '2026-07-18 11:00:00', 1, 20, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078274, 1, 2042772024489775104, '2026-07-18 14:00:00', '2026-07-18 15:00:00', 1, 13, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078275, 1, 2042772024489775104, '2026-07-18 15:00:00', '2026-07-18 16:00:00', 1, 13, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078276, 1, 2042772024489775104, '2026-07-18 16:00:00', '2026-07-18 17:00:00', 1, 13, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078277, 1, 2042772024489775105, '2026-07-19 14:00:00', '2026-07-19 15:00:00', 1, 13, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078278, 1, 2042772024489775105, '2026-07-19 15:00:00', '2026-07-19 16:00:00', 1, 13, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078279, 1, 2042772024489775105, '2026-07-19 16:00:00', '2026-07-19 17:00:00', 1, 13, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078280, 1, 2042772024489775106, '2026-07-19 09:00:00', '2026-07-19 10:00:00', 1, 20, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
-INSERT INTO `registration_schedule` VALUES (2042772024561078281, 1, 2042772024489775106, '2026-07-19 10:00:00', '2026-07-19 11:00:00', 1, 20, '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002001, 2, 2043000000000001001, '2026-07-22 09:00:00', '2026-07-22 10:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002002, 2, 2043000000000001001, '2026-07-22 10:00:00', '2026-07-22 11:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002003, 2, 2043000000000001001, '2026-07-22 11:00:00', '2026-07-22 12:00:00', 1, 14, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002004, 2, 2043000000000001002, '2026-07-22 14:00:00', '2026-07-22 15:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002005, 2, 2043000000000001002, '2026-07-22 15:00:00', '2026-07-22 16:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002006, 2, 2043000000000001002, '2026-07-22 16:00:00', '2026-07-22 17:00:00', 1, 14, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002007, 2, 2043000000000001003, '2026-07-23 09:00:00', '2026-07-23 10:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002008, 2, 2043000000000001003, '2026-07-23 10:00:00', '2026-07-23 11:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002009, 2, 2043000000000001003, '2026-07-23 11:00:00', '2026-07-23 12:00:00', 1, 14, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002010, 2, 2043000000000001004, '2026-07-23 14:00:00', '2026-07-23 15:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002011, 2, 2043000000000001004, '2026-07-23 15:00:00', '2026-07-23 16:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002012, 2, 2043000000000001004, '2026-07-23 16:00:00', '2026-07-23 17:00:00', 1, 14, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002013, 2, 2043000000000001005, '2026-07-24 09:00:00', '2026-07-24 10:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002014, 2, 2043000000000001005, '2026-07-24 10:00:00', '2026-07-24 11:00:00', 1, 13, NOW(), NOW(), 0);
+INSERT INTO `registration_schedule` VALUES (2043000000000002015, 2, 2043000000000001005, '2026-07-24 11:00:00', '2026-07-24 12:00:00', 1, 14, NOW(), NOW(), 0);
 
 -- ----------------------------
 -- Table structure for registration_schedule_template
@@ -946,10 +948,11 @@ CREATE TABLE `registration_schedule_template`  (
 -- ----------------------------
 -- Records of registration_schedule_template
 -- ----------------------------
-INSERT INTO `registration_schedule_template` VALUES (2042772024481386496, '张伟医生普通门诊', 1, '2026-07-18', 0, '09:00:00', '11:30:00', 40, 2, 1, 1, 102, '1', '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0, NULL);
-INSERT INTO `registration_schedule_template` VALUES (2042772024489775104, '张伟医生普通门诊', 1, '2026-07-18', 1, '14:00:00', '17:00:00', 40, 2, 1, 1, 102, '1', '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0, NULL);
-INSERT INTO `registration_schedule_template` VALUES (2042772024489775105, '张伟医生普通门诊', 1, '2026-07-19', 1, '14:00:00', '17:00:00', 40, 2, 1, 1, 102, '1', '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0, NULL);
-INSERT INTO `registration_schedule_template` VALUES (2042772024489775106, '张伟医生普通门诊', 1, '2026-07-19', 0, '09:00:00', '11:30:00', 40, 2, 1, 1, 102, '1', '2026-07-18 09:09:38', '2026-07-18 09:09:38', 0, NULL);
+INSERT INTO `registration_schedule_template` VALUES (2043000000000001001, '李娜医生普通门诊', 2, '2026-07-22', 0, '09:00:00', '12:00:00', 40, 2, 1, 1, 1, '心内科门诊', NOW(), NOW(), 0, NULL);
+INSERT INTO `registration_schedule_template` VALUES (2043000000000001002, '李娜医生普通门诊', 2, '2026-07-22', 0, '14:00:00', '17:00:00', 40, 2, 1, 1, 2, '心内科门诊', NOW(), NOW(), 0, NULL);
+INSERT INTO `registration_schedule_template` VALUES (2043000000000001003, '李娜医生普通门诊', 2, '2026-07-23', 0, '09:00:00', '12:00:00', 40, 2, 1, 1, 1, '心内科门诊', NOW(), NOW(), 0, NULL);
+INSERT INTO `registration_schedule_template` VALUES (2043000000000001004, '李娜医生普通门诊', 2, '2026-07-23', 0, '14:00:00', '17:00:00', 40, 2, 1, 1, 2, '心内科门诊', NOW(), NOW(), 0, NULL);
+INSERT INTO `registration_schedule_template` VALUES (2043000000000001005, '李娜医生普通门诊', 2, '2026-07-24', 0, '09:00:00', '12:00:00', 40, 2, 1, 1, 1, '心内科门诊', NOW(), NOW(), 0, NULL);
 
 -- ----------------------------
 -- Table structure for role
@@ -1118,6 +1121,12 @@ CREATE TABLE `medical_record`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '电子病历表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Records of medical_record
+-- ----------------------------
+INSERT INTO `medical_record` VALUES (2043000000000004001, 2043000000000003004, 2, 1, '胸闷气短3天', '患者3天前无明显诱因出现胸闷、气短，活动后加重，休息后可缓解。无胸痛、心悸、晕厥。', NULL, NULL, '冠状动脉粥样硬化性心脏病', '1. 完善心电图、心脏彩超检查\n2. 给予抗血小板、扩冠治疗\n3. 低盐低脂饮食，适量运动', 1, NOW(), NOW(), 0);
+INSERT INTO `medical_record` VALUES (2043000000000004002, 2043000000000003003, 2, 1, '心悸1周', '患者1周前出现心悸，夜间明显，无明显诱因。', NULL, NULL, '心律失常', '1. 完善24小时动态心电图\n2. 给予美托洛尔控制心率', 1, NOW(), NOW(), 0);
+
+-- ----------------------------
 -- Table structure for prescription
 -- ----------------------------
 DROP TABLE IF EXISTS `prescription`;
@@ -1125,8 +1134,8 @@ CREATE TABLE `prescription`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '处方ID',
   `medical_record_id` bigint UNSIGNED NOT NULL COMMENT '关联病历ID',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联药品订单',
-  `total_amount` int NULL DEFAULT NULL COMMENT '处方金额(分)',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-待支付 1-已支付 2-已发药 3-已取消',
+  `total_amount` int NULL DEFAULT NULL COMMENT '处方金额(分)',
   `pharmacist_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '发药药师ID',
   `dispensed_at` datetime NULL DEFAULT NULL COMMENT '发药时间',
   `version` int NULL DEFAULT 0 COMMENT '乐观锁',
@@ -1139,6 +1148,12 @@ CREATE TABLE `prescription`  (
   INDEX `idx_order_id`(`order_id` ASC) USING BTREE,
   INDEX `idx_status`(`status` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '处方表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of prescription
+-- ----------------------------
+INSERT INTO `prescription` VALUES (2043000000000005001, 2043000000000004001, NULL, 1, 8000, NULL, NULL, 0, '阿司匹林肠溶片100mg*30片 + 阿托伐他汀钙片20mg*14片', NOW(), NOW(), 0);
+INSERT INTO `prescription` VALUES (2043000000000005002, 2043000000000004002, NULL, 0, 3500, NULL, NULL, 0, '酒石酸美托洛尔片25mg*20片', NOW(), NOW(), 0);
 
 -- ----------------------------
 -- Table structure for prescription_item
@@ -1160,6 +1175,13 @@ CREATE TABLE `prescription_item`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '处方明细表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Records of prescription_item
+-- ----------------------------
+INSERT INTO `prescription_item` VALUES (2043000000000006001, 2043000000000005001, 1, 1, 3000, '口服，每次100mg，每日1次', NOW(), NOW(), 0);
+INSERT INTO `prescription_item` VALUES (2043000000000006002, 2043000000000005001, 2, 1, 5000, '口服，每次20mg，每晚1次', NOW(), NOW(), 0);
+INSERT INTO `prescription_item` VALUES (2043000000000006003, 2043000000000005002, 7, 1, 3500, '口服，每次25mg，每日2次', NOW(), NOW(), 0);
+
+-- ----------------------------
 -- Table structure for registration_status_log
 -- ----------------------------
 DROP TABLE IF EXISTS `registration_status_log`;
@@ -1178,6 +1200,16 @@ CREATE TABLE `registration_status_log`  (
   INDEX `idx_registration_id`(`registration_id` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号状态变更日志' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of registration_status_log
+-- ----------------------------
+INSERT INTO `registration_status_log` VALUES (2043000000000007001, 2043000000000003002, 0, 5, 1, 'user', '患者扫码报到', NOW(), NOW(), 0);
+INSERT INTO `registration_status_log` VALUES (2043000000000007002, 2043000000000003003, 0, 5, 1, 'user', '患者扫码报到', NOW(), NOW(), 0);
+INSERT INTO `registration_status_log` VALUES (2043000000000007003, 2043000000000003003, 5, 6, 2, 'doctor', '医生开始接诊', NOW(), NOW(), 0);
+INSERT INTO `registration_status_log` VALUES (2043000000000007004, 2043000000000003004, 0, 5, 1, 'user', '患者扫码报到', NOW(), NOW(), 0);
+INSERT INTO `registration_status_log` VALUES (2043000000000007005, 2043000000000003004, 5, 6, 2, 'doctor', '医生开始接诊', NOW(), NOW(), 0);
+INSERT INTO `registration_status_log` VALUES (2043000000000007006, 2043000000000003004, 6, 2, 2, 'doctor', '医生结束接诊', NOW(), NOW(), 0);
 
 -- 数据迁移：把老数据 status=1 且未报到的视为"已预约"
 UPDATE registration

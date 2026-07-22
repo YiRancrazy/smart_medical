@@ -83,7 +83,7 @@ class RegistrationManagerTest {
         Registration registration = new Registration();
         registration.setId(101L);
         registration.setUserId(7L);
-        registration.setRegistrationScheduleTemplateId(99L);
+        registration.setRegistrationScheduleId(99L);
         registration.setStatus(1);
 
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
@@ -101,7 +101,7 @@ class RegistrationManagerTest {
         Registration registration = new Registration();
         registration.setId(101L);
         registration.setUserId(7L);
-        registration.setRegistrationScheduleTemplateId(99L);
+        registration.setRegistrationScheduleId(99L);
         registration.setStatus(1);
 
         RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();

@@ -118,14 +118,14 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     /**
      * 根据挂号排班模板id和用户id获取挂号记录
-     * @param registrationScheduleTemplateId 挂号排班模板id
+     * @param registrationScheduleId 挂号排班模板id
      * @param userId 用户id
      * @return 挂号记录
      */
     @Override
-    public Registration getRegistrationByRegistrationScheduleTemplateIdAndUserId(Long registrationScheduleTemplateId, Long userId) {
+    public Registration getRegistrationByRegistrationScheduleIdAndUserId(Long registrationScheduleId, Long userId) {
         return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
-                .eq(Registration::getRegistrationScheduleTemplateId, registrationScheduleTemplateId)
+                .eq(Registration::getRegistrationScheduleId, registrationScheduleId)
                 .eq(Registration::getUserId, userId)
                 .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode()));
     }

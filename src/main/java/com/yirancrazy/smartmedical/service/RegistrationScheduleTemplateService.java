@@ -69,7 +69,7 @@ public interface RegistrationScheduleTemplateService {
      * @param registrationScheduleTemplateIdList 挂号模板id列表
      * @return 挂号模板信息
      */
-    List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleTemplateIdList);
+    List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleIdList);
 
     /**
      * 通过医生id、开始日期、结束日期查询挂号排班模板

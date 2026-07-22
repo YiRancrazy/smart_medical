@@ -118,7 +118,7 @@ public interface RegistrationScheduleService {
      * @param registrationScheduleTemplateIdList 挂号排班模板ID列表
      * @return 挂号排班信息
      */
-    List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleTemplateIdList(List<Long> registrationScheduleTemplateIdList);
+    List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleIdList(List<Long> registrationScheduleIdList);
 
     /**
      * 批量插入挂号排班信息
@@ -131,12 +131,12 @@ public interface RegistrationScheduleService {
      * @param id 挂号排班模板ID
      * @return 挂号排班信息列表
      */
-    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateId(Long id);
+    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleId(Long id);
 
     /**
      * 根据挂号排班模板ID列表获取挂号排班信息
      * @param idList 挂号排班模板ID列表
      * @return 挂号排班信息列表
      */
-    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateIdList(List<Long> idList);
+    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleIdList(List<Long> idList);
 }

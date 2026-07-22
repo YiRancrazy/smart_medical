@@ -90,7 +90,7 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
         RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleTemplateId());
+                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleId());
         Long regDoctorId = template == null ? null : template.getDoctorId();
         if (!doctorId.equals(regDoctorId)) {
             throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);

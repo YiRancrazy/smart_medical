@@ -52,7 +52,7 @@ public class MedicalRecordManager {
             record.setId(IdUtil.getSnowflakeNextId());
             record.setRegistrationId(req.getRegistrationId());
             RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                    .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleTemplateId());
+                    .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleId());
             record.setDoctorId(template == null ? null : template.getDoctorId());
             record.setPatientId(reg.getUserId());
             record.setStatus(0);

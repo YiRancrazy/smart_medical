@@ -89,10 +89,10 @@ public class RegistrationScheduleManager {
         if (registrationScheduleTemplateList.isEmpty()) {
             return Result.success(new ArrayList<>());
         }
-        List<Long> registrationScheduleTemplateIdList = registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList();
+        List<Long> registrationScheduleIdList = registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList();
 
         List<RegistrationSchedule> registrationSchedules = registrationScheduleService
-                .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateIdList);
+                .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleIdList);
 
         List<RegistrationDateAndRemainQuotaVo> registrationDateAndRemainQuotaVoList = new ArrayList<>();
 
@@ -141,13 +141,13 @@ public class RegistrationScheduleManager {
      */
     public Result<List<RegistrationConfirmTime>> getRegistrationScheduleByDoctorIdAndDate(Long doctorId, LocalDate date) {
         List<RegistrationScheduleTemplate> registrationScheduleTemplates = registrationScheduleTemplateService.getRegistrationScheduleTemplateByDoctorIdAndDate(doctorId, date);
-        List<Long> registrationScheduleTemplateIdList = registrationScheduleTemplates
+        List<Long> registrationScheduleIdList = registrationScheduleTemplates
                 .stream()
                 .map(RegistrationScheduleTemplate::getId)
                 .toList();
 
         List<RegistrationSchedule> registrationSchedulesByDoctorIdAndDate = registrationScheduleService
-                .getRegistrationScheduleListByRegistrationScheduleTemplateIdList(registrationScheduleTemplateIdList);
+                .getRegistrationScheduleListByRegistrationScheduleIdList(registrationScheduleIdList);
 
         List<RegistrationConfirmTime> registrationConfirmTimeList = new CopyOnWriteArrayList<>();
         for (RegistrationSchedule registrationSchedule : registrationSchedulesByDoctorIdAndDate) {

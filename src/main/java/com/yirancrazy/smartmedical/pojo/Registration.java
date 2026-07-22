@@ -28,8 +28,8 @@ public class Registration {
     @Schema(description = "关联用户ID")
     private Long userId;
 
-    @Schema(description = "关联挂号模板id")
-    private Long registrationScheduleTemplateId;
+    @Schema(description = "关联挂号时段id")
+    private Long registrationScheduleId;
 
     @Schema(description = "关联订单ID")
     private Long orderId;

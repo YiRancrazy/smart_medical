@@ -142,8 +142,8 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
     }
 
     @Override
-    public List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleTemplateIdList(List<Long> registrationScheduleTemplateIdList) {
-        return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>().in(RegistrationSchedule::getRegistrationScheduleTemplateId, registrationScheduleTemplateIdList));
+    public List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleIdList(List<Long> registrationScheduleIdList) {
+        return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>().in(RegistrationSchedule::getRegistrationScheduleTemplateId, registrationScheduleIdList));
     }
 
     @Override
@@ -153,13 +153,13 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
     }
 
     @Override
-    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateId(Long id) {
+    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleId(Long id) {
         return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
                 .eq(RegistrationSchedule::getRegistrationScheduleTemplateId, id));
     }
 
     @Override
-    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateIdList(List<Long> idList) {
+    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleIdList(List<Long> idList) {
         if (idList == null || idList.isEmpty()) {
             return new ArrayList<>();
         }

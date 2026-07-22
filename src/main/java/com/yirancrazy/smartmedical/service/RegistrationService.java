@@ -101,7 +101,7 @@ public interface RegistrationService {
      * @param userId 用户id
      * @return 挂号信息
      */
-    Registration getRegistrationByRegistrationScheduleTemplateIdAndUserId(Long registrationScheduleTemplateId, Long userId);
+    Registration getRegistrationByRegistrationScheduleIdAndUserId(Long registrationScheduleId, Long userId);
 
     /**
      * 根据用户id获取挂号信息

@@ -29,6 +29,7 @@ public class RegistrationSchedule {
     private Long doctorId;
 
     @Schema(description = "生成模板id")
+    @TableField("registration_schedule_template_id")
     private Long registrationScheduleTemplateId;
 
     @Schema(description = "排班开始时间")

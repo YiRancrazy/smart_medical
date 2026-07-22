@@ -87,9 +87,9 @@ public class RegistrationScheduleTemplateServiceImpl implements RegistrationSche
     }
 
     @Override
-    public List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleTemplateIdList) {
+    public List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleIdList) {
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
-                .in(RegistrationScheduleTemplate::getId, registrationScheduleTemplateIdList));
+                .in(RegistrationScheduleTemplate::getId, registrationScheduleIdList));
     }
 
     @Override

@@ -14,6 +14,8 @@ import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.PatientService;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,7 @@ public class RegistrationCheckInManager {
     private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
 
     private final RegistrationService registrationService;
+    private final RegistrationScheduleService registrationScheduleService;
     private final PatientService patientService;
     private final UserPatientRelationService userPatientRelationService;
     private final OrdersMapper ordersMapper;
@@ -69,6 +72,19 @@ public class RegistrationCheckInManager {
                 && curStatus != RegistrationStatusEnum.SUCCESS.getCode()) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "当前状态不可报到");
+        }
+        // 校验预约当天才可报到
+        if (reg.getRegistrationScheduleId() != null) {
+            RegistrationSchedule schedule = registrationScheduleService
+                    .getRegistrationScheduleById(reg.getRegistrationScheduleId());
+            if (schedule != null && schedule.getStartTime() != null) {
+                java.time.LocalDate scheduleDate = schedule.getStartTime().toLocalDate();
+                java.time.LocalDate today = java.time.LocalDate.now();
+                if (!scheduleDate.equals(today)) {
+                    throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                            "仅预约当天可报到");
+                }
+            }
         }
         statusLogManager.transition(reg,
                 RegistrationStatusEnum.REPORTED.getCode(),

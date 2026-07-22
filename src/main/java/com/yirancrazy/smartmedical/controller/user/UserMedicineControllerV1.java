@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.MedicineManager;
 import com.yirancrazy.smartmedical.pojo.Medicine;
+import com.yirancrazy.smartmedical.pojo.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,7 +33,7 @@ public class UserMedicineControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取药品", description = "根据药品ID获取药品信息")
     @Parameter(name = "id", description = "药品ID", required = true)
-    public Medicine getMedicineById(@PathVariable String id) {
-        return medicineManager.getMedicineById(Long.parseLong(id));
+    public Result<Medicine> getMedicineById(@PathVariable String id) {
+        return Result.success(medicineManager.getMedicineById(Long.parseLong(id)));
     }
 }

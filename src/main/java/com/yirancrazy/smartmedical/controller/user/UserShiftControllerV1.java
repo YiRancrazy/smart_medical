@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.ShiftManager;
+import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Shift;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,7 +33,7 @@ public class UserShiftControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取班次", description = "根据班次ID获取班次信息")
     @Parameter(name = "id", description = "班次ID", required = true)
-    public Shift getShiftById(@PathVariable String id) {
-        return shiftManager.getShiftById(Long.parseLong(id));
+    public Result<Shift> getShiftById(@PathVariable String id) {
+        return Result.success(shiftManager.getShiftById(Long.parseLong(id)));
     }
 }
