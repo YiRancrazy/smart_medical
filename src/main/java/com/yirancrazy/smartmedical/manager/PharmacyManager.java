@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -11,6 +12,7 @@ import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
@@ -20,6 +22,7 @@ import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
+import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
@@ -58,6 +61,7 @@ public class PharmacyManager {
     private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationService registrationService;
     private final MedicalRecordService medicalRecordService;
+    private final OrderService orderService;
     private final RegistrationStatusLogManager statusLogManager;
 
     /**
@@ -190,6 +194,17 @@ public class PharmacyManager {
 
         vo.setPrescriptionStatus(PrescriptionStatus.DISPENSED.getCode());
         vo.setDispensedAt(dispensedAt);
+
+        // 药品订单置为已完成
+        if (rx.getOrderId() != null) {
+            Order order = orderService.getOrderById(rx.getOrderId());
+            if (order != null && order.getStatus() != null
+                    && order.getStatus() == OrderStatus.PAID.getCode()) {
+                order.setStatus(OrderStatus.FINISHED.getCode());
+                orderService.updateOrderById(order);
+            }
+        }
+
         log.info("[pharmacy-dispense] prescriptionId={}, pharmacistId={}, itemCount={}",
                 prescriptionId, pharmacistId, items.size());
         return vo;

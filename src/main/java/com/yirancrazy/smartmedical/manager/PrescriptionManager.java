@@ -101,9 +101,10 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
         }
         Integer curStatus = reg.getStatus();
-        if (curStatus != RegistrationStatusEnum.IN_TREATMENT.getCode()
-                && curStatus != RegistrationStatusEnum.PENDING_PAYMENT.getCode()) {
-            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "请先完成叫号");
+        if (curStatus == null
+                || curStatus != RegistrationStatusEnum.IN_TREATMENT.getCode()) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                    "仅就诊中状态可提交病历开方，已开方请先作废");
         }
 
         // 2. 校验所有药品 + 库存 + 累计金额
@@ -267,7 +268,17 @@ public class PrescriptionManager {
             log.warn("[prescription-paid] no prescription for orderId={}", orderId);
             return;
         }
-        // @Version 乐观锁会自动校验
+        // 状态守卫：仅待支付可置为已支付，已支付幂等跳过，其他状态拒绝
+        if (rx.getStatus() != null
+                && rx.getStatus() == PrescriptionStatus.PAID.getCode()) {
+            log.info("[prescription-paid] orderId={} already paid, skip", orderId);
+            return;
+        }
+        if (rx.getStatus() == null
+                || rx.getStatus() != PrescriptionStatus.PENDING_PAYMENT.getCode()) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED,
+                    "处方状态非待支付，无法标记已支付");
+        }
         rx.setStatus(PrescriptionStatus.PAID.getCode());
         prescriptionService.updateById(rx);
 

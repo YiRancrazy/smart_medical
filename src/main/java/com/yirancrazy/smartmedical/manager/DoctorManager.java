@@ -374,7 +374,7 @@ public class DoctorManager {
     }
 
     /**
-     * 医生就诊中列表（status=IN_TREATMENT 或 PENDING_PAYMENT，按当前医生过滤）
+     * 医生就诊中列表（status=IN_TREATMENT，按当前医生过滤）
      * @param doctorId 医生ID
      * @return 就诊中 VO 列表
      */
@@ -386,8 +386,7 @@ public class DoctorManager {
         List<Registration> registrations = registrationMapper.selectList(
                 new LambdaQueryWrapper<Registration>()
                         .in(Registration::getRegistrationScheduleId, scheduleIds)
-                        .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
-                                .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode()))
+                        .eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
                         .orderByAsc(Registration::getCheckInTime));
         Map<Long, User> userMap = batchLoadUsers(registrations);
         Map<Long, Account> accountMap = batchLoadAccounts(registrations);
