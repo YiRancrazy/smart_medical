@@ -1,12 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
 import com.yirancrazy.smartmedical.manager.PatientManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
-import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,7 +27,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserMedicalRecordControllerV1 {
 
-    private final MedicalRecordService medicalRecordService;
     private final PatientManager patientManager;
     private final MedicalRecordManager medicalRecordManager;
 
@@ -42,10 +39,7 @@ public class UserMedicalRecordControllerV1 {
         if (patientUserIds.isEmpty()) {
             return Result.success(Collections.emptyList());
         }
-        List<MedicalRecord> records = medicalRecordService.list(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .in(MedicalRecord::getPatientId, patientUserIds)
-                        .orderByDesc(MedicalRecord::getCreateTime));
+        List<MedicalRecord> records = medicalRecordManager.listByPatientIds(patientUserIds);
         return Result.success(medicalRecordManager.toListVOs(records));
     }
 
@@ -54,10 +48,6 @@ public class UserMedicalRecordControllerV1 {
     @GetMapping("/{id:\\d+}")
     public Result<MedicalRecord> detail(@PathVariable Long id,
                                        @RequestAttribute("currentUserId") Long userId) {
-        MedicalRecord record = medicalRecordService.getById(id);
-        if (record == null || !userId.equals(record.getPatientId())) {
-            return Result.fail("无权查看该病历");
-        }
-        return Result.success(record);
+        return Result.success(medicalRecordManager.getMedicalRecordById(id, userId));
     }
 }

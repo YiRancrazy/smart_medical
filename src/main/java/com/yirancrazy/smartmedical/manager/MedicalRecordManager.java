@@ -31,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -222,5 +223,36 @@ public class MedicalRecordManager {
                         .eq(MedicalRecord::getRegistrationId, registrationId)
                         .last("LIMIT 1"));
         return toDetailVO(record);
+    }
+
+    /**
+     * 用户端 - 病历列表（按就诊人过滤）
+     * ponytail: 单表查询，直接返回实体列表
+     * @param patientUserIds 可访问的用户ID列表
+     * @return 病历实体列表（按创建时间倒序）
+     */
+    public List<MedicalRecord> listByPatientIds(List<Long> patientUserIds) {
+        if (patientUserIds == null || patientUserIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return medicalRecordService.list(
+                new LambdaQueryWrapper<MedicalRecord>()
+                        .in(MedicalRecord::getPatientId, patientUserIds)
+                        .orderByDesc(MedicalRecord::getCreateTime));
+    }
+
+    /**
+     * 用户端 - 病历详情（含权限校验）
+     * @param id 病历ID
+     * @param userId 当前用户ID
+     * @return 病历实体
+     * @throws BizException MEDICAL_RECORD_NOT_FOUND / MEDICAL_RECORD_NOT_OWNED
+     */
+    public MedicalRecord getMedicalRecordById(Long id, Long userId) {
+        MedicalRecord record = medicalRecordService.getById(id);
+        if (record == null || !userId.equals(record.getPatientId())) {
+            throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
+        }
+        return record;
     }
 }
