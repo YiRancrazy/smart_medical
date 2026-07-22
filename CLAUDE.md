@@ -3,7 +3,8 @@
 医院预约挂号与后台管理系统后端（Spring Boot 3.5.9 + Java 17 + Maven）。
 面向四类角色：`admin`（系统管理员，科室 / 排班 / 医生 / 订单管理）、`doctor`（医生，出诊 / 诊室）、`user`（患者，挂号 / 支付 / 就诊人）、`pharmacist`（药师，药品管理）。
 
-## Develop ##
+## Develop
+
 - 改代码前先用 Glob/Grep 定位相关文件，只读必要的几个，不要一次性铺开读。
 - 跨模块改动或根因不明的 bug，**先看目录结构 + 调一遍调用链**再动手，别只盯单个文件。
 - 方案设计类任务（新功能、重构），先理清模块边界再写。
@@ -51,7 +52,7 @@ src/main/resources/
 - 枚举放 `constant/`，字段命名 `(code, alias, message)`；Lombok `@Getter` + `@AllArgsConstructor`。
 - 表主键用雪花 ID（`IdUtil.getSnowflakeNextId()`），见 `DepartmentManager`。
 - 中文注释、Javadoc 标注 `@Author / @Description / @Datetime / @Version`，新建类时保持一致。
-- API 用 `@Operation(summary = "...")` 标注，说明面向端（`管理员端 - ` / `用户端 - ` 前缀）。
+- API 用 `@Operation(summary = "...")` 标注，说明面向端（`管理员端 - `  / `用户端 - `  前缀）。
 - 请求 / 响应 DTO 放在 `pojo/dto/<role>/{request,response,result}/`；注意 `pojo/dto/user/response/` 子包历史命名（包含 admin / user 两端的响应，迁移前勿改路径）。
 - **数据库表 4 标准字段**：所有业务表（含日志表、状态流水表）都必须包含以下 4 列 —— `id`（雪花或自增，详见 §Layout 引用）、`create_time DATETIME DEFAULT CURRENT_TIMESTAMP`、`update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`、`is_deleted TINYINT(1) DEFAULT 0`；Entity 上对应字段加 MyBatis-Plus `@TableField(fill=...)` 与 `@TableLogic` 注解。即使语义上 append-only（如状态日志）也保留这 4 列，便于 DAO 层统一处理。**豁免**：仅当表为高频热点更新或纯 append-only 流水（参考 `drug_inventory`、`inventory_transaction`）时，可在 DDL 注释里**显式说明豁免原因**并省略非必要字段，但 `id` 永不豁免。新表必须在 `CreateTable.sql` 中显式列出这 4 列（即便计划豁免也要保留并注明）。
 
@@ -179,13 +180,13 @@ public final class IdGenerator {
 
 本项目默认走「**轻流程 / 重手感**」:最小规划、最快迭代、AI 出代码为主。以下 5 个 skill 在对应场景**自动调用**,无需用户点名。
 
-| Skill          | 触发时机                                            | 预期产出 / 调用方式                                       |
-| -------------- | ----------------------------------------------- | ---------------------------------------------- |
-| grill-me  | 写代码 / 新增类 / 新接口 / 改语义 前                          | 1 轮 AskUserQuestion 对齐意图, 当我现式调用brainstorming时不启用这个skill                |
-| ponytail       | 每次给出代码方案时(默认 on)                                | 走 ponytail 思路:能少则少、复用优先、不加无意义依赖               |
-| verify         | 改动涉及运行行为 / API / 配置 / DDL 后,准备声明完成前           | 跑 `mvn compile` + 必要时启动应用 + curl/接口验证           |
-| simplify       | 单次功能 / PR 收尾、提交前                                | 对刚改文件跑 simplify 思路:复用 / 简化 / 删除冗余             |
-| caveman        | 全程对话输出                                          | 用 lite / full / ultra 级别压缩文本,与现有 RTK 互补      |
+| Skill    | 触发时机                                | 预期产出 / 调用方式                                              |
+| -------- | ----------------------------------- | -------------------------------------------------------- |
+| grill-me | 写代码 / 新增类 / 新接口 / 改语义 前             | 1 轮 AskUserQuestion 对齐意图, 当我现式调用brainstorming时不启用这个skill |
+| ponytail | 每次给出代码方案时(默认 on)                    | 走 ponytail 思路:能少则少、复用优先、不加无意义依赖                          |
+| verify   | 改动涉及运行行为 / API / 配置 / DDL 后,准备声明完成前 | 跑 `mvn compile` + 必要时启动应用 + curl/接口验证                    |
+| simplify | 单次功能 / PR 收尾、提交前                    | 对刚改文件跑 simplify 思路:复用 / 简化 / 删除冗余                        |
+| caveman  | 全程对话输出                              | 用 lite / full / ultra 级别压缩文本,与现有 RTK 互补                  |
 
 以下场景**不走 vibe coding**,切换到正式流程(含 writing-plans / TDD / 至少一人复核):
 
@@ -202,10 +203,10 @@ public final class IdGenerator {
 
 ### 长期分支
 
-| 分支 | 作用 | 受保护 | 备注 |
-|---|---|---|---|
-| `main` | 发布版本，对应线上 | 是 | 仅接收 `master` 通过 PR 合入；禁止直推；发版后打 tag（如 `v1.2.0`）|
-| `master` | 默认工作分支 / 集成 | 否 | 克隆下来默认在此；所有主题分支从这里切出 |
+| 分支       | 作用          | 受保护 | 备注                                              |
+| -------- | ----------- | --- | ----------------------------------------------- |
+| `main`   | 发布版本，对应线上   | 是   | 仅接收 `master` 通过 PR 合入；禁止直推；发版后打 tag（如 `v1.2.0`） |
+| `master` | 默认工作分支 / 集成 | 否   | 克隆下来默认在此；所有主题分支从这里切出                            |
 
 - 发版流程：`master` 累积稳定 → 提 PR `master → main` → 通过后打 tag → 部署。
 - 紧急修复：从 `main` 切 `hotfix/xxx`，合并后**同时回灌** `master`。
@@ -214,15 +215,15 @@ public final class IdGenerator {
 
 格式：`<type>/<scope>-<short-desc>`，type / scope 与下方「Git 提交规范」保持一致，**全小写**，词间用 `-`。
 
-| 前缀 | 用途 | 示例 |
-|---|---|---|
-| `feat/` | 新功能 | `feat/科室-新增停诊接口` |
-| `fix/` | 修 bug | `fix/挂号-重复下单` |
-| `refactor/` | 重构 | `refactor/订单-抽状态机` |
-| `perf/` | 性能优化 | `perf/科室-加Redis缓存` |
-| `chore/` | 杂项 | `chore/升级-SpringBoot-3.5.9` |
-| `hotfix/` | 线上紧急修复（从 `main` 切）| `hotfix/支付-回调超时` |
-| `release/` | 发版预热（从 `master` 切）| `release/v1.2.0` |
+| 前缀          | 用途                 | 示例                          |
+| ----------- | ------------------ | --------------------------- |
+| `feat/`     | 新功能                | `feat/科室-新增停诊接口`            |
+| `fix/`      | 修 bug              | `fix/挂号-重复下单`               |
+| `refactor/` | 重构                 | `refactor/订单-抽状态机`          |
+| `perf/`     | 性能优化               | `perf/科室-加Redis缓存`          |
+| `chore/`    | 杂项                 | `chore/升级-SpringBoot-3.5.9` |
+| `hotfix/`   | 线上紧急修复（从 `main` 切） | `hotfix/支付-回调超时`            |
+| `release/`  | 发版预热（从 `master` 切） | `release/v1.2.0`            |
 
 - `scope` 复用提交规范里的中文模块名（科室 / 排班 / 医生 / 订单 / 挂号 / 支付 / 就诊人 / 药品 / 管理员 / 用户 / 鉴权 / 文档 / 依赖）。
 - 分支名**短而具体**，禁止带作者名 / 时间戳 / 临时标记（如 `tmp` / `test1`）。
@@ -269,19 +270,19 @@ rtk git merge --no-ff feat/科室-新增停诊接口
 
 ### type（仅允许下表）
 
-| type | 说明 | 触发示例 |
-|---|---|---|
-| `feat` | 新功能 | 新增 controller / 接口 |
-| `fix` | 修复 bug | 修下单 500、字段映射错 |
-| `docs` | 文档变更 | 仅修改 `CLAUDE.md` / README |
-| `style` | 格式调整（无逻辑变化）| 调 import、格式化 |
-| `refactor` | 重构（非新功能、非修 bug）| 抽公共 Manager 方法 |
-| `perf` | 性能优化 | 加缓存、改分页 |
-| `test` | 测试相关 | 新增 / 调整单测 |
-| `build` | 构建系统或外部依赖 | `pom.xml` 升级 |
-| `ci` | CI 配置 | GitHub Actions |
-| `chore` | 杂项（构建 / 工具 / 依赖）| 调 `.gitignore` |
-| `revert` | 回滚 | `revert: feat(科室): ...` |
+| type       | 说明               | 触发示例                     |
+| ---------- | ---------------- | ------------------------ |
+| `feat`     | 新功能              | 新增 controller / 接口       |
+| `fix`      | 修复 bug           | 修下单 500、字段映射错            |
+| `docs`     | 文档变更             | 仅修改 `CLAUDE.md` / README |
+| `style`    | 格式调整（无逻辑变化）      | 调 import、格式化             |
+| `refactor` | 重构（非新功能、非修 bug）  | 抽公共 Manager 方法           |
+| `perf`     | 性能优化             | 加缓存、改分页                  |
+| `test`     | 测试相关             | 新增 / 调整单测                |
+| `build`    | 构建系统或外部依赖        | `pom.xml` 升级             |
+| `ci`       | CI 配置            | GitHub Actions           |
+| `chore`    | 杂项（构建 / 工具 / 依赖） | 调 `.gitignore`           |
+| `revert`   | 回滚               | `revert: feat(科室): ...`  |
 
 ### scope（可选；本项目强烈建议填）
 
@@ -327,14 +328,20 @@ BREAKING CHANGE: code=200 改为 0 表示成功，500 改为业务异常
 - 安全 / JWT：[config/SecurityConfig.java](src/main/java/com/yirancrazy/smartmedical/config/SecurityConfig.java)
 - 过滤链：[filter/JwtAuthenticationFilter.java](src/main/java/com/yirancrazy/smartmedical/filter/JwtAuthenticationFilter.java)
 
-
 ## 项目内容
+
 - 测试系统管理员账户：13996001338 密码：123456（科室管理员）；19350051049 密码：123456（超级管理员）
 - 测试医生账户：15264835030 密码：123123
 - 测试用户账户：13702654235 密码：123456
 - 测试药师账户：18512345678 密码：123456
 
 ### 后端项目
+
 - 项目测试端口：8080
+- 项目层级职责
+  - Controller层 负责数据校验，调用Manager层
+  - Manager层 负责业务逻辑，调用Service 层
+  - Service层 负责调用Mapper层
+  - Mapper 层负责数据库访问
 
 ### 前端端口
