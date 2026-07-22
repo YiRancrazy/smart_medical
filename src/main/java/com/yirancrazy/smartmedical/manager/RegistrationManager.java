@@ -1,9 +1,11 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
 import com.yirancrazy.smartmedical.service.*;
@@ -37,6 +39,7 @@ public class RegistrationManager {
     private final OrderTypeService orderTypeService;
     private final OrderItemService orderItemService;
     private final RegistrationScheduleService registrationScheduleService;
+    private final RegistrationScheduleMapper registrationScheduleMapper;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final DoctorService doctorService;
     private final UserService userService;
@@ -91,13 +94,13 @@ public class RegistrationManager {
 
 
 
-        if (registrationSchedule.getRemainingQuota() > 0) {
-            registrationSchedule.setRemainingQuota(registrationSchedule.getRemainingQuota() - 1);
-            Integer updated = registrationScheduleService.updateRegistrationScheduleById(registrationSchedule);
-            if (updated == null || updated <= 0) {
-                return Result.fail("号源扣减失败");
-            }
-        }else {
+        // 原子扣减号源：WHERE remaining_quota > 0 防止并发超卖
+        int deducted = registrationScheduleMapper.update(null,
+                new UpdateWrapper<RegistrationSchedule>()
+                        .eq("id", registrationScheduleId)
+                        .gt("remaining_quota", 0)
+                        .setSql("remaining_quota = remaining_quota - 1"));
+        if (deducted == 0) {
             return Result.fail("该排班已无号源");
         }
 

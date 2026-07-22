@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
+import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
@@ -37,8 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RegistrationCheckInManager {
 
-    /** 订单类型:挂号订单(DDL order_type.id=1) */
-    private static final long ORDER_TYPE_REGISTRATION = 1L;
     /** 支付记录状态:成功 */
     private static final int PAYMENT_STATUS_SUCCESS = 2;
     /** 支付记录状态:已退款 */
@@ -48,6 +47,7 @@ public class RegistrationCheckInManager {
 
     private final RegistrationService registrationService;
     private final RegistrationScheduleService registrationScheduleService;
+    private final RegistrationScheduleMapper registrationScheduleMapper;
     private final PatientService patientService;
     private final UserPatientRelationService userPatientRelationService;
     private final OrdersMapper ordersMapper;
@@ -71,10 +71,9 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         Integer curStatus = reg.getStatus();
-        if (curStatus != RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()
-                && curStatus != RegistrationStatusEnum.SUCCESS.getCode()) {
+        if (curStatus == null || curStatus != RegistrationStatusEnum.SUCCESS.getCode()) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
-                    "当前状态不可报到");
+                    "仅待就诊状态可报到");
         }
         // 校验预约当天才可报到
         if (reg.getRegistrationScheduleId() != null) {
@@ -120,19 +119,24 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         Integer curStatus = reg.getStatus();
-        if (curStatus != RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()
-                && curStatus != RegistrationStatusEnum.SUCCESS.getCode()
-                && curStatus != RegistrationStatusEnum.REPORTED.getCode()) {
+        if (curStatus != null
+                && curStatus != RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()
+                && curStatus != RegistrationStatusEnum.SUCCESS.getCode()) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
-                    "就诊已开始，请联系医生作废处方后再取消");
+                    "当前状态不可取消");
         }
 
-        // 取消时若有挂号订单则联动处理(关闭或退款)
-        Order order = ordersMapper.selectOne(
-                new LambdaQueryWrapper<Order>()
-                        .eq(Order::getUserId, userId)
-                        .eq(Order::getOrderTypeId, ORDER_TYPE_REGISTRATION)
-                        .last("LIMIT 1"));
+        // 恢复号源：取消成功后 remaining_quota + 1
+        if (reg.getRegistrationScheduleId() != null) {
+            registrationScheduleMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<RegistrationSchedule>()
+                            .eq("id", reg.getRegistrationScheduleId())
+                            .setSql("remaining_quota = remaining_quota + 1"));
+        }
+
+        // 取消时若有挂号订单则联动处理(关闭或退款)，按 reg.orderId 精确定位
+        Order order = reg.getOrderId() == null ? null
+                : ordersMapper.selectById(reg.getOrderId());
         if (order != null && order.getStatus() != null) {
             if (order.getStatus() == OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
                 // 待支付:直接关闭
