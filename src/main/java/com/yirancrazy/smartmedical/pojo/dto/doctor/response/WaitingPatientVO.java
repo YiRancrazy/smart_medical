@@ -18,10 +18,10 @@ import java.time.LocalDateTime;
 public class WaitingPatientVO {
 
     @Schema(description = "挂号记录ID")
-    private Long registrationId;
+    private String registrationId;
 
     @Schema(description = "患者ID")
-    private Long patientId;
+    private String patientId;
 
     @Schema(description = "患者姓名")
     private String patientName;

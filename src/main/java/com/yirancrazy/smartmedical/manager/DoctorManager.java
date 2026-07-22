@@ -342,7 +342,7 @@ public class DoctorManager {
         Map<Long, Account> accountMap = batchLoadAccounts(registrations);
         return registrations.stream().map(reg -> {
             DoctorScheduleVO vo = new DoctorScheduleVO();
-            vo.setRegistrationId(reg.getId());
+            vo.setRegistrationId(String.valueOf(reg.getId()));
             vo.setStatus(reg.getStatus());
             vo.setRegistrationTime(reg.getRegistrationTime());
             RegistrationSchedule s = scheduleMap.get(reg.getRegistrationScheduleId());
@@ -423,8 +423,8 @@ public class DoctorManager {
 
     private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, User> userMap, Map<Long, Account> accountMap) {
         WaitingPatientVO vo = new WaitingPatientVO();
-        vo.setRegistrationId(reg.getId());
-        vo.setPatientId(reg.getUserId());
+        vo.setRegistrationId(String.valueOf(reg.getId()));
+        vo.setPatientId(String.valueOf(reg.getUserId()));
         vo.setStatus(reg.getStatus());
         vo.setCheckInTime(reg.getCheckInTime());
         vo.setRegistrationTime(reg.getRegistrationTime());
@@ -437,7 +437,7 @@ public class DoctorManager {
 
     private void fillPatientInfo(DoctorScheduleVO vo, Registration reg,
                                   Map<Long, User> userMap, Map<Long, Account> accountMap) {
-        vo.setPatientId(reg.getUserId());
+        vo.setPatientId(String.valueOf(reg.getUserId()));
         User user = userMap.get(reg.getUserId());
         Account account = accountMap.get(reg.getUserId());
         vo.setPatientName(user != null ? user.getNickname() : null);

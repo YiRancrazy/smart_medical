@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public class DoctorScheduleVO {
 
     @Schema(description = "挂号记录ID")
-    private Long registrationId;
+    private String registrationId;
 
     @Schema(description = "挂号状态")
     private Integer status;
@@ -33,7 +33,7 @@ public class DoctorScheduleVO {
     private LocalDateTime endTime;
 
     @Schema(description = "患者ID")
-    private Long patientId;
+    private String patientId;
 
     @Schema(description = "患者姓名")
     private String patientName;
