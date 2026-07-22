@@ -166,4 +166,13 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
         return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
                 .in(RegistrationSchedule::getRegistrationScheduleTemplateId, idList));
     }
+
+    @Override
+    public List<RegistrationSchedule> getRegistrationScheduleListByTemplateIdList(List<Long> templateIdList) {
+        if (templateIdList == null || templateIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
+                .in(RegistrationSchedule::getRegistrationScheduleTemplateId, templateIdList));
+    }
 }

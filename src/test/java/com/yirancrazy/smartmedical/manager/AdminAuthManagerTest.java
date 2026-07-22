@@ -122,8 +122,8 @@ class AdminAuthManagerTest {
 
         assertEquals(200, result.getCode());
         ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-        verify(redisUtil).setEx(eq("admin-access:42"), tokenCaptor.capture(), eq(7L), eq(TimeUnit.DAYS));
-        verify(redisUtil).setEx(eq("admin-refresh:42"), tokenCaptor.capture(), eq(7L), eq(TimeUnit.DAYS));
+        verify(redisUtil).setEx(eq("admin-access:42"), tokenCaptor.capture(), eq(30L), eq(TimeUnit.MINUTES));
+        verify(redisUtil).setEx(eq("admin-refresh:42"), tokenCaptor.capture(), eq(30L), eq(TimeUnit.DAYS));
         // ponytail: 至少验证 token 是合法 JWT 字符串且彼此不同（防退化）
         assertNotNull(tokenCaptor.getAllValues().get(0));
         assertNotNull(tokenCaptor.getAllValues().get(1));

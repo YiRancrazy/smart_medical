@@ -27,6 +27,12 @@ public class MedicalRecordDetailVO {
     @Schema(description = "患者ID")
     private Long patientId;
 
+    @Schema(description = "患者姓名")
+    private String patientName;
+
+    @Schema(description = "患者手机号")
+    private String patientPhone;
+
     @Schema(description = "主诉")
     private String chiefComplaint;
 

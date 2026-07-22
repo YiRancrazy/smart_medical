@@ -18,6 +18,7 @@ import com.yirancrazy.smartmedical.pojo.OrderItem;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
@@ -29,6 +30,7 @@ import com.yirancrazy.smartmedical.service.OrderItemService;
 import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
@@ -73,6 +75,7 @@ public class PrescriptionManager {
     private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationStatusLogManager statusLogManager;
     private final RegistrationStatusLogService registrationStatusLogService;
+    private final RegistrationScheduleService registrationScheduleService;
 
     /**
      * 医生提交病历 + 开处方（最大事务）
@@ -89,8 +92,9 @@ public class PrescriptionManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
-        RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleId());
+        RegistrationSchedule schedule = registrationScheduleService.getRegistrationScheduleById(reg.getRegistrationScheduleId());
+        RegistrationScheduleTemplate template = schedule == null ? null
+                : registrationScheduleTemplateService.getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
         Long regDoctorId = template == null ? null : template.getDoctorId();
         if (!doctorId.equals(regDoctorId)) {
             throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);

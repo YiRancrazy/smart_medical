@@ -15,7 +15,9 @@ import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +53,7 @@ public class RegistrationCheckInManager {
     private final OrdersMapper ordersMapper;
     private final PaymentRecordMapper paymentRecordMapper;
     private final RegistrationStatusLogManager statusLogManager;
+    private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
 
     /**
      * 用户报到（status 0/1 → 5）
@@ -77,8 +80,10 @@ public class RegistrationCheckInManager {
         if (reg.getRegistrationScheduleId() != null) {
             RegistrationSchedule schedule = registrationScheduleService
                     .getRegistrationScheduleById(reg.getRegistrationScheduleId());
-            if (schedule != null && schedule.getStartTime() != null) {
-                java.time.LocalDate scheduleDate = schedule.getStartTime().toLocalDate();
+            RegistrationScheduleTemplate template = schedule == null ? null
+                    : registrationScheduleTemplateService.getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
+            if (template != null && template.getRegistrationDate() != null) {
+                java.time.LocalDate scheduleDate = template.getRegistrationDate();
                 java.time.LocalDate today = java.time.LocalDate.now();
                 if (!scheduleDate.equals(today)) {
                     throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,

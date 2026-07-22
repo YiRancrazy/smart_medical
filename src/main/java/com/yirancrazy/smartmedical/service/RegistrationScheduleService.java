@@ -139,4 +139,11 @@ public interface RegistrationScheduleService {
      * @return 挂号排班信息列表
      */
     List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleIdList(List<Long> idList);
+
+    /**
+     * 根据挂号排班模板ID列表获取挂号排班信息（语义别名）
+     * @param templateIdList 挂号排班模板ID列表
+     * @return 挂号排班信息列表
+     */
+    List<RegistrationSchedule> getRegistrationScheduleListByTemplateIdList(List<Long> templateIdList);
 }
