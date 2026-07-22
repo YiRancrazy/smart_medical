@@ -103,12 +103,32 @@ public class ExcelManager {
             return Result.fail("未读取到有效数据，请检查文件内容");
         }
 
-        registrationScheduleTemplateService.insertRegistrationScheduleTemplates(templates);
+        // 去重：跳过已存在的同医生/日期/开始时段模板
+        List<RegistrationScheduleTemplate> toInsert = new ArrayList<>();
+        for (RegistrationScheduleTemplate template : templates) {
+            List<RegistrationScheduleTemplate> existing = registrationScheduleTemplateService
+                    .getRegistrationScheduleTemplateByDoctorIdAndDate(
+                            template.getDoctorId(), template.getRegistrationDate());
+            boolean dup = existing != null && existing.stream()
+                    .anyMatch(e -> template.getStartTime() != null
+                            && template.getStartTime().equals(e.getStartTime()));
+            if (dup) {
+                log.warn("[excel] 模板已存在，跳过：doctorId={}, date={}, startTime={}",
+                        template.getDoctorId(), template.getRegistrationDate(), template.getStartTime());
+            } else {
+                toInsert.add(template);
+            }
+        }
+        if (toInsert.isEmpty()) {
+            return Result.fail("所有模板均已存在，未生成新排班");
+        }
 
-        List<RegistrationSchedule> schedules = buildSchedules(templates);
+        registrationScheduleTemplateService.insertRegistrationScheduleTemplates(toInsert);
+
+        List<RegistrationSchedule> schedules = buildSchedules(toInsert);
         registrationScheduleService.insertRegistrationScheduleList(schedules);
 
-        return Result.success(templates.size());
+        return Result.success(toInsert.size());
     }
 
     /**
