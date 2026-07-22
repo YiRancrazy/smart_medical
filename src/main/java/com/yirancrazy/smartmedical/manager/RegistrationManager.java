@@ -94,12 +94,13 @@ public class RegistrationManager {
 
 
 
-        // 原子扣减号源：WHERE remaining_quota > 0 防止并发超卖
+        // 原子扣减号源：WHERE remaining_quota > 0 防止并发超卖；扣减后为 0 则置为已满(2)
         int deducted = registrationScheduleMapper.update(null,
                 new UpdateWrapper<RegistrationSchedule>()
                         .eq("id", registrationScheduleId)
                         .gt("remaining_quota", 0)
-                        .setSql("remaining_quota = remaining_quota - 1"));
+                        .setSql("remaining_quota = remaining_quota - 1")
+                        .setSql("status = IF(remaining_quota - 1 = 0, 2, status)"));
         if (deducted == 0) {
             return Result.fail("该排班已无号源");
         }

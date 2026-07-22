@@ -141,8 +141,10 @@ public class RegistrationScheduleManager {
      */
     public Result<List<RegistrationConfirmTime>> getRegistrationScheduleByDoctorIdAndDate(Long doctorId, LocalDate date) {
         List<RegistrationScheduleTemplate> registrationScheduleTemplates = registrationScheduleTemplateService.getRegistrationScheduleTemplateByDoctorIdAndDate(doctorId, date);
+        // 仅保留已启用模板
         List<Long> registrationScheduleIdList = registrationScheduleTemplates
                 .stream()
+                .filter(t -> Boolean.TRUE.equals(t.getEnabled()))
                 .map(RegistrationScheduleTemplate::getId)
                 .toList();
 
@@ -151,6 +153,10 @@ public class RegistrationScheduleManager {
 
         List<RegistrationConfirmTime> registrationConfirmTimeList = new CopyOnWriteArrayList<>();
         for (RegistrationSchedule registrationSchedule : registrationSchedulesByDoctorIdAndDate) {
+            // 仅展示正常(1)状态的排班
+            if (registrationSchedule.getStatus() == null || registrationSchedule.getStatus() != 1) {
+                continue;
+            }
             RegistrationConfirmTime registrationConfirmTime = new RegistrationConfirmTime();
             registrationConfirmTime.setRegistrationScheduleId(String.valueOf(registrationSchedule.getId()));
             registrationConfirmTime.setStartTime(registrationSchedule.getStartTime());

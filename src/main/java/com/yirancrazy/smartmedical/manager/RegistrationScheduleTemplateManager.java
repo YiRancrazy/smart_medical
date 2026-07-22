@@ -271,8 +271,10 @@ public class RegistrationScheduleTemplateManager {
             throw new BizException(BizErrorCode.SCHEDULE_TEMPLATE_NOT_FOUND);
         }
         registrationScheduleTemplate.setEnabled(false);
-
         Integer result = registrationScheduleTemplateService.updateRegistrationScheduleTemplateById(registrationScheduleTemplate);
+
+        // 联动停诊已生成的排班
+        syncScheduleStatusByTemplate(id, 0);
         return Result.success(result);
     }
 
@@ -287,8 +289,27 @@ public class RegistrationScheduleTemplateManager {
             throw new BizException(BizErrorCode.SCHEDULE_TEMPLATE_NOT_FOUND);
         }
         registrationScheduleTemplate.setEnabled(true);
-
         Integer result = registrationScheduleTemplateService.updateRegistrationScheduleTemplateById(registrationScheduleTemplate);
+
+        // 联动启用已生成的排班
+        syncScheduleStatusByTemplate(id, 1);
         return Result.success(result);
+    }
+
+    /**
+     * 同步某模板下所有排班的状态（停诊=0 / 启用=1）
+     */
+    private void syncScheduleStatusByTemplate(Long templateId, int status) {
+        List<RegistrationSchedule> schedules = registrationScheduleService
+                .getRegistrationScheduleListByTemplateIdList(List.of(templateId));
+        if (schedules == null || schedules.isEmpty()) {
+            return;
+        }
+        for (RegistrationSchedule schedule : schedules) {
+            if (schedule.getStatus() == null || schedule.getStatus() != status) {
+                schedule.setStatus(status);
+                registrationScheduleService.updateRegistrationScheduleById(schedule);
+            }
+        }
     }
 }

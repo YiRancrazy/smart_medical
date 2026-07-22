@@ -126,12 +126,13 @@ public class RegistrationCheckInManager {
                     "当前状态不可取消");
         }
 
-        // 恢复号源：取消成功后 remaining_quota + 1
+        // 恢复号源：取消成功后 remaining_quota + 1，若原为已满(2)则恢复为正常(1)
         if (reg.getRegistrationScheduleId() != null) {
             registrationScheduleMapper.update(null,
                     new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<RegistrationSchedule>()
                             .eq("id", reg.getRegistrationScheduleId())
-                            .setSql("remaining_quota = remaining_quota + 1"));
+                            .setSql("remaining_quota = remaining_quota + 1")
+                            .setSql("status = IF(status = 2, 1, status)"));
         }
 
         // 取消时若有挂号订单则联动处理(关闭或退款)，按 reg.orderId 精确定位
