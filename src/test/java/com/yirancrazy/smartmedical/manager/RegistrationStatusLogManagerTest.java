@@ -40,11 +40,11 @@ class RegistrationStatusLogManagerTest {
 
     @Test
     void transition_updatesStatusAndWritesLog() {
-        // Given: WAITING_FOR_PAYMENT → REPORTED
+        // Given: SUCCESS → REPORTED
         Registration reg = new Registration();
         reg.setId(100L);
         reg.setUserId(1L);
-        reg.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
+        reg.setStatus(RegistrationStatusEnum.SUCCESS.getCode());
 
         when(registrationMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(1);
 
@@ -57,11 +57,29 @@ class RegistrationStatusLogManagerTest {
         verify(registrationMapper).update(eq(null), any(UpdateWrapper.class));
         verify(registrationStatusLogService).writeLog(
                 eq(100L),
-                eq(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()),
+                eq(RegistrationStatusEnum.SUCCESS.getCode()),
                 eq(RegistrationStatusEnum.REPORTED.getCode()),
                 eq(1L), eq("user"), eq("用户报到"));
         // 内存中的状态也应同步为目标状态
         assertEquals(RegistrationStatusEnum.REPORTED.getCode(), reg.getStatus());
+    }
+
+    @Test
+    void transition_rejectsInvalidTransition() {
+        // Given: WAITING_FOR_PAYMENT → REPORTED 非法流转（需先支付）
+        Registration reg = new Registration();
+        reg.setId(104L);
+        reg.setUserId(1L);
+        reg.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
+
+        // When + Then: 白名单拒绝，不应触达 mapper
+        BizException ex = assertThrows(BizException.class, () ->
+                registrationStatusLogManager.transition(reg,
+                        RegistrationStatusEnum.REPORTED.getCode(),
+                        1L, "user", "非法报到"));
+        assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
+        verify(registrationMapper, never()).update(any(), any());
+        verify(registrationStatusLogService, never()).writeLog(any(), any(), any(), any(), any(), any());
     }
 
     @Test

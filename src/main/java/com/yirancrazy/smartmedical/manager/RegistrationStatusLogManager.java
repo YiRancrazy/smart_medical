@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 挂号状态迁移工具
@@ -34,6 +36,30 @@ public class RegistrationStatusLogManager {
     private final RegistrationMapper registrationMapper;
 
     /**
+     * 允许的状态转移白名单（from -> 可达 to 集合）
+     * 对应状态机文档定义，禁止任意状态互转
+     */
+    private static final Map<Integer, Set<Integer>> ALLOWED_TRANSITIONS = Map.of(
+            RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
+            Set.of(RegistrationStatusEnum.SUCCESS.getCode(),
+                    RegistrationStatusEnum.FAILED.getCode(),
+                    RegistrationStatusEnum.CANCELED.getCode()),
+            RegistrationStatusEnum.SUCCESS.getCode(),
+            Set.of(RegistrationStatusEnum.REPORTED.getCode(),
+                    RegistrationStatusEnum.CANCELED.getCode()),
+            RegistrationStatusEnum.FAILED.getCode(),
+            Set.of(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()),
+            RegistrationStatusEnum.REPORTED.getCode(),
+            Set.of(RegistrationStatusEnum.IN_TREATMENT.getCode()),
+            RegistrationStatusEnum.IN_TREATMENT.getCode(),
+            Set.of(RegistrationStatusEnum.PENDING_PAYMENT.getCode(),
+                    RegistrationStatusEnum.COMPLETED.getCode()),
+            RegistrationStatusEnum.PENDING_PAYMENT.getCode(),
+            Set.of(RegistrationStatusEnum.IN_TREATMENT.getCode(),
+                    RegistrationStatusEnum.COMPLETED.getCode())
+    );
+
+    /**
      * 状态迁移：原子地更新 registration.status + 写日志，按需填充 check_in_time / visit_start_time / visit_end_time
      * @param reg 已加载的挂号实体
      * @param toStatus 目标状态
@@ -48,6 +74,13 @@ public class RegistrationStatusLogManager {
         Integer fromStatus = reg.getStatus();
         if (fromStatus == null) {
             fromStatus = -1;
+        }
+
+        // 0. 业务白名单校验：禁止任意状态互转
+        Set<Integer> allowedTo = ALLOWED_TRANSITIONS.get(fromStatus);
+        if (allowedTo == null || !allowedTo.contains(toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                    "非法状态流转：" + fromStatus + " -> " + toStatus);
         }
 
         // 1. 构造带乐观守门的 UPDATE：WHERE id=? AND status=fromStatus

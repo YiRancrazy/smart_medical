@@ -182,8 +182,9 @@ public class PaymentRecordManager {
      */
     private void syncRegistrationStatusPaid(Long orderId) {
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
+        // 仅当挂号仍处于待支付时才补同步，避免回退已报到/就诊中等状态
         if (registration != null
-                && !Integer.valueOf(RegistrationStatusEnum.SUCCESS.getCode()).equals(registration.getStatus())) {
+                && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
             registrationStatusLogManager.transition(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
                     registration.getUserId(), "user", "支付成功(补同步)");
