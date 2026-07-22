@@ -83,7 +83,7 @@ public class RegistrationManager {
         // 判断该用户是否已经预约过
         Registration existRegistration = registrationService
                 .getRegistrationByRegistrationScheduleIdAndUserId(registrationSchedule
-                        .getRegistrationScheduleTemplateId(), patient.getUserId());
+                        .getId(), patient.getUserId());
         log.warn("existRegistration: " + existRegistration);
         if(existRegistration != null){
             return Result.fail("该用户已经挂号");
@@ -117,7 +117,7 @@ public class RegistrationManager {
 
         registration.setId(IdUtil.getSnowflakeNextId());
         registration.setUserId(patient.getUserId());
-        registration.setRegistrationScheduleId(registrationSchedule.getRegistrationScheduleTemplateId());
+        registration.setRegistrationScheduleId(registrationSchedule.getId());
         registration.setOrderId(order.getId());
         registration.setRegistrationTime(LocalDateTime.now());
         registration.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
@@ -162,14 +162,21 @@ public class RegistrationManager {
             item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
 
             if (registration.getRegistrationScheduleId() == null) {
-                log.warn("跳过挂号 {}：未关联排班模板", registration.getId());
+                log.warn("跳过挂号 {}：未关联排班", registration.getId());
+                continue;
+            }
+            RegistrationSchedule schedule = registrationScheduleService
+                    .getRegistrationScheduleById(registration.getRegistrationScheduleId());
+            if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+                log.warn("跳过挂号 {}：未找到排班 {}", registration.getId(),
+                        registration.getRegistrationScheduleId());
                 continue;
             }
             RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                    .getRegistrationScheduleTemplateById(registration.getRegistrationScheduleId());
+                    .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
             if (template == null || template.getDoctorId() == null) {
                 log.warn("跳过挂号 {}：未找到排班模板 {}", registration.getId(),
-                        registration.getRegistrationScheduleId());
+                        schedule.getRegistrationScheduleTemplateId());
                 continue;
             }
             Doctor doctor = doctorService.getDoctorById(template.getDoctorId());

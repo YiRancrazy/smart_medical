@@ -4,6 +4,7 @@ import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.DoctorPosition;
 import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
@@ -86,9 +87,14 @@ class RegistrationManagerTest {
         registration.setRegistrationScheduleId(99L);
         registration.setStatus(1);
 
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(99L);
+        schedule.setRegistrationScheduleTemplateId(88L);
+
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
         when(userService.getUserById(7L)).thenReturn(new User());
-        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(99L)).thenReturn(null);
+        when(registrationScheduleService.getRegistrationScheduleById(99L)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(88L)).thenReturn(null);
 
         Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null);
 
@@ -103,6 +109,10 @@ class RegistrationManagerTest {
         registration.setUserId(7L);
         registration.setRegistrationScheduleId(99L);
         registration.setStatus(1);
+
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(99L);
+        schedule.setRegistrationScheduleTemplateId(88L);
 
         RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
         template.setDoctorId(55L);
@@ -128,7 +138,8 @@ class RegistrationManagerTest {
 
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
         when(userService.getUserById(7L)).thenReturn(user);
-        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(99L)).thenReturn(template);
+        when(registrationScheduleService.getRegistrationScheduleById(99L)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(88L)).thenReturn(template);
         when(doctorService.getDoctorById(55L)).thenReturn(doctor);
         lenient().when(departmentService.getDepartmentById(11L)).thenReturn(department);
         lenient().when(doctorPositionService.getPositionById(22L)).thenReturn(position);
