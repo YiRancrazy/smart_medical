@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -51,6 +52,12 @@ public class MedicalRecordManager {
         Registration reg = registrationService.getRegistrationById(req.getRegistrationId());
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
+        }
+        // 仅就诊中可编辑病历草稿
+        if (reg.getStatus() == null
+                || reg.getStatus() != RegistrationStatusEnum.IN_TREATMENT.getCode()) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                    "仅就诊中状态可编辑病历");
         }
         MedicalRecord record = medicalRecordService.getOne(
                 new LambdaQueryWrapper<MedicalRecord>()

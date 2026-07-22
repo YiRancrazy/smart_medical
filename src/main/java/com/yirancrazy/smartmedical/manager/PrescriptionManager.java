@@ -152,6 +152,18 @@ public class PrescriptionManager {
             medicalRecordService.updateById(record);
         }
 
+        // 无处方药品：直接完成就诊，不创建空处方/订单
+        if (req.getItems() == null || req.getItems().isEmpty()) {
+            statusLogManager.transition(reg,
+                    RegistrationStatusEnum.COMPLETED.getCode(),
+                    doctorId, "doctor", "就诊完成(无处方)");
+            PrescriptionSubmitVO emptyVo = new PrescriptionSubmitVO();
+            emptyVo.setMedicalRecordId(record.getId());
+            emptyVo.setTotalAmount(0);
+            emptyVo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
+            return emptyVo;
+        }
+
         // 4. 创建处方头 (status=0 待支付)
         Prescription rx = new Prescription();
         rx.setId(IdUtil.getSnowflakeNextId());
