@@ -1,11 +1,13 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleResponse;
 import com.yirancrazy.smartmedical.service.*;
@@ -39,6 +41,7 @@ public class PaymentRecordManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final OrderService orderService;
+    private final OrdersMapper ordersMapper;
     private final OrderTypeService orderTypeService;
     private final OrderItemService orderItemService;
     private final ProductionTypeService productionTypeService;
@@ -143,6 +146,14 @@ public class PaymentRecordManager {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单当前状态不可支付");
         }
 
+        // 金额校验：实付金额必须等于订单应付金额
+        Integer expected = order.getTotalAmount() == null ? 0 : order.getTotalAmount();
+        Integer actual = realAmount != null ? realAmount : expected;
+        if (!expected.equals(actual)) {
+            throw new BizException(BizErrorCode.ORDER_STATUS_INVALID,
+                    "支付金额不一致：应付=" + expected + "，实付=" + actual);
+        }
+
         // 2. 创建 PaymentRecord (status=2 成功)
         PaymentRecord record = new PaymentRecord();
         record.setId(IdUtil.getSnowflakeNextId());
@@ -156,9 +167,17 @@ public class PaymentRecordManager {
         record.setPaymentTime(LocalDateTime.now());
         paymentRecordService.insertPaymentRecord(record);
 
-        // 3. 改 Order.status: WAITING_FOR_PAYMENT → PAID
-        order.setStatus(OrderStatus.PAID.getCode());
-        orderService.updateOrderById(order);
+        // 3. 原子更新 Order.status: WAITING_FOR_PAYMENT → PAID，并发幂等
+        int updated = ordersMapper.update(null,
+                new UpdateWrapper<Order>()
+                        .eq("id", orderId)
+                        .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                        .set("status", OrderStatus.PAID.getCode()));
+        if (updated == 0) {
+            log.info("[payment-success] orderId={} concurrent paid, skip", orderId);
+            syncRegistrationStatusPaid(orderId);
+            return Result.success(null);
+        }
 
         // 4. 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
