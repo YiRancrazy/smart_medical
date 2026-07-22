@@ -299,4 +299,13 @@ public class PharmacyManager {
         log.info("[pharmacy-stockAdjust] drugId={}, {}→{}", drugId, beforeAvailable, actualQuantity);
         return inv;
     }
+
+    /**
+     * 药师端 - 处方详情（仅查询）
+     * @param prescriptionId 处方ID
+     * @return 处方实体
+     */
+    public Prescription getPrescriptionById(Long prescriptionId) {
+        return prescriptionService.getById(prescriptionId);
+    }
 }

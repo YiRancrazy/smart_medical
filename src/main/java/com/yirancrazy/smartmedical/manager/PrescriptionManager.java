@@ -24,6 +24,8 @@ import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
@@ -40,7 +42,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 处方业务编排
@@ -393,5 +398,93 @@ public class PrescriptionManager {
                         doctorId, "doctor", "作废处方");
             }
         }
+    }
+
+    /**
+     * 用户端 - 处方列表（按就诊人过滤）
+     * ponytail: N+1 查询，用户处方列表 < 100，可接受
+     * @param patientUserIds 可访问的用户ID列表
+     * @return 处方列表 VO
+     */
+    public List<PrescriptionListVO> listUserPrescriptions(List<Long> patientUserIds) {
+        if (patientUserIds == null || patientUserIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MedicalRecord> records = medicalRecordService.list(
+                new LambdaQueryWrapper<MedicalRecord>()
+                        .in(MedicalRecord::getPatientId, patientUserIds));
+        if (records.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> recordIds = records.stream()
+                .map(MedicalRecord::getId)
+                .collect(Collectors.toList());
+
+        List<Prescription> prescriptions = prescriptionService.list(
+                new LambdaQueryWrapper<Prescription>()
+                        .in(Prescription::getMedicalRecordId, recordIds)
+                        .eq(Prescription::getDeleted, false)
+                        .orderByDesc(Prescription::getCreateTime));
+        if (prescriptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> prescriptionIds = prescriptions.stream()
+                .map(Prescription::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> itemCountMap = prescriptionItemService.list(
+                        new LambdaQueryWrapper<PrescriptionItem>()
+                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+                .stream()
+                .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
+
+        return prescriptions.stream().map(rx -> {
+            PrescriptionListVO vo = new PrescriptionListVO();
+            vo.setId(rx.getId());
+            vo.setMedicalRecordId(rx.getMedicalRecordId());
+            vo.setTotalAmount(rx.getTotalAmount());
+            vo.setStatus(rx.getStatus());
+            vo.setItemCount(itemCountMap.getOrDefault(rx.getId(), 0L).intValue());
+            vo.setCreateTime(rx.getCreateTime());
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 用户端 - 处方详情（含权限校验）
+     * @param prescriptionId 处方ID
+     * @param userId 当前用户ID
+     * @return 处方详情 VO
+     * @throws BizException PRESCRIPTION_NOT_FOUND / PRESCRIPTION_NOT_OWNED
+     */
+    public PrescriptionDetailVO getPrescriptionDetail(Long prescriptionId, Long userId) {
+        Prescription rx = prescriptionService.getById(prescriptionId);
+        if (rx == null) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
+        }
+        // 通过 medicalRecord → patientId 校验所有权
+        if (rx.getMedicalRecordId() != null) {
+            MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
+            if (record == null || !userId.equals(record.getPatientId())) {
+                throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
+            }
+        }
+        List<PrescriptionItem> items = prescriptionItemService.list(
+                new LambdaQueryWrapper<PrescriptionItem>()
+                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+
+        PrescriptionDetailVO vo = new PrescriptionDetailVO();
+        vo.setId(rx.getId());
+        vo.setStatus(rx.getStatus());
+        vo.setTotalAmount(rx.getTotalAmount());
+        vo.setOrderId(rx.getOrderId());
+        vo.setItems(items.stream().map(item -> {
+            PrescriptionDetailVO.PrescriptionItemVO itemVO = new PrescriptionDetailVO.PrescriptionItemVO();
+            itemVO.setDrugId(item.getDrugId());
+            itemVO.setQuantity(item.getQuantity());
+            itemVO.setUsageMethod(item.getUsageMethod());
+            return itemVO;
+        }).collect(Collectors.toList()));
+        return vo;
     }
 }

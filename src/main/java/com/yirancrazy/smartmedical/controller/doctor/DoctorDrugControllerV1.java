@@ -1,8 +1,8 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
+import com.yirancrazy.smartmedical.manager.DrugManager;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.service.DrugService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DoctorDrugControllerV1 {
 
-    private final DrugService drugService;
+    private final DrugManager drugManager;
 
     /**
      * 医生端 - 按名称搜索药品
@@ -37,6 +37,6 @@ public class DoctorDrugControllerV1 {
     @Operation(summary = "医生端 - 按名称搜索药品")
     @GetMapping("/search")
     public Result<List<Drug>> search(@RequestParam(required = false) String keyword) {
-        return Result.success(drugService.listDrugsByKeyword(keyword));
+        return Result.success(drugManager.searchDrugs(keyword));
     }
 }

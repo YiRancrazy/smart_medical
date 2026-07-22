@@ -5,7 +5,6 @@ import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
-import com.yirancrazy.smartmedical.service.PrescriptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +31,6 @@ import java.util.List;
 public class PharmacyPrescriptionControllerV1 {
 
     private final PharmacyManager pharmacyManager;
-    private final PrescriptionService prescriptionService;
 
     /** 药师端 - 待发药列表 */
     @Operation(summary = "药师端 - 待发药列表")
@@ -45,10 +43,10 @@ public class PharmacyPrescriptionControllerV1 {
     @Operation(summary = "药师端 - 处方详情")
     @GetMapping("/{id}")
     public Result<Prescription> detail(@PathVariable Long id) {
-        return Result.success(prescriptionService.getById(id));
+        return Result.success(pharmacyManager.getPrescriptionById(id));
     }
 
-    /** 药师端 - 扫码发药，扣减库存并记录发药药师 */
+    /** 药师端 - 扫码发药 */
     @Operation(summary = "药师端 - 扫码发药")
     @PostMapping("/{id}/dispense")
     public Result<DispenseVO> dispense(@PathVariable Long id,

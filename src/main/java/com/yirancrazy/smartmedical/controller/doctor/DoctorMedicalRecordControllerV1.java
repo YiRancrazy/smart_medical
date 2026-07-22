@@ -1,15 +1,12 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
 import com.yirancrazy.smartmedical.manager.PrescriptionManager;
-import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
-import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +16,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -35,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class DoctorMedicalRecordControllerV1 {
 
-    private final MedicalRecordService medicalRecordService;
     private final MedicalRecordManager medicalRecordManager;
     private final PrescriptionManager prescriptionManager;
 
@@ -47,11 +42,7 @@ public class DoctorMedicalRecordControllerV1 {
     @Operation(summary = "医生端 - 取病历(按挂号ID)")
     @GetMapping("/registration/{regId}")
     public Result<MedicalRecordDetailVO> getByRegistration(@PathVariable Long regId) {
-        MedicalRecord record = medicalRecordService.getOne(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getRegistrationId, regId)
-                        .last("LIMIT 1"));
-        return Result.success(medicalRecordManager.toDetailVO(record));
+        return Result.success(medicalRecordManager.getByRegistrationId(regId));
     }
 
     /**

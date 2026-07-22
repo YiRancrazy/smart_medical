@@ -209,4 +209,18 @@ public class MedicalRecordManager {
             vo.setPrescriptionId(prescription.getId());
         }
     }
+
+    /**
+     * 医生端 - 按挂号ID取病历（仅查询）
+     * ponytail: 单表查询，直接返回实体
+     * @param registrationId 挂号记录ID
+     * @return 病历详情 VO
+     */
+    public MedicalRecordDetailVO getByRegistrationId(Long registrationId) {
+        MedicalRecord record = medicalRecordService.getOne(
+                new LambdaQueryWrapper<MedicalRecord>()
+                        .eq(MedicalRecord::getRegistrationId, registrationId)
+                        .last("LIMIT 1"));
+        return toDetailVO(record);
+    }
 }
