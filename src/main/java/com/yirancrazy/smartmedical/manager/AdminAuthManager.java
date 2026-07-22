@@ -9,13 +9,17 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
+import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
 import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
+import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
@@ -57,6 +61,8 @@ public class AdminAuthManager {
 
     private final AccountService accountService;
     private final AdminService adminService;
+    private final DoctorService doctorService;
+    private final UserService userService;
     private final RedisUtil redisUtil;
     private final RoleTypeLoaderManage roleTypeLoaderManage;
 
@@ -127,8 +133,8 @@ public class AdminAuthManager {
 
         // accessJWT 和 refreshJwt 写入 redis 中（admin前缀用于所有角色，统一管理）
         Long currentTimeMillis = System.currentTimeMillis();
-        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getRoleId(), currentTimeMillis);
-        String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getRoleId(), currentTimeMillis);
+        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeMillis);
+        String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeMillis);
         redisUtil.setEx(adminAccessTokenPrefix + roleAccount.getId(), accessJwt, 30, TimeUnit.MINUTES);
         redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
@@ -148,7 +154,7 @@ public class AdminAuthManager {
     /**
      * 生成访问JWT（30分钟有效期）
      */
-    private String createAccessJwt(String accountId, Long roleId, Long currentTimeMillis) {
+    private String createAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -156,6 +162,7 @@ public class AdminAuthManager {
         Map<String, Object> payload = new HashMap<>();
         payload.put(JWTPayload.ISSUER, "YiRanCrazy");
         payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
         payload.put("role", roleId); // 统一字段名为role
         payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 30);
         payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
@@ -168,7 +175,7 @@ public class AdminAuthManager {
     /**
      * 生成刷新JWT（30天有效期，包含role信息）
      */
-    private String createRefreshJwt(String accountId, Long roleId, Long currentTimeMillis) {
+    private String createRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -176,6 +183,7 @@ public class AdminAuthManager {
         Map<String, Object> payload = new HashMap<>();
         payload.put(JWTPayload.ISSUER, "YiRanCrazy");
         payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
         payload.put("role", roleId); // refresh token包含role，刷新时直接解析
         payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 30);
         payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
@@ -186,9 +194,9 @@ public class AdminAuthManager {
     }
 
     /**
-     * 通过 access_token中存储的 accountId 获取当前管理员基础信息
+     * 通过 access_token 获取当前登录用户基础信息（支持管理员/医生/药师）
      * @param request 请求
-     * @return 管理员基础信息
+     * @return 当前登录用户基础信息
      */
     public Result<AdminResponseSimple> getCurrentAdminBaseInfo(HttpServletRequest request) {
         String accessToken = request.getHeader("Authorization");   // 获取 access_token
@@ -201,22 +209,44 @@ public class AdminAuthManager {
         }
         JWT jwt = JWTUtil.parseToken(accessToken);  // 解析 access_token
         String accountId = jwt.getPayload("sub").toString(); // 获取 accountId
+        Object roleClaim = jwt.getPayload("role");
+        Long roleId = roleClaim == null ? adminRole.getId() : Long.parseLong(String.valueOf(roleClaim));
         Account account = accountService.getAccountById(Long.parseLong(accountId)); // 通过 accountId 获取账号信息
         if(account == null){
             return Result.fail("账号不存在");
         }
-        Admin admin = adminService.getAdminById(account.getUserId()); // 通过 adminId 获取管理员信息
-        if(admin == null){
-            return Result.fail("管理员不存在");
-        }
-        AdminResponseSimple result = new AdminResponseSimple(); // 创建返回结果
-        result.setId(String.valueOf(admin.getId()));
-        result.setUsername(admin.getName());
-        result.setNickname(admin.getName());
-        result.setAvatar(admin.getAvatar());
+        AdminResponseSimple result = new AdminResponseSimple();
+        result.setId(String.valueOf(account.getUserId()));
         result.setPhone(account.getPhone());
         result.setEmail(account.getEmail());
-        result.setRole(adminRole.getName()); // 获取角色名称
+        if (roleId.equals(2L)) {
+            Doctor doctor = doctorService.getDoctorById(account.getUserId());
+            if (doctor == null) {
+                return Result.fail("医生不存在");
+            }
+            result.setUsername(doctor.getName());
+            result.setNickname(doctor.getName());
+            result.setAvatar(doctor.getAvatar());
+            result.setRole("医生");
+        } else if (roleId.equals(6L)) {
+            User user = userService.getUserById(account.getUserId());
+            if (user == null) {
+                return Result.fail("用户不存在");
+            }
+            result.setUsername(user.getNickname());
+            result.setNickname(user.getNickname());
+            result.setAvatar(user.getAvatar());
+            result.setRole("药师");
+        } else {
+            Admin admin = adminService.getAdminById(account.getUserId()); // 通过 adminId 获取管理员信息
+            if(admin == null){
+                return Result.fail("管理员不存在");
+            }
+            result.setUsername(admin.getName());
+            result.setNickname(admin.getName());
+            result.setAvatar(admin.getAvatar());
+            result.setRole(adminRole.getName()); // 获取角色名称
+        }
         return Result.success(result);
     }
 

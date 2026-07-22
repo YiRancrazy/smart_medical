@@ -98,13 +98,13 @@ public class AuthManager {
 
             // 生成JWT访问令牌
             Long currentTimeMillis = System.currentTimeMillis();
-            String accessJwt = generateAccessJwt(account.getId().toString(), account.getRoleId(), currentTimeMillis);
+            String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeMillis);
 
             // 存储JWT访问令牌（admin前缀用于所有角色，统一管理）
             redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 30, TimeUnit.MINUTES);
 
             // 生成JWT 刷新令牌（包含role信息，刷新时直接解析）
-            String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getRoleId(), currentTimeMillis);
+            String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeMillis);
 
             // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
             redisUtil.setEx(adminRefreshTokenPrefix+account.getId().toString(),refreshJwt,30, TimeUnit.DAYS);
@@ -190,6 +190,7 @@ public class AuthManager {
         }
         try {
             JWT jwt = JWTUtil.parseToken(refreshToken);
+            jwt.setKey(refreshSecretKey.getBytes());
             if (!jwt.verify()) {
                 return Result.fail("Refresh token 无效");
             }
@@ -205,6 +206,15 @@ public class AuthManager {
                 roleId = 4L; // 默认user
             }
 
+            // 从refresh token解析userId，用于生成新access token
+            Long userId;
+            try {
+                Object userIdObj = payload.getClaim("userId");
+                userId = userIdObj != null ? Long.parseLong(String.valueOf(userIdObj)) : Long.parseLong(accountId);
+            } catch (Exception e) {
+                userId = Long.parseLong(accountId);
+            }
+
             long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
             if (exp < System.currentTimeMillis()) {
                 return Result.fail("Refresh token 已过期");
@@ -217,7 +227,7 @@ public class AuthManager {
 
             // 签发新 access JWT（统一30分钟有效期）
             Long currentTimeMillis = System.currentTimeMillis();
-            String newAccessJwt = generateAccessJwt(accountId, roleId, currentTimeMillis);
+            String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeMillis);
 
             // 覆盖旧 access（旧 token 立即失效）
             redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 30, TimeUnit.MINUTES);
@@ -233,7 +243,7 @@ public class AuthManager {
     /**
      * 生成访问JWT（30分钟有效期）
      */
-    private String generateAccessJwt(String accountId, Long roleId, Long currentTimeMillis) {
+    private String generateAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -241,6 +251,7 @@ public class AuthManager {
         Map<String, Object> payload = new HashMap<>();
         payload.put(JWTPayload.ISSUER, "YiRanCrazy");
         payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
         payload.put("role", roleId);
         payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 30);
         payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
@@ -253,7 +264,7 @@ public class AuthManager {
     /**
      * 生成刷新JWT（30天有效期，包含role信息）
      */
-    private String generateRefreshJwt(String accountId, Long roleId, Long currentTimeMillis) {
+    private String generateRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -261,6 +272,7 @@ public class AuthManager {
         Map<String, Object> payload = new HashMap<>();
         payload.put(JWTPayload.ISSUER, "YiRanCrazy");
         payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
         payload.put("role", roleId); // refresh token包含role，刷新时直接解析
         payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 30);
         payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);

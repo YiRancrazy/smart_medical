@@ -138,7 +138,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 让 controller 可用 @RequestAttribute("currentUserId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
             // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
             try {
-                Long currentUserId = Long.parseLong(userId);
+                Long accountId = Long.parseLong(userId);
+                Object userIdClaim = payload.getClaim("userId");
+                Long currentUserId = userIdClaim != null ? Long.parseLong(String.valueOf(userIdClaim)) : accountId;
                 request.setAttribute("currentUserId", currentUserId);
                 request.setAttribute("currentDoctorId", currentUserId);
                 request.setAttribute("currentPharmacistId", currentUserId);

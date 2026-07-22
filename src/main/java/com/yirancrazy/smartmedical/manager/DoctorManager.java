@@ -302,7 +302,7 @@ public class DoctorManager {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
         RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleTemplateId());
+                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleId());
         Long regDoctorId = template == null ? null : template.getDoctorId();
         if (!doctorId.equals(regDoctorId)) {
             throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
@@ -325,12 +325,23 @@ public class DoctorManager {
         if (templates == null || templates.isEmpty()) {
             return Collections.emptyList();
         }
+        List<Long> templateIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getId).collect(Collectors.toList());
+        // 通过模板ID查所有时段，再用时段ID查挂号
+        List<RegistrationSchedule> schedules = registrationScheduleService
+                .getRegistrationScheduleListByRegistrationScheduleIdList(templateIds);
+        if (schedules == null || schedules.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> scheduleIds = schedules.stream()
+                .map(RegistrationSchedule::getId).collect(Collectors.toList());
+        Map<Long, RegistrationSchedule> scheduleMap = schedules.stream()
+                .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s));
         Map<Long, RegistrationScheduleTemplate> templateMap = templates.stream()
                 .collect(Collectors.toMap(RegistrationScheduleTemplate::getId, t -> t));
-        List<Long> templateIds = new ArrayList<>(templateMap.keySet());
         List<Registration> registrations = registrationMapper.selectList(
                 new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
+                        .in(Registration::getRegistrationScheduleId, scheduleIds)
                         .orderByAsc(Registration::getRegistrationTime));
         Map<Long, User> userMap = batchLoadUsers(registrations);
         Map<Long, Account> accountMap = batchLoadAccounts(registrations);
@@ -339,11 +350,14 @@ public class DoctorManager {
             vo.setRegistrationId(reg.getId());
             vo.setStatus(reg.getStatus());
             vo.setRegistrationTime(reg.getRegistrationTime());
-            RegistrationScheduleTemplate t = templateMap.get(reg.getRegistrationScheduleTemplateId());
-            if (t != null) {
-                vo.setShiftName(t.getName());
-                vo.setStartTime(t.getStartTime() != null ? t.getStartTime().atDate(LocalDate.now()) : null);
-                vo.setEndTime(t.getEndTime() != null ? t.getEndTime().atDate(LocalDate.now()) : null);
+            RegistrationSchedule s = scheduleMap.get(reg.getRegistrationScheduleId());
+            if (s != null) {
+                RegistrationScheduleTemplate t = templateMap.get(s.getRegistrationScheduleTemplateId());
+                if (t != null) {
+                    vo.setShiftName(t.getName());
+                }
+                vo.setStartTime(s.getStartTime());
+                vo.setEndTime(s.getEndTime());
             }
             fillPatientInfo(vo, reg, userMap, accountMap);
             return vo;
@@ -370,17 +384,13 @@ public class DoctorManager {
      * @return 就诊中 VO 列表
      */
     public List<WaitingPatientVO> listInProgress(Long doctorId) {
-        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
-                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
-        if (templates == null || templates.isEmpty()) {
+        List<Long> scheduleIds = getScheduleIdsByDoctor(doctorId);
+        if (scheduleIds.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Long> templateIds = templates.stream()
-                .map(RegistrationScheduleTemplate::getId)
-                .collect(Collectors.toList());
         List<Registration> registrations = registrationMapper.selectList(
                 new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
+                        .in(Registration::getRegistrationScheduleId, scheduleIds)
                         .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
                                 .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode()))
                         .orderByAsc(Registration::getCheckInTime));
@@ -391,19 +401,34 @@ public class DoctorManager {
     }
 
     private List<Registration> listRegistrationsByDoctorIdAndStatus(Long doctorId, Integer status) {
+        List<Long> scheduleIds = getScheduleIdsByDoctor(doctorId);
+        if (scheduleIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .in(Registration::getRegistrationScheduleId, scheduleIds)
+                        .eq(Registration::getStatus, status)
+                        .orderByAsc(Registration::getCheckInTime));
+    }
+
+    /**
+     * 通过医生ID查所有排班时段ID
+     */
+    private List<Long> getScheduleIdsByDoctor(Long doctorId) {
         List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
                 .listRegistrationScheduleTemplatesByDoctorId(doctorId);
         if (templates == null || templates.isEmpty()) {
             return Collections.emptyList();
         }
         List<Long> templateIds = templates.stream()
-                .map(RegistrationScheduleTemplate::getId)
-                .collect(Collectors.toList());
-        return registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
-                        .eq(Registration::getStatus, status)
-                        .orderByAsc(Registration::getCheckInTime));
+                .map(RegistrationScheduleTemplate::getId).collect(Collectors.toList());
+        List<RegistrationSchedule> schedules = registrationScheduleService
+                .getRegistrationScheduleListByRegistrationScheduleIdList(templateIds);
+        if (schedules == null || schedules.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return schedules.stream().map(RegistrationSchedule::getId).collect(Collectors.toList());
     }
 
     private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, User> userMap, Map<Long, Account> accountMap) {
@@ -438,12 +463,12 @@ public class DoctorManager {
                 .collect(Collectors.toMap(User::getId, u -> u));
     }
 
-    /** 批量加载账户信息（userId → Account） */
+    /** 批量加载账户信息（userId → Account，同一 userId 多账号时保留第一个） */
     private Map<Long, Account> batchLoadAccounts(List<Registration> registrations) {
         List<Long> userIds = registrations.stream()
                 .map(Registration::getUserId).distinct().collect(Collectors.toList());
         if (userIds.isEmpty()) return Collections.emptyMap();
         return accountService.listAccountsByUserIds(userIds).stream()
-                .collect(Collectors.toMap(Account::getUserId, a -> a));
+                .collect(Collectors.toMap(Account::getUserId, a -> a, (a1, a2) -> a1));
     }
 }
