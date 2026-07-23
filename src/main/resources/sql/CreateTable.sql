@@ -562,7 +562,7 @@ CREATE TABLE `order`  (
   `order_type_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '订单类型id',
   `invoice_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '发票id',
   `sn` bigint UNSIGNED NULL DEFAULT NULL COMMENT '订单号，用于对外展示',
-  `status` tinyint(1) NULL DEFAULT NULL COMMENT '订单状态：0待支付，1已支付，2已取消，3已完成，4支付失败，5退款中，6已退款，7退款失败，8退款取消，9退款超时，10退款拒绝，11退款申请',
+  `status` tinyint NULL DEFAULT NULL COMMENT '订单状态：0待支付，1已支付，2已取消，3已完成，4支付失败，5退款中，6已退款，7退款失败，8退款取消，9退款超时，10退款拒绝，11退款申请',
   `total_amount` int NULL DEFAULT NULL COMMENT '实际支付金额',
   `order_create_time` datetime NULL DEFAULT NULL COMMENT '订单创建时间',
   `order_update_time` datetime NULL DEFAULT NULL COMMENT '订单更新时间',
