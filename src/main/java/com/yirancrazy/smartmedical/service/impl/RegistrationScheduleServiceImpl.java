@@ -6,6 +6,7 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -113,7 +114,7 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      * {@inheritDoc}
      */
     @Override
-    public List<RegistrationSchedule> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList) {
+    public List<RegistrationScheduleTemplate> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList) {
         return registrationScheduleMapper.getRecentRegistrationListByDoctorIdList(doctorIdList);
     }
 

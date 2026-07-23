@@ -137,7 +137,7 @@ public class DoctorManager {
         log.debug("doctorList by departmentId={}", doctorList);
         Department department = departmentService.getDepartmentById(departmentId);
 
-        List<RegistrationSchedule> recentRegistrationListByDoctorIdList = registrationScheduleService.getRecentRegistrationListByDoctorIdList(
+        List<RegistrationScheduleTemplate> recentRegistrationListByDoctorIdList = registrationScheduleService.getRecentRegistrationListByDoctorIdList(
                 doctorList
                         .stream()
                         .map(Doctor::getId)
@@ -159,16 +159,10 @@ public class DoctorManager {
             DoctorPosition position = doctor.getDoctorPositionId() == null ? null : doctorPositions.stream()
                     .filter(p -> p.getId().equals(doctor.getDoctorPositionId())).findFirst().orElse(null);
             temp.setPosition(position == null ? "" : position.getName());
-           for (RegistrationSchedule registrationSchedule : recentRegistrationListByDoctorIdList){
-               if (registrationSchedule.getDoctorId().equals(doctor.getId())){
-//                   temp.setRecentWorkTime(registrationSchedule.getStartTime());
-                   // 注意：getRecentRegistrationListByDoctorIdList 查询的是模板行，id 字段即为模板 ID
-                   Long templateId = registrationSchedule.getRegistrationScheduleTemplateId() != null
-                           ? registrationSchedule.getRegistrationScheduleTemplateId()
-                           : registrationSchedule.getId();
-                   RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                           .getRegistrationScheduleTemplateById(templateId);
-                   int price = template == null || template.getPrice() == null ? 0 : template.getPrice();
+           for (RegistrationScheduleTemplate template : recentRegistrationListByDoctorIdList){
+               if (template.getDoctorId().equals(doctor.getId())){
+                   // getRecentRegistrationListByDoctorIdList 返回的就是排班模板行，直接取 price
+                   int price = template.getPrice() == null ? 0 : template.getPrice();
                    temp.setPrice(BigDecimal.valueOf(price).divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP));
                 break;
                }

@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.service;
 
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -89,7 +90,7 @@ public interface RegistrationScheduleService {
      * @param doctorIdList 医生ID列表
      * @return 挂号排班列表
      */
-    List<RegistrationSchedule> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList);
+    List<RegistrationScheduleTemplate> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList);
 
     /**
      * 获取指定医生上周的挂号排班列表

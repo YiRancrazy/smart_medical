@@ -4,7 +4,7 @@
 
 <mapper namespace="com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper">
 
-    <select id="getRecentRegistrationListByDoctorIdList" resultType="com.yirancrazy.smartmedical.pojo.RegistrationSchedule">
+    <select id="getRecentRegistrationListByDoctorIdList" resultType="com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate">
         SELECT rst.*
         FROM doctor d
         JOIN registration_schedule_template rst ON d.id = rst.doctor_id
