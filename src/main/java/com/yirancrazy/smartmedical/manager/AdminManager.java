@@ -51,7 +51,13 @@ public class AdminManager {
      */
     public Result<AdminAdminSimpleResponse> getAdminAdminSimpleResponseByAdminId(Long adminId){
         Admin admin = adminService.getAdminById(adminId);
+        if (admin == null) {
+            return Result.fail("管理员不存在");
+        }
         Account account = accountService.getAccountByUserId(adminId);
+        if (account == null) {
+            return Result.fail("管理员账号不存在");
+        }
         Department department = departmentService.getDepartmentById(admin.getDepartmentId());
 
         AdminAdminSimpleResponse result = new AdminAdminSimpleResponse();
@@ -61,7 +67,7 @@ public class AdminManager {
         result.setAvatar(admin.getAvatar());
         result.setRemark(admin.getRemark());
         result.setDepartmentId(String.valueOf(admin.getDepartmentId()));
-        result.setDepartmentName(department.getName());
+        result.setDepartmentName(department == null ? "" : department.getName());
         result.setRole(account.getRoleId().toString());
         result.setRoleId(account.getRoleId().toString());
         result.setStatus(account.getEnabled().toString());
