@@ -76,6 +76,8 @@ public class UserChatControllerV1 {
         try {
             String imageUrl = chatManager.uploadImage(file);
             return Result.success(imageUrl);
+        } catch (IllegalArgumentException e) {
+            return Result.fail(e.getMessage());
         } catch (Exception e) {
             return Result.fail("图片上传失败");
         }

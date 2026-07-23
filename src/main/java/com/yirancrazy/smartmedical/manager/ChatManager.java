@@ -85,8 +85,17 @@ public class ChatManager {
      * 上传图片到MinIO
      * @param file 图片文件
      * @return 图片URL
+     * @throws BizException 文件类型/大小不合法
      */
     public String uploadImage(MultipartFile file) throws Exception {
+        // S23: 校验文件类型与大小
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("仅允许上传图片文件");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("图片大小不能超过 5MB");
+        }
         String objectName = "chat/images/" + IdUtil.getSnowflakeNextId() + "_" + file.getOriginalFilename();
         MinIOUtil.uploadFile("imagehost", file, objectName, file.getContentType());
         return MinIOUtil.getBasisUrl() + objectName;
