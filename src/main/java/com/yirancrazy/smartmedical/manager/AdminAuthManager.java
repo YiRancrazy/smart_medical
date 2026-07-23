@@ -151,6 +151,17 @@ public class AdminAuthManager {
             return Result.fail("用户名或密码错误");
         }
 
+        // B06: 医生角色登录时校验 doctor 表存在 id=account.userId 的记录，
+        // 确保 JwtAuthenticationFilter 设的 currentDoctorId=userId 真等于 doctor.id，
+        // 避免账号-医生档案错配导致开方/叫号命中错误医生
+        if (Long.valueOf(2L).equals(roleAccount.getRoleId()) && roleAccount.getUserId() != null) {
+            Doctor doctor = doctorService.getDoctorById(roleAccount.getUserId());
+            if (doctor == null) {
+                log.warn("[admin-login] 医生账号 userId={} 在 doctor 表无对应记录，拒绝登录", roleAccount.getUserId());
+                return Result.fail("医生档案不存在，请联系管理员");
+            }
+        }
+
         // 历史弱密码（MD5/明文）登录后自动升级为 BCrypt，逐步消除弱密码存储
         if (PasswordUtil.needsBcryptUpgrade(roleAccount.getPassword())) {
             roleAccount.setPassword(PasswordUtil.encode(password));
