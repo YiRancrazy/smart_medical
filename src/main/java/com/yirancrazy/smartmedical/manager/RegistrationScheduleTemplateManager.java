@@ -108,15 +108,16 @@ public class RegistrationScheduleTemplateManager {
         for (RegistrationScheduleTemplate item : registrationScheduleTemplates) {
             Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
             if (doctor == null) {
-                log.warn("跳过排班模板 {}：未找到医生 {}", item.getId(), item.getDoctorId());
-                continue;
+                // G03: 不跳过，填充空展示，保证 total 与 list 大小一致
+                log.warn("排班模板 {} 未关联有效医生，填充空展示", item.getId());
             }
-            Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
+            Department department = doctor == null ? null
+                    : departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
             List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
-            Integer remaining = 0;
+            int remaining = 0;
             for (RegistrationSchedule r : registrationSchedules) {
-                remaining += r.getRemainingQuota();
+                if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
             }
 
             registrationScheduleTemplateDetails.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
@@ -196,7 +197,7 @@ public class RegistrationScheduleTemplateManager {
 
             Integer remaining = 0;
             for (RegistrationSchedule r : registrationSchedules) {
-                remaining += r.getRemainingQuota();
+                if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
             }
 
             result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
@@ -217,9 +218,9 @@ public class RegistrationScheduleTemplateManager {
                 Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
                 List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
-                Integer remaining = 0;
+                int remaining = 0;
                 for (RegistrationSchedule r : registrationSchedules) {
-                    remaining += r.getRemainingQuota();
+                    if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
                 }
 
                 result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
@@ -241,9 +242,9 @@ public class RegistrationScheduleTemplateManager {
                 Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
                 List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
-                Integer remaining = 0;
+                int remaining = 0;
                 for (RegistrationSchedule r : registrationSchedules) {
-                    remaining += r.getRemainingQuota();
+                    if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
                 }
 
                 result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));

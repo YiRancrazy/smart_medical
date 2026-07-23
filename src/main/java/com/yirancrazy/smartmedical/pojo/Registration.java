@@ -34,7 +34,7 @@ public class Registration {
     @Schema(description = "关联订单ID")
     private Long orderId;
 
-    @Schema(description = "状态: 1-待就诊, 2-已就诊, 3-已取消, 4-已退号")
+    @Schema(description = "状态: 0-待支付, 1-待就诊, 2-支付失败, 3-已取消, 4-已完成, 5-已报到, 6-就诊中, 7-待支付")
     private Integer status;
 
     @Schema(description = "挂号时间")
