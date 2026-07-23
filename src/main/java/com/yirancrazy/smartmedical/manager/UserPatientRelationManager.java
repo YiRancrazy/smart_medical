@@ -208,10 +208,13 @@ public class UserPatientRelationManager {
 
     /**
      * 删除就诊人
+     * <p>B19: 同时禁用孤立账号并释放手机号（phone 改为 tombstone 值），避免 account.phone 唯一索引
+     * 阻止该手机号被未来新账号注册。account/user/patient_card/patient 记录保留用于历史审计。</p>
      * @param currentUserId 当前用户id
      * @param id 就诊人关系id
      * @return 删除结果
      */
+    @Transactional
     public Result<Integer> deleteUserPatientRelationById(Long currentUserId, Long id) {
         UserPatientRelation relation = userPatientRelationService.getUserPatientRelationById(id);
         if (relation == null || !currentUserId.equals(relation.getUserId())) {
@@ -224,6 +227,13 @@ public class UserPatientRelationManager {
                 .anyMatch(r -> r.getStatus() != null && inTransitStatuses.contains(r.getStatus()));
         if (hasInTransit) {
             return Result.fail("该就诊人存在在途挂号，无法删除");
+        }
+        // 释放手机号：把孤立 account 的 phone 改为唯一 tombstone，并禁用账号
+        Account orphanAccount = accountService.getAccountByUserId(relation.getPatientUserId());
+        if (orphanAccount != null) {
+            orphanAccount.setEnabled(false);
+            orphanAccount.setPhone("deleted_" + orphanAccount.getId() + "@local");
+            accountService.updateAccountById(orphanAccount);
         }
         return Result.success(userPatientRelationService.deleteUserPatientRelationById(id));
     }
