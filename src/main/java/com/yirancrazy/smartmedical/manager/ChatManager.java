@@ -96,7 +96,19 @@ public class ChatManager {
         if (file.getSize() > 5 * 1024 * 1024) {
             throw new IllegalArgumentException("图片大小不能超过 5MB");
         }
-        String objectName = "chat/images/" + IdUtil.getSnowflakeNextId() + "_" + file.getOriginalFilename();
+        // 仅用雪花 ID 作为对象名，避免原始文件名含特殊字符或 ../ 注入 MinIO 路径
+        String ext = "";
+        String original = file.getOriginalFilename();
+        if (original != null) {
+            int dot = original.lastIndexOf('.');
+            if (dot >= 0 && dot < original.length() - 1) {
+                String raw = original.substring(dot + 1).toLowerCase();
+                if (raw.matches("[a-z0-9]{1,8}")) {
+                    ext = "." + raw;
+                }
+            }
+        }
+        String objectName = "chat/images/" + IdUtil.getSnowflakeNextId() + ext;
         MinIOUtil.uploadFile("imagehost", file, objectName, file.getContentType());
         return MinIOUtil.getBasisUrl() + objectName;
     }
