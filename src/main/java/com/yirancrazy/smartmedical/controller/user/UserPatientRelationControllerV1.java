@@ -31,14 +31,14 @@ public class UserPatientRelationControllerV1 {
                 request.getPhone(), request.getRelation(), request.getRemark(), request.getDefaulted());
     }
 
-    @Operation(summary = "修改就诊人", description = "修改就诊人")
+    @Operation(summary = "修改就诊人", description = "修改就诊人，支持修改姓名、手机号、身份证号、关系、备注及默认状态")
     @PutMapping("/{id}")
     public Result<Integer> updateUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
                                                      @PathVariable Long id,
-                                                     @RequestParam String relation,
-                                                     @RequestParam(required = false) String remark,
-                                                     @RequestParam String defaulted) {
-        return userPatientRelationManager.updateUserPatientRelationById(currentUserId, id, relation, remark, defaulted);
+                                                     @RequestBody UserPatientRelationRequest request) {
+        return userPatientRelationManager.updateUserPatientRelationById(currentUserId, id,
+                request.getName(), request.getPhone(), request.getIdCard(),
+                request.getRelation(), request.getRemark(), request.getDefaulted());
     }
 
     @Operation(summary = "设置默认就诊人", description = "设置默认就诊人")

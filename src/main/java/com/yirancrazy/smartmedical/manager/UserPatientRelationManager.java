@@ -101,33 +101,58 @@ public class UserPatientRelationManager {
     /**
      * 修改就诊人信息
      * @param id 就诊人id
+     * @param name 姓名
+     * @param phone 手机号
+     * @param idCard 身份证号
      * @param relation 用户与就诊人关系
      * @param remark 备注
      * @param defaulted 是否默认就诊人
      * @return 修改结果
      */
     @Transactional
-    public Result<Integer> updateUserPatientRelationById(Long currentUserId, Long id, String relation, String remark, String defaulted) {
-        UserPatientRelation userPatientRelation = null;
-        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-        // 获取当前用户下所欲就诊人关系，目的为了获取默认就诊人
-        userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
+    public Result<Integer> updateUserPatientRelationById(Long currentUserId, Long id,
+                                                         String name, String phone, String idCard,
+                                                         String relation, String remark, String defaulted) {
+        UserPatientRelation userPatientRelationById = userPatientRelationService.getUserPatientRelationById(id);
+        if (userPatientRelationById == null) {
+            return Result.fail("就诊人不存在");
+        }
+        // 校验当前用户是否有权修改
+        if (!currentUserId.equals(userPatientRelationById.getUserId())) {
+            return Result.fail("无权修改该就诊人");
+        }
 
-        switch (defaulted) {
-            case "true" -> {
-                assert userPatientRelation != null;
-                userPatientRelation.setDefaulted(false);
-                userPatientRelationService.updateUserPatientRelationById(userPatientRelation);
+        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
+        UserPatientRelation defaultRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
+
+        if ("true".equals(defaulted) && defaultRelation != null && !defaultRelation.getId().equals(id)) {
+            defaultRelation.setDefaulted(false);
+            userPatientRelationService.updateUserPatientRelationById(defaultRelation);
+        }
+        if ("false".equals(defaulted) && (defaultRelation == null || defaultRelation.getId().equals(id))) {
+            return Result.fail("当前账户不能没有默认就诊人");
+        }
+
+        // 更新用户信息（姓名、手机号、身份证号）
+        User patientUser = userService.getUserById(userPatientRelationById.getPatientUserId());
+        if (patientUser != null) {
+            if (name != null && !name.isEmpty()) {
+                patientUser.setNickname(name);
+                patientUser.setUsername(name);
             }
-            case "false" -> {
-                if (userPatientRelation == null) {
-                    return Result.fail("当前账户不能没有默认就诊人");
-                }
+            if (idCard != null && !idCard.isEmpty()) {
+                patientUser.setIdCard(idCard);
+            }
+            userService.updateUserById(patientUser);
+        }
+        if (phone != null && !phone.isEmpty()) {
+            Account account = accountService.getAccountByUserId(userPatientRelationById.getPatientUserId());
+            if (account != null) {
+                account.setPhone(phone);
+                accountService.updateAccountById(account);
             }
         }
 
-
-        UserPatientRelation userPatientRelationById = userPatientRelationService.getUserPatientRelationById(id);
         userPatientRelationById.setRelation(relation);
         userPatientRelationById.setRemark(remark);
         userPatientRelationById.setDefaulted(Boolean.valueOf(defaulted));
