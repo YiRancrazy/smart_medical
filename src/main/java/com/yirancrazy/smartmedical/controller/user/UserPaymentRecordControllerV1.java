@@ -1,10 +1,13 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import com.yirancrazy.smartmedical.manager.PaymentRecordManager;
 
@@ -24,6 +27,9 @@ import java.util.List;
 @Tag(name = "用户支付记录管理", description = "用户支付记录管理")
 public class UserPaymentRecordControllerV1 {
     private final PaymentRecordManager PaymentRecordManager;
+
+    @Value("${spring.profiles.active:prod}")
+    private String activeProfile;
 
     @GetMapping("/simple/list")
     @Operation(summary = "获取当前用户支付记录", description = "获取当前用户支付记录")
@@ -45,6 +51,10 @@ public class UserPaymentRecordControllerV1 {
                             @RequestParam(required = false) Integer paymentMethodId,
                             @RequestParam(required = false) Long transactionSn,
                             @RequestParam(required = false) Integer realAmount) {
+        // 模拟支付仅 dev 环境可用，生产环境必须接入真实支付回调
+        if (!"dev".equals(activeProfile)) {
+            throw new BizException(BizErrorCode.OPERATION_NOT_SUPPORTED, "模拟支付仅开发环境可用");
+        }
         return PaymentRecordManager.paySuccess(orderId, userId, paymentMethodId, transactionSn, realAmount);
     }
 }

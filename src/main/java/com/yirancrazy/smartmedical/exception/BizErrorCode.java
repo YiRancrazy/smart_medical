@@ -33,7 +33,8 @@ public enum BizErrorCode {
     DOCTOR_NOT_MATCH(6001, "医生不匹配"),
     CONCURRENT_OPERATION(7001, "操作冲突，请刷新后重试"),
     LOGIN_RATE_LIMITED(8001, "登录尝试过于频繁，请5分钟后再试"),
-    PATIENT_DATA_INVALID(9001, "就诊人数据异常");
+    PATIENT_DATA_INVALID(9001, "就诊人数据异常"),
+    OPERATION_NOT_SUPPORTED(9002, "当前环境不支持此操作");
 
     private final int code;
     private final String defaultMessage;
