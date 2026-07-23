@@ -30,15 +30,27 @@ public class UserChatControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加聊天记录", description = "添加新聊天记录")
-    public int addChat(@RequestBody Chat chat) {
-        return chatManager.addChat(chat);
+    public Result<Integer> addChat(@RequestBody Chat chat,
+                                   @RequestAttribute("currentUserId") Long userId) {
+        // 强制以当前登录用户为发送者，防止身份伪造
+        chat.setSendId(userId);
+        return Result.success(chatManager.addChat(chat));
     }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取聊天记录", description = "根据聊天记录ID获取聊天记录")
     @Parameter(name = "id", description = "聊天记录ID", required = true)
-    public Chat getChatById(@PathVariable String id) {
-        return chatManager.getChatById(Long.parseLong(id));
+    public Result<Chat> getChatById(@PathVariable String id,
+                                    @RequestAttribute("currentUserId") Long userId) {
+        Chat chat = chatManager.getChatById(Long.parseLong(id));
+        if (chat == null) {
+            return Result.fail("聊天记录不存在");
+        }
+        // 仅允许发送者或接收者查看，防止 IDOR
+        if (!userId.equals(chat.getSendId()) && !userId.equals(chat.getReceiveId())) {
+            return Result.fail("无权查看该聊天记录");
+        }
+        return Result.success(chat);
     }
 
     /**
