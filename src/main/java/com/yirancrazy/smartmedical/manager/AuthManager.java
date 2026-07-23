@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWT;
@@ -15,6 +14,7 @@ import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.NicknameGenerator;
+import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
@@ -22,7 +22,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -88,9 +87,16 @@ public class AuthManager {
             }
 
             // 校验原始密码和加密后的密码
-            if(!checkPassword(password, account.getPassword())){
+            if(!PasswordUtil.verify(password, account.getPassword())){
                 log.warn("[login] 密码错误, phone={}", phone);
                 return Result.info(10002,"用户名或密码错误", null);
+            }
+
+            // 历史弱密码（MD5/明文）登录后自动升级为 BCrypt，逐步消除弱密码存储
+            if (PasswordUtil.needsBcryptUpgrade(account.getPassword())) {
+                account.setPassword(PasswordUtil.encode(password));
+                accountService.updateAccountById(account);
+                log.info("[login] 密码已升级为 BCrypt, accountId={}", account.getId());
             }
 
             // 获取用户信息
@@ -159,7 +165,7 @@ public class AuthManager {
         account.setUserId(user.getId());
         account.setRoleId(USER_ROLE);
         account.setPhone(phone);
-        account.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
+        account.setPassword(PasswordUtil.encode(password));
         accountService.insertAccount(account);
 
         registerInit(user.getId());
@@ -300,28 +306,4 @@ public class AuthManager {
         patientService.insertPatient(patient);
     }
 
-    /**
-     * 校验原始密码和加密后的密码，兼容历史数据：先匹配By
-     * @param rawPassword 原始密码
-     * @param encodedPassword 加密后的密码
-     * @return 匹配返回true，否则返回false
-     */
-    private boolean checkPassword(String rawPassword, String encodedPassword) {
-        if (encodedPassword == null || encodedPassword.isBlank()) {
-            return false;
-        }
-
-        // BCrypt加密校验
-        if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
-            return BCrypt.checkpw(rawPassword, encodedPassword);
-        }
-
-        // MD5加密校验（仅作兼容旧系统）
-        if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
-            return true;
-        }
-
-        // 明文密码兜底校验（仅作兼容旧系统）
-        return rawPassword.equals(encodedPassword);
-    }
 }

@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
@@ -20,6 +19,7 @@ import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
@@ -28,7 +28,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.bcrypt.BCrypt;
 
 import java.util.HashMap;
 import java.util.List;
@@ -127,8 +126,15 @@ public class AdminAuthManager {
         if (roleAccount == null) {
             return Result.fail("账号不存在或无权限");
         }
-        if (!checkPassword(password, roleAccount.getPassword())) {
+        if (!PasswordUtil.verify(password, roleAccount.getPassword())) {
             return Result.fail("用户名或密码错误");
+        }
+
+        // 历史弱密码（MD5/明文）登录后自动升级为 BCrypt，逐步消除弱密码存储
+        if (PasswordUtil.needsBcryptUpgrade(roleAccount.getPassword())) {
+            roleAccount.setPassword(PasswordUtil.encode(password));
+            accountService.updateAccountById(roleAccount);
+            log.info("[admin-login] 密码已升级为 BCrypt, accountId={}", roleAccount.getId());
         }
 
         // accessJWT 和 refreshJwt 写入 redis 中（admin前缀用于所有角色，统一管理）
@@ -248,27 +254,5 @@ public class AdminAuthManager {
             result.setRole(adminRole.getName()); // 获取角色名称
         }
         return Result.success(result);
-    }
-
-    /**
-     * 校验密码，兼容 BCrypt / MD5 / 历史明文三种存储格式
-     * @param rawPassword 明文密码
-     * @param encodedPassword 数据库存储的密码
-     * @return 是否匹配
-     */
-    private boolean checkPassword(String rawPassword, String encodedPassword) {
-        if (encodedPassword == null || encodedPassword.isBlank()) {
-            return false;
-        }
-        // BCrypt 哈希以 $2a$/$2b$/$2y$ 开头
-        if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
-            return BCrypt.checkpw(rawPassword, encodedPassword);
-        }
-        // MD5
-        if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
-            return true;
-        }
-        // 兼容历史明文（种子数据）
-        return rawPassword.equals(encodedPassword);
     }
 }
