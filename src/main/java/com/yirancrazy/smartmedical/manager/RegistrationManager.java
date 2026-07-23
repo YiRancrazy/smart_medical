@@ -154,6 +154,8 @@ public class RegistrationManager {
 
     /**
      * 获取用户预约列表
+     * ponytail: G13 已知限制 — 逐条查 user/schedule/template/doctor/department/position（N+1），
+     *           用户挂号记录通常 < 100，当前可接受；数据量增大时改为批量 listByIds + Map 缓存
      * @param currentUserId 当前登录用户id
      * @param patientCardId 就诊卡id（为 null 时返回全部关联就诊人）
      * @return 用户预约信息简单响应列表
