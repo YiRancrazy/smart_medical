@@ -50,13 +50,8 @@ public class RegistrationScheduleManager {
 
         List<AppointmentRule> currentDoctorAppointmentRules = appointmentRuleService.listAppointmentsRulesByDoctorId(doctorId);
         if (currentDoctorAppointmentRules.isEmpty()) {
-            List<AppointmentRule> currentDepartmentAppointmentRules = appointmentRuleService.listAppointmentsRulesByDepartmentId(doctor.getDepartmentId());
-            if (currentDepartmentAppointmentRules.isEmpty()) {
-                currentDoctorAppointmentRules = appointmentRuleService.listAllAppointmentRules();
-                appointmentRules = currentDoctorAppointmentRules;
-            } else {
-                appointmentRules = currentDepartmentAppointmentRules;
-            }
+            // ponytail: S13 — 无医生规则时回落到科室规则，不再跨科室兜底取全院规则
+            appointmentRules = appointmentRuleService.listAppointmentsRulesByDepartmentId(doctor.getDepartmentId());
         } else {
             appointmentRules = currentDoctorAppointmentRules;
         }
@@ -65,12 +60,7 @@ public class RegistrationScheduleManager {
                 .stream()
                 .filter(item -> Objects.equals(item.getStatus(), AppointmentRuleStatusEnum.NORMAL.getCode()))
                 .filter(item -> Objects.equals(item.getRuleType(), AppointmentRuleTypeEnum.OUT_PATIENT.getCode()))
-                .sorted(new Comparator<AppointmentRule>() {
-                    @Override
-                    public int compare(AppointmentRule o1, AppointmentRule o2) {
-                        return o1.getPriority() - o2.getPriority();
-                    }
-                })
+                .sorted(Comparator.comparing(AppointmentRule::getPriority, Comparator.nullsLast(Integer::compare)))
                 .toList();
 
         if (appointmentRules.isEmpty()) {
@@ -94,10 +84,9 @@ public class RegistrationScheduleManager {
         List<RegistrationSchedule> registrationSchedules = registrationScheduleService
                 .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleIdList);
 
-        List<RegistrationDateAndRemainQuotaVo> registrationDateAndRemainQuotaVoList = new ArrayList<>();
-
+        // ponytail: S14 — 按 date 聚合同日所有 schedule 的剩余/总号源，避免跳过同日上午+下午
+        java.util.Map<LocalDate, RegistrationDateAndRemainQuotaVo> mergedByDate = new java.util.TreeMap<>();
         for (RegistrationScheduleTemplate registrationScheduleTemplate : registrationScheduleTemplateList) {
-            RegistrationDateAndRemainQuotaVo registrationDateAndRemainQuotaVo = new RegistrationDateAndRemainQuotaVo();
             RegistrationSchedule registrationSchedule = registrationSchedules.stream()
                     .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
                     .findFirst().orElse(null);
@@ -105,29 +94,21 @@ public class RegistrationScheduleManager {
                 log.warn("跳过排班模板 {}：未找到对应排班记录", registrationScheduleTemplate.getId());
                 continue;
             }
-            registrationDateAndRemainQuotaVo.setDoctorId(String.valueOf(registrationSchedule.getDoctorId()));
-            registrationDateAndRemainQuotaVo.setDate(registrationScheduleTemplate.getRegistrationDate());
-            int remainQuota = registrationSchedules.stream()
-                    .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
-                    .mapToInt(RegistrationSchedule::getRemainingQuota)
-                    .sum();
-            registrationDateAndRemainQuotaVo.setTotalQuota(registrationScheduleTemplate.getTotalQuota());
-            registrationDateAndRemainQuotaVo.setRemainQuota(remainQuota);
-            registrationDateAndRemainQuotaVoList.add(registrationDateAndRemainQuotaVo);
-        }
-
-        List<RegistrationDateAndRemainQuotaVo> result = new ArrayList<>();
-        List<LocalDate> dateList = new ArrayList<>();
-        for (RegistrationDateAndRemainQuotaVo registrationDateAndRemainQuotaVo : registrationDateAndRemainQuotaVoList) {
-
-            if (dateList.contains(registrationDateAndRemainQuotaVo.getDate())) {
-                continue;
-            } else {
-                dateList.add(registrationDateAndRemainQuotaVo.getDate());
-                result.add(registrationDateAndRemainQuotaVo);
+            LocalDate date = registrationScheduleTemplate.getRegistrationDate();
+            RegistrationDateAndRemainQuotaVo vo = mergedByDate.get(date);
+            if (vo == null) {
+                vo = new RegistrationDateAndRemainQuotaVo();
+                vo.setDoctorId(String.valueOf(registrationSchedule.getDoctorId()));
+                vo.setDate(date);
+                vo.setTotalQuota(0);
+                vo.setRemainQuota(0);
+                mergedByDate.put(date, vo);
             }
+            vo.setTotalQuota(vo.getTotalQuota() + (registrationScheduleTemplate.getTotalQuota() == null ? 0 : registrationScheduleTemplate.getTotalQuota()));
+            vo.setRemainQuota(vo.getRemainQuota() + (registrationSchedule.getRemainingQuota() == null ? 0 : registrationSchedule.getRemainingQuota()));
         }
 
+        List<RegistrationDateAndRemainQuotaVo> result = new ArrayList<>(mergedByDate.values());
         result.sort(Comparator.comparing(RegistrationDateAndRemainQuotaVo::getDate));
 
         return Result.success(result);

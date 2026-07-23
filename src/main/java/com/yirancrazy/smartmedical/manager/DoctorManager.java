@@ -110,12 +110,7 @@ public class DoctorManager {
                 .filter(item -> Objects.equals(item.getStatus(), AppointmentRuleStatusEnum.NORMAL.getCode()))    // 获取正常状态的挂号配置
                 .filter(item -> Objects.equals(item.getRuleType(), AppointmentRuleTypeEnum.OUT_PATIENT.getCode())) // 获取门诊挂号配置
                 .filter(item -> Objects.equals(item.getDepartmentId(), departmentId) || Objects.equals(item.getDepartmentId(), null)) // 获取指定科室的挂号配置,如果没有则获取所有科室的挂号配置
-                .sorted(new Comparator<AppointmentRule>() {
-                    @Override
-                    public int compare(AppointmentRule o1, AppointmentRule o2) {
-                        return o2.getPriority() - o1.getPriority();
-                    }
-                })
+                .sorted(Comparator.comparing(AppointmentRule::getPriority, Comparator.nullsLast(Integer::compare)).reversed())
                 .toList();
 
         if (enableAppointmentRules.isEmpty()) {
@@ -153,7 +148,9 @@ public class DoctorManager {
             temp.setDepartmentId(String.valueOf(doctor.getDepartmentId()));
             temp.setDepartmentName(department == null ? "" : department.getName());
             String tags = doctor.getTags();
-            temp.setTags(tags == null || tags.isEmpty() ? List.of() : Arrays.stream(tags.split(",")).toList());
+            temp.setTags(tags == null || tags.isEmpty()
+                    ? List.of()
+                    : Arrays.stream(tags.split(",")).filter(s -> !s.isEmpty()).toList());
             temp.setDescription(doctor.getDescription());
             temp.setAvatar(doctor.getAvatar());
             DoctorPosition position = doctor.getDoctorPositionId() == null ? null : doctorPositions.stream()
@@ -163,7 +160,7 @@ public class DoctorManager {
                if (template.getDoctorId().equals(doctor.getId())){
                    // getRecentRegistrationListByDoctorIdList 返回的就是排班模板行，直接取 price
                    int price = template.getPrice() == null ? 0 : template.getPrice();
-                   temp.setPrice(BigDecimal.valueOf(price).divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP));
+                   temp.setPrice(BigDecimal.valueOf(price).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
                 break;
                }
            }
