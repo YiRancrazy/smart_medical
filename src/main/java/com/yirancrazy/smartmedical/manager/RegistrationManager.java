@@ -47,13 +47,17 @@ public class RegistrationManager {
     private final DoctorPositionService doctorPositionService;
 
 
-    public Result<Integer> addRegistration(Registration registration) {
-        registration.setId(IdUtil.getSnowflakeNextId());
-        return Result.success(registrationService.insertRegistration(registration));
-    }
-
-    public Result<Registration> getRegistrationById(Long id) {
-        return Result.success(registrationService.getRegistrationById(id));
+    public Result<Registration> getRegistrationById(Long id, Long currentUserId) {
+        Registration reg = registrationService.getRegistrationById(id);
+        if (reg == null) {
+            return Result.fail("挂号记录不存在");
+        }
+        // 校验当前用户对该挂号记录的就诊人有访问权限
+        List<Long> accessibleUserIds = patientManager.getAccessiblePatientUserIds(currentUserId, null);
+        if (!accessibleUserIds.contains(reg.getUserId())) {
+            return Result.fail("无权查看该挂号记录");
+        }
+        return Result.success(reg);
     }
 
     /**

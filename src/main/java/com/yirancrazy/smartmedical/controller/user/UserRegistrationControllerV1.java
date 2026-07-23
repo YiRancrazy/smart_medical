@@ -30,17 +30,12 @@ public class UserRegistrationControllerV1 {
     private final RegistrationManager registrationManager;
     private final RegistrationCheckInManager registrationCheckInManager;
 
-    @PostMapping("/add")
-    @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
-    public Result<Integer> addRegistration(@RequestBody Registration registration) {
-        return registrationManager.addRegistration(registration);
-    }
-
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
-    public Result<Registration> getRegistrationById(@PathVariable String id) {
-        return registrationManager.getRegistrationById(Long.parseLong(id));
+    public Result<Registration> getRegistrationById(@PathVariable String id,
+                                                    @RequestAttribute("currentUserId") Long userId) {
+        return registrationManager.getRegistrationById(Long.parseLong(id), userId);
     }
 
     /**

@@ -58,14 +58,16 @@ public class MedicalRecordManager {
     /**
      * 保存病历草稿（status=0）
      * @param req 病历草稿请求
-     * @throws BizException REGISTRATION_NOT_FOUND / MEDICAL_RECORD_ALREADY_SUBMITTED
+     * @param doctorId 当前医生ID（来自 JWT context）
+     * @throws BizException REGISTRATION_NOT_FOUND / REGISTRATION_STATUS_INVALID / DOCTOR_NOT_MATCH / MEDICAL_RECORD_ALREADY_SUBMITTED
      */
     @Transactional(rollbackFor = Exception.class)
-    public void draft(DraftMedicalRecordRequest req) {
+    public void draft(DraftMedicalRecordRequest req, Long doctorId) {
         Registration reg = registrationService.getRegistrationById(req.getRegistrationId());
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
+        assertDoctorOwnsRegistration(reg, doctorId);
         // 仅就诊中可编辑病历草稿
         if (reg.getStatus() == null
                 || reg.getStatus() != RegistrationStatusEnum.IN_TREATMENT.getCode()) {
@@ -214,14 +216,43 @@ public class MedicalRecordManager {
      * 医生端 - 按挂号ID取病历（仅查询）
      * ponytail: 单表查询，直接返回实体
      * @param registrationId 挂号记录ID
+     * @param doctorId 当前医生ID（来自 JWT context）
      * @return 病历详情 VO
+     * @throws BizException REGISTRATION_NOT_FOUND / DOCTOR_NOT_MATCH
      */
-    public MedicalRecordDetailVO getByRegistrationId(Long registrationId) {
+    public MedicalRecordDetailVO getByRegistrationId(Long registrationId, Long doctorId) {
+        Registration reg = registrationService.getRegistrationById(registrationId);
+        if (reg == null) {
+            throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
+        }
+        assertDoctorOwnsRegistration(reg, doctorId);
         MedicalRecord record = medicalRecordService.getOne(
                 new LambdaQueryWrapper<MedicalRecord>()
                         .eq(MedicalRecord::getRegistrationId, registrationId)
                         .last("LIMIT 1"));
         return toDetailVO(record);
+    }
+
+    /**
+     * 校验当前医生是否为挂号记录对应排班的出诊医生
+     * ponytail: 通过 reg → schedule → template.doctorId 链路校验，复用现有 Service
+     * @param reg 挂号记录
+     * @param doctorId 当前医生ID
+     * @throws BizException DOCTOR_NOT_MATCH
+     */
+    private void assertDoctorOwnsRegistration(Registration reg, Long doctorId) {
+        if (reg.getRegistrationScheduleId() == null) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "挂号记录无排班信息");
+        }
+        RegistrationSchedule schedule = registrationScheduleService.getRegistrationScheduleById(reg.getRegistrationScheduleId());
+        if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "排班或模板不存在");
+        }
+        RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
+        if (template == null || !doctorId.equals(template.getDoctorId())) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
+        }
     }
 
     /**

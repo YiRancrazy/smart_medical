@@ -37,22 +37,26 @@ public class DoctorMedicalRecordControllerV1 {
     /**
      * 医生端 - 取病历(按挂号ID)
      * @param regId 挂号记录ID
+     * @param doctorId 当前医生ID
      * @return 病历详情 VO
      */
     @Operation(summary = "医生端 - 取病历(按挂号ID)")
     @GetMapping("/registration/{regId}")
-    public Result<MedicalRecordDetailVO> getByRegistration(@PathVariable Long regId) {
-        return Result.success(medicalRecordManager.getByRegistrationId(regId));
+    public Result<MedicalRecordDetailVO> getByRegistration(@PathVariable Long regId,
+                                                           @RequestAttribute("currentDoctorId") Long doctorId) {
+        return Result.success(medicalRecordManager.getByRegistrationId(regId, doctorId));
     }
 
     /**
      * 医生端 - 保存病历草稿
      * @param req 病历草稿请求
+     * @param doctorId 当前医生ID
      */
     @Operation(summary = "医生端 - 保存病历草稿")
     @PostMapping("/draft")
-    public Result<Void> saveDraft(@RequestBody DraftMedicalRecordRequest req) {
-        medicalRecordManager.draft(req);
+    public Result<Void> saveDraft(@RequestBody DraftMedicalRecordRequest req,
+                                  @RequestAttribute("currentDoctorId") Long doctorId) {
+        medicalRecordManager.draft(req, doctorId);
         return Result.success(null);
     }
 
