@@ -127,7 +127,7 @@ class AuthManagerTest {
         existing.setPhone("13800000000");
         when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(existing));
 
-        Result<String> result = m.register("13800000000", "raw");
+        Result<String> result = m.register("13800000000", "raw123");
 
         assertEquals(10001, result.getCode());
     }
@@ -139,7 +139,7 @@ class AuthManagerTest {
         when(patientCardService.insertPatientCard(any(PatientCard.class))).thenReturn(1);
         when(patientService.insertPatient(any(Patient.class))).thenReturn(1);
 
-        Result<String> result = m.register("13800000000", "raw");
+        Result<String> result = m.register("13800000000", "raw123");
 
         assertEquals(200, result.getCode());
         verify(userService).insertUser(any(User.class));
