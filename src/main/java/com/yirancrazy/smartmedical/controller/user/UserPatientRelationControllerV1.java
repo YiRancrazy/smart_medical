@@ -50,7 +50,8 @@ public class UserPatientRelationControllerV1 {
 
     @Operation(summary = "删除就诊人", description = "删除就诊人")
     @DeleteMapping("/{id}")
-    public Result<Integer> deleteUserPatientRelation(@PathVariable Long id) {
-        return userPatientRelationManager.deleteUserPatientRelationById(id);
+    public Result<Integer> deleteUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
+                                                     @PathVariable Long id) {
+        return userPatientRelationManager.deleteUserPatientRelationById(currentUserId, id);
     }
 }

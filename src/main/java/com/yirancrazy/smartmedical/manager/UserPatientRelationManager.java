@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -29,6 +30,7 @@ public class UserPatientRelationManager {
     private final UserService userService;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
+    private final RegistrationService registrationService;
 
     private static final Long USER_ROLE = 4L;
 
@@ -162,30 +164,47 @@ public class UserPatientRelationManager {
     /**
      * 设置默认就诊人
      * @param currentUserId 当前用户id
-     * @param id 就诊人id
+     * @param id 就诊人关系id
      * @return 设置结果
      */
     @Transactional
     public Result<Integer> setDefaultUserPatientRelation(Long currentUserId, Long id) {
         UserPatientRelation userPatientRelation = null;
         List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-        // 获取当前用户下所欲就诊人关系，目的为了获取默认就诊人
+        // 获取当前用户下所有就诊人关系，目的为了获取默认就诊人
         userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
         if (userPatientRelation != null) {
             userPatientRelation.setDefaulted(false);
             userPatientRelationService.updateUserPatientRelationById(userPatientRelation);
         }
-        userPatientRelation = userPatientRelationService.getUserPatientRelationById(id);
-        userPatientRelation.setDefaulted(true);
-        return Result.success(userPatientRelationService.updateUserPatientRelationById(userPatientRelation));
+        // 校验目标就诊人关系归属当前用户
+        UserPatientRelation target = userPatientRelationService.getUserPatientRelationById(id);
+        if (target == null || !currentUserId.equals(target.getUserId())) {
+            return Result.fail("无权操作该就诊人");
+        }
+        target.setDefaulted(true);
+        return Result.success(userPatientRelationService.updateUserPatientRelationById(target));
     }
 
     /**
      * 删除就诊人
-     * @param id 就诊人id
+     * @param currentUserId 当前用户id
+     * @param id 就诊人关系id
      * @return 删除结果
      */
-    public Result<Integer> deleteUserPatientRelationById(Long id) {
+    public Result<Integer> deleteUserPatientRelationById(Long currentUserId, Long id) {
+        UserPatientRelation relation = userPatientRelationService.getUserPatientRelationById(id);
+        if (relation == null || !currentUserId.equals(relation.getUserId())) {
+            return Result.fail("无权删除该就诊人");
+        }
+        // 检查该就诊人是否存在在途挂号（未完成就诊流程）：状态 0/1/5/6/7
+        List<Integer> inTransitStatuses = Arrays.asList(0, 1, 5, 6, 7);
+        List<Registration> registrations = registrationService.listRegistrationsByUserId(relation.getPatientUserId());
+        boolean hasInTransit = registrations.stream()
+                .anyMatch(r -> r.getStatus() != null && inTransitStatuses.contains(r.getStatus()));
+        if (hasInTransit) {
+            return Result.fail("该就诊人存在在途挂号，无法删除");
+        }
         return Result.success(userPatientRelationService.deleteUserPatientRelationById(id));
     }
 
