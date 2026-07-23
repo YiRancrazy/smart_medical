@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 /**
@@ -69,7 +70,7 @@ public class RegistrationScheduleManager {
 
         List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService.listRegistrationScheduleTemplatesByDoctorId(doctorId);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
         LocalDate maxDate = today.plusDays(currentAppointmentRule.getMaxAdvanceDays());
         registrationScheduleTemplateList = registrationScheduleTemplateList.stream()
                 .filter(item -> !item.getRegistrationDate().isBefore(today) &&

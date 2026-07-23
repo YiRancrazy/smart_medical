@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -310,7 +311,7 @@ public class DoctorManager {
      */
     public List<DoctorScheduleVO> listTodaySchedule(Long doctorId) {
         List<RegistrationSchedule> schedules = registrationScheduleService
-                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now());
+                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
         if (schedules == null || schedules.isEmpty()) {
             return Collections.emptyList();
         }
@@ -387,7 +388,7 @@ public class DoctorManager {
 
     private List<Long> getScheduleIdsByDoctor(Long doctorId) {
         List<RegistrationSchedule> schedules = registrationScheduleService
-                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now());
+                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
         if (schedules == null || schedules.isEmpty()) {
             return Collections.emptyList();
         }
@@ -398,7 +399,7 @@ public class DoctorManager {
 
     private List<Registration> listRegistrationsByDoctorIdAndStatus(Long doctorId, Integer status) {
         List<RegistrationSchedule> schedules = registrationScheduleService
-                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now());
+                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
         if (schedules == null || schedules.isEmpty()) {
             return Collections.emptyList();
         }

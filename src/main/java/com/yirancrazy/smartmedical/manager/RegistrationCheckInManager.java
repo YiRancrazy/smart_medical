@@ -94,7 +94,8 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "排班模板信息缺失");
         }
         java.time.LocalDate scheduleDate = template.getRegistrationDate();
-        java.time.LocalDate today = java.time.LocalDate.now();
+        // 强制 Asia/Shanghai 时区，避免容器默认 UTC 导致凌晨报到被拒
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
         if (!scheduleDate.equals(today)) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "仅预约当天可报到");
