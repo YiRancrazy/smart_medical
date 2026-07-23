@@ -171,16 +171,17 @@ public class RegistrationCheckInManager {
                                 .last("LIMIT 1"));
 
                 Integer refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
-                // G11: 查已退款总额，防止部分退款场景下重复退全款
+                // G11: 查已退款总额（仅统计退款记录 realAmount<0，避免混入原支付记录被翻状态后正负抵消）
                 List<PaymentRecord> refundedRecords = paymentRecordMapper.selectList(
                         new LambdaQueryWrapper<PaymentRecord>()
                                 .eq(PaymentRecord::getOrderId, order.getId())
-                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_REFUNDED));
-                int alreadyRefunded = refundedRecords.stream()
+                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_REFUNDED)
+                                .lt(PaymentRecord::getRealAmount, 0));
+                int alreadyRefunded = -refundedRecords.stream()
                         .mapToInt(r -> r.getRealAmount() == null ? 0 : r.getRealAmount())
                         .sum();
-                // realAmount 退款为负数，剩余可退 = refundAmount + alreadyRefunded
-                int remainingRefund = refundAmount + alreadyRefunded;
+                // alreadyRefunded 已是正数（退款绝对值之和），剩余可退 = refundAmount - alreadyRefunded
+                int remainingRefund = refundAmount - alreadyRefunded;
                 if (remainingRefund > 0) {
                     PaymentRecord refund = new PaymentRecord();
                     refund.setId(IdUtil.getSnowflakeNextId());
