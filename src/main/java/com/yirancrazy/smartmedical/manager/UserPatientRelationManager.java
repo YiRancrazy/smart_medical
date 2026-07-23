@@ -161,6 +161,15 @@ public class UserPatientRelationManager {
         if (phone != null && !phone.isEmpty()) {
             Account account = accountService.getAccountByUserId(userPatientRelationById.getPatientUserId());
             if (account != null) {
+                // B16: 改手机号前先查重，避免命中 account.phone 唯一索引抛 SQL 异常被全局吞为 500
+                if (!phone.equals(account.getPhone())) {
+                    List<Account> existing = accountService.getAccountByPhone(phone);
+                    boolean conflict = existing.stream()
+                            .anyMatch(a -> !a.getId().equals(account.getId()));
+                    if (conflict) {
+                        return Result.fail("该手机号已被其他账号占用");
+                    }
+                }
                 account.setPhone(phone);
                 accountService.updateAccountById(account);
             }
