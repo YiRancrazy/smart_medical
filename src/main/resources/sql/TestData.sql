@@ -199,7 +199,7 @@ SELECT
     CASE rst.registration_type WHEN 0 THEN '上午' WHEN 1 THEN '下午' END AS session,
     rs.id AS schedule_id,
     rs.start_time,
-    rs.remain_quota
+    rs.remaining_quota
 FROM registration_schedule_template rst
 JOIN registration_schedule rs ON rs.registration_schedule_template_id = rst.id
 WHERE rst.doctor_id = 2
@@ -208,7 +208,7 @@ ORDER BY rst.registration_date, rs.start_time;
 -- 查询挂号记录及状态
 SELECT
     r.id AS registration_id,
-    u.name AS patient_name,
+    u.nickname AS patient_name,
     rs.start_time AS appointment_time,
     CASE r.status
         WHEN 0 THEN '已预约'
@@ -232,9 +232,9 @@ SELECT
     p.total_amount / 100 AS total_amount_yuan,
     p.status,
     pi.quantity,
-    d.name AS drug_name,
+    d.common_name AS drug_name,
     pi.unit_price / 100 AS unit_price_yuan,
-    pi.usage_instruction
+    pi.usage_method
 FROM prescription p
 JOIN prescription_item pi ON pi.prescription_id = p.id
 JOIN drug d ON pi.drug_id = d.id
