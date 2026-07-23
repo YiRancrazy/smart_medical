@@ -134,11 +134,10 @@ public class PharmacyManager {
                 throw new BizException(BizErrorCode.DRUG_NOT_FOUND,
                         "drugId=" + item.getDrugId());
             }
-            if (inv.getAvailableQuantity() < item.getQuantity()
-                    || inv.getLockedQuantity() < item.getQuantity()) {
+            // 锁定时已扣减 available，发药阶段仅校验 locked
+            if (inv.getLockedQuantity() < item.getQuantity()) {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
                         "drugName=" + (drug == null ? item.getDrugId() : drug.getCommonName())
-                                + ", available=" + inv.getAvailableQuantity()
                                 + ", locked=" + inv.getLockedQuantity()
                                 + ", required=" + item.getQuantity());
             }
