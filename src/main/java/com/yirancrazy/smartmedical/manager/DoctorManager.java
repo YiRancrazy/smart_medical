@@ -293,8 +293,19 @@ public class DoctorManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
+        // B09: 与 MedicalRecordManager.assertDoctorOwnsRegistration 对齐，
+        // 统一以 registration_schedule_template.doctor_id 为唯一来源，
+        // 避免排班生成时 schedule.doctor_id 未正确回填导致叫号与开方/病历校验不一致
+        if (reg.getRegistrationScheduleId() == null) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "挂号记录无排班信息");
+        }
         RegistrationSchedule schedule = registrationScheduleService.getRegistrationScheduleById(reg.getRegistrationScheduleId());
-        if (schedule == null || !doctorId.equals(schedule.getDoctorId())) {
+        if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "排班或模板不存在");
+        }
+        RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
+        if (template == null || !doctorId.equals(template.getDoctorId())) {
             throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
         }
         if (!Integer.valueOf(RegistrationStatusEnum.REPORTED.getCode()).equals(reg.getStatus())) {
