@@ -235,6 +235,22 @@ public class AuthManager {
                 roleId = 4L; // 默认user
             }
 
+            // 角色变更后 refresh 必须以 DB 当前角色为准，防止降权后 30 天内仍持旧权限
+            try {
+                Account account = accountService.getAccountById(Long.parseLong(accountId));
+                if (account == null) {
+                    return Result.fail("账号不存在");
+                }
+                if (account.getRoleId() == null || !account.getRoleId().equals(roleId)) {
+                    // 角色已变更，旧 refresh token 不再可信，清除并要求重新登录
+                    redisUtil.delete(adminRefreshTokenPrefix + accountId);
+                    redisUtil.delete(adminAccessTokenPrefix + accountId);
+                    return Result.fail("账号角色已变更，请重新登录");
+                }
+            } catch (NumberFormatException e) {
+                return Result.fail("Refresh token 无效");
+            }
+
             // 从refresh token解析userId，用于生成新access token
             Long userId;
             try {
