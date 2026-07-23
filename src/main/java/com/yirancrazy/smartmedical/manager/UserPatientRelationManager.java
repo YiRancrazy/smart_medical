@@ -2,11 +2,13 @@ package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ import java.util.List;
 
 @Manager
 @RequiredArgsConstructor
+@Slf4j
 public class UserPatientRelationManager {
 
     private final UserPatientRelationService userPatientRelationService;
@@ -238,10 +241,12 @@ public class UserPatientRelationManager {
         account.setUserId(userId);
         account.setRoleId(USER_ROLE);
         account.setPhone(phone);
-        // S19: 用手机号后 6 位作为初始密码（就诊人可知），替代可预测的雪花 ID
-        String initPwd = phone != null && phone.length() >= 6 ? phone.substring(phone.length() - 6) : "123456";
+        // 随机 6 位数字初始密码，避免手机号后 6 位可预测导致账号被冒用
+        String initPwd = RandomUtil.randomNumbers(6);
         account.setPassword(BCrypt.hashpw(initPwd, BCrypt.gensalt()));
         account.setEnabled(true);
+        // 初始密码仅通过日志通知操作者，由操作者线下转交就诊人；后续应接短信通知
+        log.warn("[createPatientUser] 新建就诊人账号 phone={} 初始密码={}", phone, initPwd);
         accountService.insertAccount(account);
 
         PatientCard patientCard = new PatientCard();
