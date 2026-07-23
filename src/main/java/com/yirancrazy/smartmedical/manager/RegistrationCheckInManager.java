@@ -129,8 +129,12 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         Integer curStatus = reg.getStatus();
-        if (curStatus != null
-                && curStatus != RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()
+        // B20: 显式拒绝 status=null，避免号源恢复/订单关闭 SQL 先执行再靠事务回滚兜底
+        if (curStatus == null) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                    "挂号记录状态异常，不可取消");
+        }
+        if (curStatus != RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()
                 && curStatus != RegistrationStatusEnum.SUCCESS.getCode()) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "当前状态不可取消");
