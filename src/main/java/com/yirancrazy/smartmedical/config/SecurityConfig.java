@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/v1/**").hasRole("admin")
                         .requestMatchers("/api/doctor/v1/**").hasRole("doctor")
                         .requestMatchers("/api/pharmacy/v1/**").hasRole("pharmacist")
+                        .requestMatchers("/api/user/v1/**").hasRole("user")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
