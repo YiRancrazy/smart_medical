@@ -3,12 +3,4 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.yirancrazy.smartmedical.mapper.RegistrationMapper">
-
-    <select id="listRegistrationsByUserId" resultType="com.yirancrazy.smartmedical.pojo.Registration">
-        SELECT * FROM registration WHERE user_id = #{userId}
-    </select>
-
-    <select id="getRegistrationByRegistrationScheduleIdAndUserId" resultType="com.yirancrazy.smartmedical.pojo.Registration">
-        SELECT * FROM registration WHERE registration_schedule_id = #{registrationScheduleId} AND user_id = #{userId}
-    </select>
 </mapper>

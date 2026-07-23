@@ -68,7 +68,7 @@ public class RegistrationManager {
      * @param patientCardId 患者卡id
      * @return 挂号结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result<String> addRegistration(Long registrationScheduleId, Long uid, Long patientCardId){
         Registration registration = new Registration();
         Order order = new Order();
