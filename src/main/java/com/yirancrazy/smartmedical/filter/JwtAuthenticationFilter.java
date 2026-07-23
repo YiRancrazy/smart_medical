@@ -120,7 +120,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // 验证token有效期
             JWTPayload payload = jwt.getPayload();
-            String userId = String.valueOf(payload.getClaim("sub"));
+            String sub = String.valueOf(payload.getClaim("sub"));
             long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
 
             // exp 字段已经是毫秒级时间戳，直接比较即可
@@ -129,25 +129,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
+            // 解析 accountId（JWT sub）与 userId claim；login 时以 accountId 为 Redis key 存 token
+            Long accountId;
+            Long currentUserId;
+            try {
+                accountId = Long.parseLong(sub);
+                Object userIdClaim = payload.getClaim("userId");
+                currentUserId = userIdClaim != null ? Long.parseLong(String.valueOf(userIdClaim)) : accountId;
+            } catch (NumberFormatException e) {
+                unauthorized(response, "无效的 access_token 身份标识");
+                return;
+            }
+
+            // 校验 Redis 中 token 仍存在（支持 logout 撤销）：login 写入 adminAccessTokenPrefix+accountId，
+            // logout 删除同一 key，Filter 必须比对否则登出后旧 token 在 exp 前仍有效
+            Object cached = redisUtil.get(adminAccessTokenPrefix + accountId);
+            if (cached == null || !token.equals(cached.toString())) {
+                unauthorized(response, "access_token 已失效");
+                return;
+            }
+
             // todo 后续自定义一个JwtAuthenticationToken
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, resolveAuthorities(payload));
+                    new UsernamePasswordAuthenticationToken(sub, null, resolveAuthorities(payload));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             // 桥接 JWT 上下文到 controller request attributes,
-            // 让 controller 可用 @RequestAttribute("currentUserId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
+            // 让 controller 可用 @RequestAttribute("currentUserId"/"currentAccountId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
             // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
-            try {
-                Long accountId = Long.parseLong(userId);
-                Object userIdClaim = payload.getClaim("userId");
-                Long currentUserId = userIdClaim != null ? Long.parseLong(String.valueOf(userIdClaim)) : accountId;
-                request.setAttribute("currentUserId", currentUserId);
-                request.setAttribute("currentDoctorId", currentUserId);
-                request.setAttribute("currentPharmacistId", currentUserId);
-            } catch (NumberFormatException e) {
-                log.warn("[jwt] userId 非数字,跳过 request attribute 桥接: {}", userId);
-            }
-            log.debug("JWT 认证通过：userId={}, uri={}", userId, uri);
+            request.setAttribute("currentUserId", currentUserId);
+            request.setAttribute("currentAccountId", accountId);
+            // ponytail: currentDoctorId/currentPharmacistId 暂用 currentUserId，doctor/pharmacist 表 id 与 user.id 的映射在 B10/越权专项修复时补
+            request.setAttribute("currentDoctorId", currentUserId);
+            request.setAttribute("currentPharmacistId", currentUserId);
+            log.debug("JWT 认证通过：accountId={}, userId={}, uri={}", accountId, currentUserId, uri);
             filterChain.doFilter(request, response);
         } catch (Exception e) {
             log.warn("[jwt] 解析 token 失败: {}", e.getMessage());

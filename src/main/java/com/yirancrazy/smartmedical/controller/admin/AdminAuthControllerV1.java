@@ -65,8 +65,8 @@ public class AdminAuthControllerV1 {
 
     @PostMapping("/logout")
     @Operation(summary = "管理员端 - 登出")
-    public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
-        return userAuthManager.logout(userId);
+    public Result<String> logout(@RequestAttribute("currentAccountId") Long accountId) {
+        return userAuthManager.logout(accountId);
     }
 
 }

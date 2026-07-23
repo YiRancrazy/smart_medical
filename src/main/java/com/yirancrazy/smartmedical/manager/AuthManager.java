@@ -168,13 +168,13 @@ public class AuthManager {
     }
 
     /**
-     * 用户登出
-     * @param userId 用户ID
+     * 用户登出：删除 Redis 中的 access/refresh token，使旧 token 立即失效（Filter 会比对 Redis）
+     * @param accountId 账号ID（JWT sub，与 login 时 Redis key 一致）
      * @return 登出结果
      */
-    public Result<String> logout(Long userId) {
-        redisUtil.delete(adminAccessTokenPrefix + userId);
-        redisUtil.delete(adminRefreshTokenPrefix + userId);
+    public Result<String> logout(Long accountId) {
+        redisUtil.delete(adminAccessTokenPrefix + accountId);
+        redisUtil.delete(adminRefreshTokenPrefix + accountId);
         return Result.success("登出成功");
     }
 

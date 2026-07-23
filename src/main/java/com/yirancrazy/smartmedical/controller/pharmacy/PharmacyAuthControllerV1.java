@@ -54,8 +54,8 @@ public class PharmacyAuthControllerV1 {
 
     @PostMapping("/logout")
     @Operation(summary = "药师端 - 登出")
-    public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
-        return userAuthManager.logout(userId);
+    public Result<String> logout(@RequestAttribute("currentAccountId") Long accountId) {
+        return userAuthManager.logout(accountId);
     }
 
     @GetMapping("/current")
