@@ -117,7 +117,11 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public Account getAccountByUserId(Long userId) {
-        return accountMapper.selectOne(new QueryWrapper<Account>().eq("user_id", userId));
+        List<Account> accounts = accountMapper.selectList(
+                new QueryWrapper<Account>()
+                        .eq("user_id", userId)
+                        .last("LIMIT 1"));
+        return accounts.isEmpty() ? null : accounts.get(0);
     }
 
     /**

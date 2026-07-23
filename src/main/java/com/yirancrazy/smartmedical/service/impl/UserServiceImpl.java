@@ -112,8 +112,10 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User getUserByIdCard(String idCard) {
-        return userMapper.selectOne(
+        List<User> users = userMapper.selectList(
                 new LambdaQueryWrapper<User>()
-                        .eq(User::getIdCard,idCard));
+                        .eq(User::getIdCard, idCard)
+                        .last("LIMIT 1"));
+        return users.isEmpty() ? null : users.get(0);
     }
 }
