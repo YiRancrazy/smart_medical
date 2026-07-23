@@ -54,6 +54,7 @@ public class MedicalRecordManager {
     private final DoctorService doctorService;
     private final DepartmentService departmentService;
     private final PrescriptionService prescriptionService;
+    private final PatientManager patientManager;
 
     /**
      * 保存病历草稿（status=0）
@@ -280,7 +281,12 @@ public class MedicalRecordManager {
      */
     public MedicalRecord getMedicalRecordById(Long id, Long userId) {
         MedicalRecord record = medicalRecordService.getById(id);
-        if (record == null || !userId.equals(record.getPatientId())) {
+        if (record == null) {
+            throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
+        }
+        // 复用列表端点的可访问患者集合，确保家属代查场景一致
+        List<Long> accessibleUserIds = patientManager.getAccessiblePatientUserIds(userId, null);
+        if (!accessibleUserIds.contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }
         return record;

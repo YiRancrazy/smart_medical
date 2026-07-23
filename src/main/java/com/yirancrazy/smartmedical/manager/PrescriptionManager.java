@@ -85,6 +85,7 @@ public class PrescriptionManager {
     private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
     private final OrderStatusLogManager orderStatusLogManager;
+    private final PatientManager patientManager;
 
     /**
      * 医生提交病历 + 开处方（最大事务）
@@ -462,10 +463,14 @@ public class PrescriptionManager {
         if (rx == null) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
         }
-        // 通过 medicalRecord → patientId 校验所有权
+        // 通过 medicalRecord → patientId 校验所有权（复用可访问患者集合，含家属授权）
         if (rx.getMedicalRecordId() != null) {
             MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
-            if (record == null || !userId.equals(record.getPatientId())) {
+            if (record == null) {
+                throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
+            }
+            List<Long> accessibleUserIds = patientManager.getAccessiblePatientUserIds(userId, null);
+            if (!accessibleUserIds.contains(record.getPatientId())) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
         }
