@@ -44,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -116,11 +117,14 @@ public class PrescriptionManager {
 
         // 2. 校验所有药品 + 库存 + 累计金额
         int totalAmount = 0;
+        // G12: drug 查询缓存，校验阶段查过的药品在创建明细阶段复用，避免重复查 DB
+        Map<Long, Drug> drugCache = new HashMap<>();
         for (PrescriptionItemRequest item : req.getItems()) {
             Drug drug = drugService.getDrugById(item.getDrugId());
             if (drug == null) {
                 throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + item.getDrugId());
             }
+            drugCache.put(item.getDrugId(), drug);
             DrugInventory inv = drugInventoryMapper.selectOne(
                     new LambdaQueryWrapper<DrugInventory>()
                             .eq(DrugInventory::getDrugId, item.getDrugId())
@@ -196,7 +200,8 @@ public class PrescriptionManager {
 
         // 6. 逐条:处方明细 + 订单明细 + 锁定库存 + 流水
         for (PrescriptionItemRequest item : req.getItems()) {
-            Drug drug = drugService.getDrugById(item.getDrugId());
+            // G12: 从校验阶段缓存复用 drug，避免重复查 DB
+            Drug drug = drugCache.get(item.getDrugId());
 
             PrescriptionItem rxItem = new PrescriptionItem();
             rxItem.setId(IdUtil.getSnowflakeNextId());

@@ -125,19 +125,26 @@ public class PaymentRecordManager {
     /**
      * 支付成功回调:插入支付记录 + 订单置为已支付 + 联动处方
      * @param orderId 订单ID
+     * @param currentUserId 当前登录用户ID（用于订单归属校验）
      * @param paymentMethodId 支付方式ID(1微信 2支付宝 3医保 4现金)
      * @param transactionSn 第三方交易流水号
      * @param realAmount 实际支付金额(分)
      * @return 成功结果
-     * @throws BizException ORDER_STATUS_INVALID 订单不存在或状态不允许支付
+     * @throws BizException ORDER_STATUS_INVALID 订单不存在/不属于当前用户/状态不允许支付
      */
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> paySuccess(Long orderId, Integer paymentMethodId,
+    public Result<Void> paySuccess(Long orderId, Long currentUserId, Integer paymentMethodId,
                                    Long transactionSn, Integer realAmount) {
         // 1. 加载 Order
         Order order = orderService.getOrderById(orderId);
         if (order == null) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单不存在");
+        }
+        // G07: 校验订单归属
+        if (currentUserId != null && !currentUserId.equals(order.getUserId())) {
+            log.warn("[payment-success] orderId={} 属于 userId={} 但 currentUserId={} 调用，拒绝",
+                    orderId, order.getUserId(), currentUserId);
+            throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "无权支付他人订单");
         }
         // 幂等:已支付则联动校验挂号状态并返回
         if (order.getStatus() != null && order.getStatus() == OrderStatus.PAID.getCode()) {
@@ -195,9 +202,10 @@ public class PaymentRecordManager {
         // 4. 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
         if (registration != null) {
+            // G06: 支付回调由系统触发，operatorId=0L, role=system
             registrationStatusLogManager.transition(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
-                    registration.getUserId(), "user", "支付成功");
+                    0L, "system", "支付成功");
         }
 
         // 5. 联动处方:标记处方为已支付
@@ -217,9 +225,10 @@ public class PaymentRecordManager {
         // 仅当挂号仍处于待支付时才补同步，避免回退已报到/就诊中等状态
         if (registration != null
                 && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
+            // G06: 补同步同样记 system
             registrationStatusLogManager.transition(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
-                    registration.getUserId(), "user", "支付成功(补同步)");
+                    0L, "system", "支付成功(补同步)");
         }
     }
 }

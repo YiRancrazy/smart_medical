@@ -2,6 +2,8 @@ package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.DesensitizedUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PatientCardSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
@@ -83,7 +85,7 @@ public class PatientCardManager {
         result.setPatientId(String.valueOf(defaultPatient.getId())); // 患者id
         result.setPatientCardId(String.valueOf(patientCard.getId()));
         result.setPatientCardSn(String.valueOf(patientCard.getSn()));
-        result.setPatientName(defaultPatientUser.getUsername()); // 就诊人姓名
+        result.setPatientName(defaultPatientUser.getNickname()); // G08: 统一用 nickname（用户可编辑的展示名）
         result.setPatientAvatar(defaultPatientUser.getAvatar());
         result.setPatientIdCard(defaultPatientUser.getIdCard());
 
@@ -238,18 +240,18 @@ public class PatientCardManager {
                     .filter(userPatientRelation -> userPatientRelation.getPatientUserId().equals(patient.getUserId()))
                     .findFirst()
                     .orElse(null);
-            assert patient != null;
-            assert patientUser != null;
-            assert currentAccount != null;
-            assert currentPatientCard != null;
-            assert currentUserPatientRelation != null;
+            // L05: assert 生产环境失效，改为显式抛 BizException
+            if (patient == null || patientUser == null || currentAccount == null
+                    || currentPatientCard == null || currentUserPatientRelation == null) {
+                throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
+            }
 
             item.setUserId(String.valueOf(currentAccount.getUserId())); // 获取当前用户id
             item.setUserPatientRelationId(String.valueOf(currentUserPatientRelation.getId())); // 配置用户患者关系、
 
             item.setPatientId(String.valueOf(patient.getId()));
 
-            item.setPatientName(patientUser.getUsername());  //  姓名
+            item.setPatientName(patientUser.getNickname());  // G08: 统一用 nickname
             item.setPatientIdCard(patientUser.getIdCard());  // 身份证
             item.setPatientPhone(DesensitizedUtil.mobilePhone(currentAccount.getPhone()));
             item.setPatientCardSn(String.valueOf(currentPatientCard.getSn())); // 患者卡号

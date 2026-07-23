@@ -26,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 /**
  * 用户报到/取消业务编排
  * @Author: YiRanCrazy@gmail.com
@@ -169,21 +171,36 @@ public class RegistrationCheckInManager {
                                 .last("LIMIT 1"));
 
                 Integer refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
-                PaymentRecord refund = new PaymentRecord();
-                refund.setId(IdUtil.getSnowflakeNextId());
-                refund.setOrderId(order.getId());
-                refund.setSn(System.currentTimeMillis());
-                refund.setTotalAmount(-refundAmount);
-                refund.setRealAmount(-refundAmount);
-                refund.setPaymentMethodId(orig != null && orig.getPaymentMethodId() != null
-                        ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
-                refund.setStatus(PAYMENT_STATUS_REFUNDED);
-                refund.setPaymentTime(java.time.LocalDateTime.now());
-                paymentRecordMapper.insert(refund);
+                // G11: 查已退款总额，防止部分退款场景下重复退全款
+                List<PaymentRecord> refundedRecords = paymentRecordMapper.selectList(
+                        new LambdaQueryWrapper<PaymentRecord>()
+                                .eq(PaymentRecord::getOrderId, order.getId())
+                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_REFUNDED));
+                int alreadyRefunded = refundedRecords.stream()
+                        .mapToInt(r -> r.getRealAmount() == null ? 0 : r.getRealAmount())
+                        .sum();
+                // realAmount 退款为负数，剩余可退 = refundAmount + alreadyRefunded
+                int remainingRefund = refundAmount + alreadyRefunded;
+                if (remainingRefund > 0) {
+                    PaymentRecord refund = new PaymentRecord();
+                    refund.setId(IdUtil.getSnowflakeNextId());
+                    refund.setOrderId(order.getId());
+                    refund.setSn(System.currentTimeMillis());
+                    refund.setTotalAmount(-remainingRefund);
+                    refund.setRealAmount(-remainingRefund);
+                    refund.setPaymentMethodId(orig != null && orig.getPaymentMethodId() != null
+                            ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
+                    refund.setStatus(PAYMENT_STATUS_REFUNDED);
+                    refund.setPaymentTime(java.time.LocalDateTime.now());
+                    paymentRecordMapper.insert(refund);
 
-                if (orig != null) {
-                    orig.setStatus(PAYMENT_STATUS_REFUNDED);
-                    paymentRecordMapper.updateById(orig);
+                    if (orig != null) {
+                        orig.setStatus(PAYMENT_STATUS_REFUNDED);
+                        paymentRecordMapper.updateById(orig);
+                    }
+                } else {
+                    log.warn("[cancel] orderId={} 已全额退款(剩余可退={})，跳过退款写入",
+                            order.getId(), remainingRefund);
                 }
 
                 // 订单置为已退款（同步退款完成，跳过 REFUNDING 中间态）

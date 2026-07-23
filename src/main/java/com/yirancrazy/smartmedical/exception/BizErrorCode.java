@@ -32,7 +32,8 @@ public enum BizErrorCode {
     ORDER_STATUS_INVALID(5001, "订单状态不允许此操作"),
     DOCTOR_NOT_MATCH(6001, "医生不匹配"),
     CONCURRENT_OPERATION(7001, "操作冲突，请刷新后重试"),
-    LOGIN_RATE_LIMITED(8001, "登录尝试过于频繁，请5分钟后再试");
+    LOGIN_RATE_LIMITED(8001, "登录尝试过于频繁，请5分钟后再试"),
+    PATIENT_DATA_INVALID(9001, "就诊人数据异常");
 
     private final int code;
     private final String defaultMessage;

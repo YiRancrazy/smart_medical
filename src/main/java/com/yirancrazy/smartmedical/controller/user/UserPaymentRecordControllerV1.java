@@ -41,9 +41,10 @@ public class UserPaymentRecordControllerV1 {
     @PostMapping("/pay")
     @Operation(summary = "用户端 - 支付订单(模拟支付成功,实际应接入第三方回调)")
     public Result<Void> pay(@RequestParam Long orderId,
+                            @RequestAttribute("currentUserId") Long userId,
                             @RequestParam(required = false) Integer paymentMethodId,
                             @RequestParam(required = false) Long transactionSn,
                             @RequestParam(required = false) Integer realAmount) {
-        return PaymentRecordManager.paySuccess(orderId, paymentMethodId, transactionSn, realAmount);
+        return PaymentRecordManager.paySuccess(orderId, userId, paymentMethodId, transactionSn, realAmount);
     }
 }
