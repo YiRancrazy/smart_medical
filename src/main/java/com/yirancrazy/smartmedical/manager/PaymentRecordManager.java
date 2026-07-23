@@ -53,6 +53,8 @@ public class PaymentRecordManager {
 
     /**
      * 获取用户所有的缴费记录
+     * ponytail: S25 已知限制 — 已批量查 orders/orderTypes/orderItems/paymentMethods（非 DB N+1），
+     *           但无分页全量返回；数据量增大时需加分页参数 + 前端联动，留待后续
      * @param userId 用户id
      * @return 缴费记录列表
      */
