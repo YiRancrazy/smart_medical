@@ -49,6 +49,7 @@ public class PaymentRecordManager {
     private final PrescriptionManager prescriptionManager;
     private final RegistrationService registrationService;
     private final RegistrationStatusLogManager registrationStatusLogManager;
+    private final OrderStatusLogManager orderStatusLogManager;
 
     /**
      * 获取用户所有的缴费记录
@@ -178,6 +179,16 @@ public class PaymentRecordManager {
             syncRegistrationStatusPaid(orderId);
             return Result.success(null);
         }
+
+        // S24: 写订单状态变更日志 WAITING_FOR_PAYMENT → PAID
+        OrderStatusLog orderLog = new OrderStatusLog();
+        orderLog.setOrderId(orderId);
+        orderLog.setFromStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        orderLog.setToStatus(OrderStatus.PAID.getCode());
+        orderLog.setOperatorId(0L);
+        orderLog.setOperatorRole("system");
+        orderLog.setRemark("支付成功");
+        orderStatusLogManager.addOrderStatusLog(orderLog);
 
         // 4. 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);

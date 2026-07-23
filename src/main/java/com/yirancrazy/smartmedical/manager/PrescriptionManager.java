@@ -16,6 +16,7 @@ import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderItem;
+import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
@@ -82,6 +83,7 @@ public class PrescriptionManager {
     private final RegistrationStatusLogManager statusLogManager;
     private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
+    private final OrderStatusLogManager orderStatusLogManager;
 
     /**
      * 医生提交病历 + 开处方（最大事务）
@@ -299,24 +301,7 @@ public class PrescriptionManager {
         rx.setStatus(PrescriptionStatus.PAID.getCode());
         prescriptionService.updateById(rx);
 
-        // 写一条挂号状态日志(合成:from=to=当前状态,operator=system)
-        // 用于完整记录"处方已支付"事件，满足 spec §6.3 的"日志记录所有事件"约束
-        if (rx.getMedicalRecordId() != null) {
-            MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
-            if (record != null) {
-                Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
-                if (reg != null) {
-                    registrationStatusLogService.writeLog(
-                            reg.getId(),
-                            reg.getStatus(),
-                            reg.getStatus(),
-                            0L,
-                            "system",
-                            "处方已支付");
-                }
-            }
-        }
-
+        // S28: 删除 from=to 的冗余挂号状态日志（无状态变化），改为 info 日志即可
         log.info("[prescription-paid] prescriptionId={}, orderId={}", rx.getId(), orderId);
     }
 
@@ -380,8 +365,18 @@ public class PrescriptionManager {
         if (rx.getOrderId() != null) {
             Order order = orderService.getOrderById(rx.getOrderId());
             if (order != null) {
+                Integer fromStatus = order.getStatus();
                 order.setStatus(OrderStatus.CANCELED.getCode());
                 orderService.updateOrderById(order);
+                // S29: 写订单状态变更日志
+                OrderStatusLog orderLog = new OrderStatusLog();
+                orderLog.setOrderId(order.getId());
+                orderLog.setFromStatus(fromStatus);
+                orderLog.setToStatus(OrderStatus.CANCELED.getCode());
+                orderLog.setOperatorId(doctorId);
+                orderLog.setOperatorRole("doctor");
+                orderLog.setRemark("作废处方关闭订单");
+                orderStatusLogManager.addOrderStatusLog(orderLog);
             }
         }
 

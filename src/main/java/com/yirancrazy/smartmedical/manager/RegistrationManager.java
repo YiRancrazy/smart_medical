@@ -45,6 +45,7 @@ public class RegistrationManager {
     private final UserService userService;
     private final DepartmentService departmentService;
     private final DoctorPositionService doctorPositionService;
+    private final RegistrationStatusLogService registrationStatusLogService;
 
 
     public Result<Registration> getRegistrationById(Long id, Long currentUserId) {
@@ -130,6 +131,14 @@ public class RegistrationManager {
         registration.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
 
         registrationService.insertRegistration(registration);
+        // S03: 写挂号创建日志（from=null, to=WAITING_FOR_PAYMENT）
+        registrationStatusLogService.writeLog(
+                registration.getId(),
+                null,
+                RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
+                userId,
+                "user",
+                "挂号创建");
         orderService.insertOrder(order);
 
         OrderItem orderItem = new OrderItem();

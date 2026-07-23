@@ -11,6 +11,7 @@ import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
@@ -54,6 +55,7 @@ public class RegistrationCheckInManager {
     private final PaymentRecordMapper paymentRecordMapper;
     private final RegistrationStatusLogManager statusLogManager;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
+    private final OrderStatusLogManager orderStatusLogManager;
 
     /**
      * 用户报到（status 0/1 → 5）
@@ -146,8 +148,18 @@ public class RegistrationCheckInManager {
         if (order != null && order.getStatus() != null) {
             if (order.getStatus() == OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
                 // 待支付:直接关闭
+                Integer fromStatus = order.getStatus();
                 order.setStatus(OrderStatus.CANCELED.getCode());
                 ordersMapper.updateById(order);
+                // S01: 写订单状态变更日志
+                OrderStatusLog orderLog = new OrderStatusLog();
+                orderLog.setOrderId(order.getId());
+                orderLog.setFromStatus(fromStatus);
+                orderLog.setToStatus(OrderStatus.CANCELED.getCode());
+                orderLog.setOperatorId(userId);
+                orderLog.setOperatorRole("user");
+                orderLog.setRemark("取消预约关闭订单");
+                orderStatusLogManager.addOrderStatusLog(orderLog);
             } else if (order.getStatus() == OrderStatus.PAID.getCode()) {
                 // 已支付:加载原支付记录 → 写退款流水 → 原记录置为已退款
                 PaymentRecord orig = paymentRecordMapper.selectOne(
@@ -175,8 +187,18 @@ public class RegistrationCheckInManager {
                 }
 
                 // 订单置为已退款（同步退款完成，跳过 REFUNDING 中间态）
+                Integer fromStatus = order.getStatus();
                 order.setStatus(OrderStatus.REFUNDED.getCode());
                 ordersMapper.updateById(order);
+                // S01: 写订单状态变更日志 PAID → REFUNDED
+                OrderStatusLog orderLog = new OrderStatusLog();
+                orderLog.setOrderId(order.getId());
+                orderLog.setFromStatus(fromStatus);
+                orderLog.setToStatus(OrderStatus.REFUNDED.getCode());
+                orderLog.setOperatorId(userId);
+                orderLog.setOperatorRole("user");
+                orderLog.setRemark("取消预约退款");
+                orderStatusLogManager.addOrderStatusLog(orderLog);
             }
         }
 

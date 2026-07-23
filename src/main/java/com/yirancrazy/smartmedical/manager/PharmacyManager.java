@@ -13,6 +13,7 @@ import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
@@ -63,6 +64,7 @@ public class PharmacyManager {
     private final MedicalRecordService medicalRecordService;
     private final OrderService orderService;
     private final RegistrationStatusLogManager statusLogManager;
+    private final OrderStatusLogManager orderStatusLogManager;
 
     /**
      * 待发药列表（status=1 已支付）
@@ -141,7 +143,7 @@ public class PharmacyManager {
                                 + ", required=" + item.getQuantity());
             }
 
-            int beforeAvailable = inv.getAvailableQuantity();
+            int beforeStock = inv.getStockQuantity();
             // 锁定时已扣减 available，发药仅扣减 stock 与 locked
             inv.setStockQuantity(inv.getStockQuantity() - item.getQuantity());
             inv.setLockedQuantity(inv.getLockedQuantity() - item.getQuantity());
@@ -156,8 +158,9 @@ public class PharmacyManager {
             txn.setTransactionType(TXN_OUTBOUND);
             txn.setRelatedOrder(rx.getOrderId() == null ? null : String.valueOf(rx.getOrderId()));
             txn.setQuantityChange(-item.getQuantity());
-            txn.setQuantityBefore(beforeAvailable);
-            txn.setQuantityAfter(inv.getAvailableQuantity());
+            // S30: 记 stock_quantity 前后值（发药只改 stock/locked，available 不变）
+            txn.setQuantityBefore(beforeStock);
+            txn.setQuantityAfter(inv.getStockQuantity());
             txn.setOperatorId(pharmacistId);
             txn.setOperatorName("pharmacist");
             txn.setRemark("发药出库");
@@ -184,7 +187,7 @@ public class PharmacyManager {
             MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
             if (record != null && record.getRegistrationId() != null) {
                 Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
-                if (reg != null && reg.getStatus() != RegistrationStatusEnum.COMPLETED.getCode()) {
+                if (reg != null && !Integer.valueOf(RegistrationStatusEnum.COMPLETED.getCode()).equals(reg.getStatus())) {
                     statusLogManager.transition(reg,
                             RegistrationStatusEnum.COMPLETED.getCode(),
                             pharmacistId, "pharmacist", "发药完成");
@@ -202,6 +205,15 @@ public class PharmacyManager {
                     && order.getStatus() == OrderStatus.PAID.getCode()) {
                 order.setStatus(OrderStatus.FINISHED.getCode());
                 orderService.updateOrderById(order);
+                // S31: 写订单状态变更日志 PAID → FINISHED
+                OrderStatusLog orderLog = new OrderStatusLog();
+                orderLog.setOrderId(order.getId());
+                orderLog.setFromStatus(OrderStatus.PAID.getCode());
+                orderLog.setToStatus(OrderStatus.FINISHED.getCode());
+                orderLog.setOperatorId(pharmacistId);
+                orderLog.setOperatorRole("pharmacist");
+                orderLog.setRemark("发药完成");
+                orderStatusLogManager.addOrderStatusLog(orderLog);
             }
         }
 
