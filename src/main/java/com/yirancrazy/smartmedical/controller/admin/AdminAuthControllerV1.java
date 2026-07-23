@@ -47,13 +47,13 @@ public class AdminAuthControllerV1 {
 
     /**
      * 获取当前登录管理员信息
-     * @param request 登录请求
+     * @param currentAccountId JwtAuthenticationFilter 注入的 accountId
      * @return 管理员信息
      */
     @GetMapping("/current")
     @Operation(summary = "获取当前登录管理员信息")
-    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(HttpServletRequest request) {
-        return authManager.getCurrentAdminBaseInfo(request);
+    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(@RequestAttribute("currentAccountId") Long currentAccountId) {
+        return authManager.getCurrentAdminBaseInfo(currentAccountId);
     }
 
     @PostMapping("/refresh")

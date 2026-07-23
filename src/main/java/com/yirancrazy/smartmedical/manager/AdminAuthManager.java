@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
@@ -62,6 +63,7 @@ public class AdminAuthManager {
     private final AdminService adminService;
     private final DoctorService doctorService;
     private final UserService userService;
+    private final RoleService roleService;
     private final RedisUtil redisUtil;
     private final RoleTypeLoaderManage roleTypeLoaderManage;
 
@@ -223,41 +225,58 @@ public class AdminAuthManager {
     }
 
     /**
-     * 通过 access_token 获取当前登录用户基础信息（支持管理员/医生/药师）
-     * @param request 请求
+     * 获取当前登录用户基础信息（支持管理员/医生/药师）
+     * <p>B17: 不再二次解析 JWT，直接读 JwtAuthenticationFilter 已校验并 setAttribute 的 currentAccountId，
+     * 避免未验签的 parseToken 被未来 filter 链变更绕过。</p>
+     * <p>同时按 account.roleId 分流加载 Admin/Doctor/其他，修复 G09 误删导致的医生/药师 /auth/current 永远 "管理员不存在"。</p>
+     * @param currentAccountId JwtAuthenticationFilter 注入的 accountId
      * @return 当前登录用户基础信息
      */
-    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(HttpServletRequest request) {
-        String accessToken = request.getHeader("Authorization");   // 获取 access_token
-        if(accessToken == null || accessToken.isEmpty()){
+    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(Long currentAccountId) {
+        if (currentAccountId == null) {
             return Result.fail("未登录");
         }
-        // 去掉 "Bearer " 前缀
-        if (accessToken.startsWith("Bearer ")) {
-            accessToken = accessToken.substring(7);
-        }
-        JWT jwt = JWTUtil.parseToken(accessToken);  // 解析 access_token
-        String accountId = jwt.getPayload("sub").toString(); // 获取 accountId
-        Object roleClaim = jwt.getPayload("role");
-        Long roleId = roleClaim == null ? adminRole.getId() : Long.parseLong(String.valueOf(roleClaim));
-        Account account = accountService.getAccountById(Long.parseLong(accountId)); // 通过 accountId 获取账号信息
-        if(account == null){
+        Account account = accountService.getAccountById(currentAccountId);
+        if (account == null) {
             return Result.fail("账号不存在");
         }
+        Role role = roleService.getRoleById(account.getRoleId());
+        if (role == null) {
+            return Result.fail("账号角色异常");
+        }
+
         AdminResponseSimple result = new AdminResponseSimple();
         result.setId(String.valueOf(account.getUserId()));
         result.setPhone(account.getPhone());
         result.setEmail(account.getEmail());
-        // G09: 接口路径在 /api/admin/v1/** 下，SecurityConfig 仅允许 ROLE_admin 访问，
-        //      医生/药师 token 无法调用，原 role=2/6 分支为死代码，已删除
-        Admin admin = adminService.getAdminById(account.getUserId()); // 通过 adminId 获取管理员信息
-        if(admin == null){
-            return Result.fail("管理员不存在");
+        result.setRole(role.getName());
+
+        // 按 role 加载对应档案表，取 name/avatar
+        long roleId = account.getRoleId() == null ? 0L : account.getRoleId();
+        if (roleId == adminRole.getId()) {
+            // 管理员
+            Admin admin = adminService.getAdminById(account.getUserId());
+            if (admin == null) {
+                return Result.fail("管理员档案不存在");
+            }
+            result.setUsername(admin.getName());
+            result.setNickname(admin.getName());
+            result.setAvatar(admin.getAvatar());
+        } else if (roleId == 2L) {
+            // 医生：account.userId 约定等于 doctor.id
+            Doctor doctor = doctorService.getDoctorById(account.getUserId());
+            if (doctor == null) {
+                return Result.fail("医生档案不存在");
+            }
+            result.setUsername(doctor.getName());
+            result.setNickname(doctor.getName());
+            result.setAvatar(doctor.getAvatar());
+        } else {
+            // 药师(6)等其他角色无独立档案表，回退用账号手机号
+            result.setUsername(account.getPhone());
+            result.setNickname(account.getPhone());
+            result.setAvatar(null);
         }
-        result.setUsername(admin.getName());
-        result.setNickname(admin.getName());
-        result.setAvatar(admin.getAvatar());
-        result.setRole(adminRole.getName()); // 获取角色名称
         return Result.success(result);
     }
 }

@@ -60,7 +60,7 @@ public class DoctorAuthControllerV1 {
 
     @GetMapping("/current")
     @Operation(summary = "医生端 - 获取当前登录用户信息")
-    public Result<AdminResponseSimple> getCurrentUser(HttpServletRequest request) {
-        return authManager.getCurrentAdminBaseInfo(request);
+    public Result<AdminResponseSimple> getCurrentUser(@RequestAttribute("currentAccountId") Long currentAccountId) {
+        return authManager.getCurrentAdminBaseInfo(currentAccountId);
     }
 }
