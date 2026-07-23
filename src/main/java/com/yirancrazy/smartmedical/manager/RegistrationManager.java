@@ -87,13 +87,14 @@ public class RegistrationManager {
             return Result.fail("排班信息不存在");
         }
 
-        // 判断该用户是否已经预约过
+        // B22: 重复挂号校验以 patient.userId(就诊人维度)为粒度，允许同一账号代多名家属挂同一排班。
+        // 业务规则若改为"每账号每排班限一个号"，将 patient.getUserId() 改为 uid 即可。
         Registration existRegistration = registrationService
                 .getRegistrationByRegistrationScheduleIdAndUserId(registrationSchedule
                         .getId(), patient.getUserId());
         log.warn("existRegistration: " + existRegistration);
         if(existRegistration != null){
-            return Result.fail("该用户已经挂号");
+            return Result.fail("该就诊人已挂号此排班");
         }
 
 
