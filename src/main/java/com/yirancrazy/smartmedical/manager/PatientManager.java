@@ -32,17 +32,22 @@ public class PatientManager {
      */
     public List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
         List<UserPatientRelation> relations = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
+        // 仅保留已授权关系或本人关系，防止越权读取他人病历/处方/挂号
+        List<UserPatientRelation> authorizedRelations = relations.stream()
+                .filter(r -> r.getIsAuthorized() != null && r.getIsAuthorized() == 1
+                        || currentUserId.equals(r.getPatientUserId()))
+                .toList();
         if (patientCardId != null) {
             Patient patient = patientService.getPatientByPatientCardId(patientCardId);
             if (patient == null) {
                 return List.of();
             }
             Long targetUserId = patient.getUserId();
-            boolean allowed = relations.stream()
+            boolean allowed = authorizedRelations.stream()
                     .anyMatch(relation -> relation.getPatientUserId().equals(targetUserId));
             return allowed ? List.of(targetUserId) : List.of();
         }
-        return relations.stream()
+        return authorizedRelations.stream()
                 .map(UserPatientRelation::getPatientUserId)
                 .distinct()
                 .toList();
