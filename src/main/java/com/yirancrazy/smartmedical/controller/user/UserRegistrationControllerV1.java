@@ -43,7 +43,8 @@ public class UserRegistrationControllerV1 {
      * @param request 挂号信息
      * @return 订单编号
      */
-    @PostMapping("/")
+    // U03: @PostMapping("/") 在 PathPatternParser 下映射为 /registration/，前端 POST /registration 可能 404，改为无参匹配类级路径
+    @PostMapping
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
     public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request,
                                              @RequestAttribute("currentUserId") Long userId) {
