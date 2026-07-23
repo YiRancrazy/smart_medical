@@ -6,6 +6,8 @@ import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Doctor;
@@ -66,6 +68,23 @@ public class AdminAuthManager {
     private final RoleTypeLoaderManage roleTypeLoaderManage;
 
     private Role adminRole;
+    /** S22: 登录限流窗口 5 分钟 */
+    private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
+    /** S22: 登录限流阈值 5 次/窗口 */
+    private static final long LOGIN_RATE_MAX = 5L;
+
+    /**
+     * S22: 登录限流 — 同手机号 5 分钟内最多 5 次，超限抛 BizException
+     * @param phone 手机号
+     */
+    private void checkLoginRate(String phone) {
+        String key = "login:rate:admin:" + phone;
+        Long count = redisUtil.incrAndExpireOnFirst(key, 1L, LOGIN_RATE_WINDOW_MINUTES, TimeUnit.MINUTES);
+        if (count != null && count > LOGIN_RATE_MAX) {
+            log.warn("[login-rate] phone={} count={} 限流", phone, count);
+            throw new BizException(BizErrorCode.LOGIN_RATE_LIMITED);
+        }
+    }
 
     /**
      * 启动时校验 JWT 密钥与 token 前缀已注入，避免运行时 NPE
@@ -114,6 +133,8 @@ public class AdminAuthManager {
      * @return 结果
      */
     public Result<String> loginByPhoneAndPasswordAndRoleId(String phone, String password, Long roleId, Boolean remember, HttpServletRequest request, HttpServletResponse response) {
+        // S22: 登录限流
+        checkLoginRate(phone);
         List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
         // 查找出指定角色的账号

@@ -57,4 +57,20 @@ public final class RedisUtil {
     public Boolean delete(String key) {
         return redisTemplate.delete(key);
     }
+
+    /**
+     * 自增计数并在首次自增时设置过期时间（用于滑动窗口限流等场景）
+     * @param key 键
+     * @param delta 自增量（通常为 1）
+     * @param timeout 过期时长
+     * @param unit 时间单位
+     * @return 自增后的值；不存在则从 0 开始
+     */
+    public Long incrAndExpireOnFirst(String key, long delta, long timeout, TimeUnit unit) {
+        Long count = redisTemplate.opsForValue().increment(key, delta);
+        if (count != null && count == 1L) {
+            redisTemplate.expire(key, timeout, unit);
+        }
+        return count;
+    }
 }

@@ -7,6 +7,8 @@ import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import com.yirancrazy.smartmedical.service.AccountService;
@@ -59,6 +61,23 @@ public class AuthManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final Long USER_ROLE = 4L;
+    /** S22: 登录限流窗口 5 分钟 */
+    private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
+    /** S22: 登录限流阈值 5 次/窗口 */
+    private static final long LOGIN_RATE_MAX = 5L;
+
+    /**
+     * S22: 登录限流 — 同手机号 5 分钟内最多 5 次，超限抛 BizException
+     * @param phone 手机号
+     */
+    private void checkLoginRate(String phone) {
+        String key = "login:rate:user:" + phone;
+        Long count = redisUtil.incrAndExpireOnFirst(key, 1L, LOGIN_RATE_WINDOW_MINUTES, TimeUnit.MINUTES);
+        if (count != null && count > LOGIN_RATE_MAX) {
+            log.warn("[login-rate] phone={} count={} 限流", phone, count);
+            throw new BizException(BizErrorCode.LOGIN_RATE_LIMITED);
+        }
+    }
 
     /**
      * 用户登录
@@ -69,6 +88,8 @@ public class AuthManager {
      */
     public Result<LoginVo> login(String phone, String password, HttpServletResponse response) {
         // S21: 不再 catch Exception 吞掉系统异常，DB/Redis 等异常往上抛由 GlobalExceptionHandler 处理
+        // S22: 登录限流
+        checkLoginRate(phone);
         List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
             // 过滤出用户账户
