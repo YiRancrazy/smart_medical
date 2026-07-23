@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
@@ -79,7 +78,7 @@ public class MedicalRecordManager {
                         .last("LIMIT 1"));
         if (record == null) {
             record = new MedicalRecord();
-            record.setId(IdUtil.getSnowflakeNextId());
+            // ponytail: 不预填 id，@TableId(ASSIGN_ID) 在 save 时自动生成雪花 id；预填会导致下方 getId()==null 判断失效，新病历误走 updateById 静默失败
             record.setRegistrationId(req.getRegistrationId());
             RegistrationSchedule schedule = registrationScheduleService.getRegistrationScheduleById(reg.getRegistrationScheduleId());
             RegistrationScheduleTemplate template = schedule == null ? null
