@@ -819,7 +819,7 @@ CREATE TABLE `registration`  (
   `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联用户ID',
   `registration_schedule_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联挂号时段id',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联订单ID',
-  `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-已预约 1-待就诊(历史值) 2-已就诊 3-已取消 4-已退号 5-已报到 6-就诊中 7-待支付',
+  `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-等待支付 1-支付成功/待就诊 2-支付失败 3-取消 4-完成 5-已报到 6-就诊中 7-待支付(处方补缴)',
   `registration_time` datetime NULL DEFAULT NULL COMMENT '挂号时间',
   `check_in_time` datetime NULL DEFAULT NULL COMMENT '患者报到时间',
   `visit_start_time` datetime NULL DEFAULT NULL COMMENT '医生接诊时间',
