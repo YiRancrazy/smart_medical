@@ -62,14 +62,13 @@ public class RegistrationManager {
 
     /**
      * 添加挂号
-     * @param paymentId 支付id
      * @param registrationScheduleId 排班id
      * @param uid 用户id
      * @param patientCardId 患者卡id
      * @return 挂号结果
      */
     @Transactional
-    public Result<String> addRegistration(Long paymentId, Long registrationScheduleId, Long uid, Long patientCardId){
+    public Result<String> addRegistration(Long registrationScheduleId, Long uid, Long patientCardId){
         Registration registration = new Registration();
         Order order = new Order();
         Long userId = uid;

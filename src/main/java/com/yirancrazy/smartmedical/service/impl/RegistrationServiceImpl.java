@@ -124,10 +124,12 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Registration getRegistrationByRegistrationScheduleIdAndUserId(Long registrationScheduleId, Long userId) {
-        return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
+        List<Registration> list = registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
                 .eq(Registration::getRegistrationScheduleId, registrationScheduleId)
                 .eq(Registration::getUserId, userId)
-                .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode()));
+                .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode())
+                .last("LIMIT 1"));
+        return list.isEmpty() ? null : list.get(0);
     }
 
     @Override
@@ -152,7 +154,9 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Registration getRegistrationByOrderId(Long orderId) {
-        return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
-                .eq(Registration::getOrderId, orderId));
+        List<Registration> list = registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .eq(Registration::getOrderId, orderId)
+                .last("LIMIT 1"));
+        return list.isEmpty() ? null : list.get(0);
     }
 }

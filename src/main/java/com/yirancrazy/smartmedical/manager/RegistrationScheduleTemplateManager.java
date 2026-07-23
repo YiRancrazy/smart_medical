@@ -13,6 +13,7 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -265,6 +266,7 @@ public class RegistrationScheduleTemplateManager {
      * @param id 挂号排班模板id
      * @return 停诊结果
      */
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> stopReceiving(Long id) {
         RegistrationScheduleTemplate registrationScheduleTemplate = registrationScheduleTemplateService.getRegistrationScheduleTemplateById(id);
         if (registrationScheduleTemplate == null) {
@@ -275,6 +277,7 @@ public class RegistrationScheduleTemplateManager {
 
         // 联动停诊已生成的排班
         syncScheduleStatusByTemplate(id, 0);
+        // ponytail: S11 已知限制 — 停诊时未自动取消已挂号患者+退款，需通知系统支持，留待后续
         return Result.success(result);
     }
 
@@ -283,6 +286,7 @@ public class RegistrationScheduleTemplateManager {
      * @param id 挂号排班模板id
      * @return 开诊结果
      */
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> startReceiving(Long id) {
         RegistrationScheduleTemplate registrationScheduleTemplate = registrationScheduleTemplateService.getRegistrationScheduleTemplateById(id);
         if (registrationScheduleTemplate == null) {
@@ -298,6 +302,7 @@ public class RegistrationScheduleTemplateManager {
 
     /**
      * 同步某模板下所有排班的状态（停诊=0 / 启用=1）
+     * ponytail: 条件更新避免覆盖已满(2)状态 — 开诊只改 0→1，停诊只改 1/2→0
      */
     private void syncScheduleStatusByTemplate(Long templateId, int status) {
         List<RegistrationSchedule> schedules = registrationScheduleService
@@ -306,7 +311,10 @@ public class RegistrationScheduleTemplateManager {
             return;
         }
         for (RegistrationSchedule schedule : schedules) {
-            if (schedule.getStatus() == null || schedule.getStatus() != status) {
+            Integer cur = schedule.getStatus();
+            if (cur == null) continue;
+            boolean needUpdate = (status == 1 && cur == 0) || (status == 0 && (cur == 1 || cur == 2));
+            if (needUpdate) {
                 schedule.setStatus(status);
                 registrationScheduleService.updateRegistrationScheduleById(schedule);
             }

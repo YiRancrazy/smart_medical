@@ -76,19 +76,24 @@ public class RegistrationCheckInManager {
                     "仅待就诊状态可报到");
         }
         // 校验预约当天才可报到
-        if (reg.getRegistrationScheduleId() != null) {
-            RegistrationSchedule schedule = registrationScheduleService
-                    .getRegistrationScheduleById(reg.getRegistrationScheduleId());
-            RegistrationScheduleTemplate template = schedule == null ? null
-                    : registrationScheduleTemplateService.getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
-            if (template != null && template.getRegistrationDate() != null) {
-                java.time.LocalDate scheduleDate = template.getRegistrationDate();
-                java.time.LocalDate today = java.time.LocalDate.now();
-                if (!scheduleDate.equals(today)) {
-                    throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
-                            "仅预约当天可报到");
-                }
-            }
+        if (reg.getRegistrationScheduleId() == null) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "排班信息缺失");
+        }
+        RegistrationSchedule schedule = registrationScheduleService
+                .getRegistrationScheduleById(reg.getRegistrationScheduleId());
+        if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "排班信息缺失");
+        }
+        RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
+        if (template == null || template.getRegistrationDate() == null) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "排班模板信息缺失");
+        }
+        java.time.LocalDate scheduleDate = template.getRegistrationDate();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (!scheduleDate.equals(today)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                    "仅预约当天可报到");
         }
         statusLogManager.transition(reg,
                 RegistrationStatusEnum.REPORTED.getCode(),
@@ -96,7 +101,7 @@ public class RegistrationCheckInManager {
     }
 
     /**
-     * 用户取消预约（status 0/1/5 → 3 + 退款）
+     * 用户取消预约（status 0/1 → 3 + 退款）
      * @param regId 挂号记录ID
      * @param userId 当前用户ID
      * @param reason 取消原因
@@ -169,8 +174,8 @@ public class RegistrationCheckInManager {
                     paymentRecordMapper.updateById(orig);
                 }
 
-                // 订单置为已取消
-                order.setStatus(OrderStatus.CANCELED.getCode());
+                // 订单置为已退款（同步退款完成，跳过 REFUNDING 中间态）
+                order.setStatus(OrderStatus.REFUNDED.getCode());
                 ordersMapper.updateById(order);
             }
         }

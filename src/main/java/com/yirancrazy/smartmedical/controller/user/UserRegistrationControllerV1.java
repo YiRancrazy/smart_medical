@@ -47,7 +47,7 @@ public class UserRegistrationControllerV1 {
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
     public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request,
                                              @RequestAttribute("currentUserId") Long userId) {
-        return registrationManager.addRegistration(Long.valueOf(request.getPaymentMethodId()),
+        return registrationManager.addRegistration(
                 Long.valueOf(request.getRegistrationScheduleId()),
                 userId,
                 Long.valueOf(request.getPatientCardId()));
