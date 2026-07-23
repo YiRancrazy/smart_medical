@@ -190,9 +190,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authority = switch ((int) roleId) {
             case 1 -> "ROLE_admin";
             case 2 -> "ROLE_doctor";
+            case 4 -> "ROLE_user";
             case 6 -> "ROLE_pharmacist";
-            default -> "ROLE_user";
+            default -> null;
         };
+        // G10: 未知 roleId 不再兜底为 ROLE_user（会错误授权），改为拒绝所有访问
+        if (authority == null) {
+            log.warn("[jwt] 未知 roleId={}，拒绝授权", roleId);
+            return Collections.emptyList();
+        }
         return List.of(new SimpleGrantedAuthority(authority));
     }
 

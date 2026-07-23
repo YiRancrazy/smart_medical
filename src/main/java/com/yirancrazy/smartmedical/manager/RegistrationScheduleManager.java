@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -132,7 +131,7 @@ public class RegistrationScheduleManager {
         List<RegistrationSchedule> registrationSchedulesByDoctorIdAndDate = registrationScheduleService
                 .getRegistrationScheduleListByRegistrationScheduleIdList(registrationScheduleIdList);
 
-        List<RegistrationConfirmTime> registrationConfirmTimeList = new CopyOnWriteArrayList<>();
+        List<RegistrationConfirmTime> registrationConfirmTimeList = new ArrayList<>();
         for (RegistrationSchedule registrationSchedule : registrationSchedulesByDoctorIdAndDate) {
             // 仅展示正常(1)状态的排班
             if (registrationSchedule.getStatus() == null || registrationSchedule.getStatus() != 1) {

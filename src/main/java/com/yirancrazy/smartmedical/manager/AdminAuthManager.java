@@ -10,10 +10,8 @@ import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
-import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
-import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
 import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
 import com.yirancrazy.smartmedical.service.AccountService;
@@ -173,6 +171,10 @@ public class AdminAuthManager {
         cookie.setPath("/api");
         cookie.setHttpOnly(true);
         cookie.setSecure(cookieSecure);
+        // G18: 与 AuthManager 保持一致，cookieSecure=true(HTTPS) 时设 SameSite=None；dev HTTP 不设让浏览器用默认 Lax
+        if (cookieSecure) {
+            cookie.setAttribute("SameSite", "None");
+        }
         response.addCookie(cookie);
 
         return Result.success(accessJwt);
@@ -246,34 +248,16 @@ public class AdminAuthManager {
         result.setId(String.valueOf(account.getUserId()));
         result.setPhone(account.getPhone());
         result.setEmail(account.getEmail());
-        if (roleId.equals(2L)) {
-            Doctor doctor = doctorService.getDoctorById(account.getUserId());
-            if (doctor == null) {
-                return Result.fail("医生不存在");
-            }
-            result.setUsername(doctor.getName());
-            result.setNickname(doctor.getName());
-            result.setAvatar(doctor.getAvatar());
-            result.setRole("医生");
-        } else if (roleId.equals(6L)) {
-            User user = userService.getUserById(account.getUserId());
-            if (user == null) {
-                return Result.fail("用户不存在");
-            }
-            result.setUsername(user.getNickname());
-            result.setNickname(user.getNickname());
-            result.setAvatar(user.getAvatar());
-            result.setRole("药师");
-        } else {
-            Admin admin = adminService.getAdminById(account.getUserId()); // 通过 adminId 获取管理员信息
-            if(admin == null){
-                return Result.fail("管理员不存在");
-            }
-            result.setUsername(admin.getName());
-            result.setNickname(admin.getName());
-            result.setAvatar(admin.getAvatar());
-            result.setRole(adminRole.getName()); // 获取角色名称
+        // G09: 接口路径在 /api/admin/v1/** 下，SecurityConfig 仅允许 ROLE_admin 访问，
+        //      医生/药师 token 无法调用，原 role=2/6 分支为死代码，已删除
+        Admin admin = adminService.getAdminById(account.getUserId()); // 通过 adminId 获取管理员信息
+        if(admin == null){
+            return Result.fail("管理员不存在");
         }
+        result.setUsername(admin.getName());
+        result.setNickname(admin.getName());
+        result.setAvatar(admin.getAvatar());
+        result.setRole(adminRole.getName()); // 获取角色名称
         return Result.success(result);
     }
 }
