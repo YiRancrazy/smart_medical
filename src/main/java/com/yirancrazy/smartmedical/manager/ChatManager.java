@@ -54,10 +54,16 @@ public class ChatManager {
      * 发送图片消息
      * @param sendId 发送者ID
      * @param receiveId 接收者ID
-     * @param imageUrl 图片URL
+     * @param imageUrl 图片URL，必须为本站 MinIO 域名
      * @return 聊天记录
+     * @throws IllegalArgumentException imageUrl 非本站 MinIO 地址（防 SSRF/XSS）
      */
     public Chat sendImageMessage(Long sendId, Long receiveId, String imageUrl) {
+        // 仅允许本站 MinIO 地址，防止外链/内网地址触发 SSRF 或脚本注入 XSS
+        String basisUrl = MinIOUtil.getBasisUrl();
+        if (imageUrl == null || !imageUrl.startsWith(basisUrl)) {
+            throw new IllegalArgumentException("图片地址非法，仅允许本站已上传图片");
+        }
         Chat chat = new Chat();
         chat.setId(IdUtil.getSnowflakeNextId());
         chat.setSendId(sendId);

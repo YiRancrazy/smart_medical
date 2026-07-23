@@ -103,7 +103,11 @@ public class UserChatControllerV1 {
     public Result<Chat> sendImageMessage(
             @RequestBody SendImageMessageRequest request,
             @RequestAttribute("currentUserId") Long userId) {
-        Chat chat = chatManager.sendImageMessage(userId, request.getDoctorId(), request.getImageUrl());
-        return Result.success(chat);
+        try {
+            Chat chat = chatManager.sendImageMessage(userId, request.getDoctorId(), request.getImageUrl());
+            return Result.success(chat);
+        } catch (IllegalArgumentException e) {
+            return Result.fail(e.getMessage());
+        }
     }
 }
