@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yirancrazy.smartmedical.filter.JwtAuthenticationFilter;
 import com.yirancrazy.smartmedical.pojo.Result;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -37,6 +38,13 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    /**
+     * 允许的 CORS 来源；默认 "*" 全放开（dev），生产环境通过 CORS_ALLOWED_ORIGINS 环境变量收紧
+     * 多个用逗号分隔，例如：https://admin.hospital.com,https://user.hospital.com
+     */
+    @Value("${cors.allowed-origins:*}")
+    private String allowedOrigins;
 
     /**
      * 配置安全过滤器链
@@ -93,12 +101,12 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS 配置（开发环境放开；生产建议收紧来源）
+     * CORS 配置：dev 默认 "*" 全放开；prod 通过 cors.allowed-origins 收紧到具体域名
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
