@@ -131,8 +131,16 @@ public class UserPatientRelationManager {
             defaultRelation.setDefaulted(false);
             userPatientRelationService.updateUserPatientRelationById(defaultRelation);
         }
-        if ("false".equals(defaulted) && (defaultRelation == null || defaultRelation.getId().equals(id))) {
-            return Result.fail("当前账户不能没有默认就诊人");
+        // S18: 取消当前默认就诊人时，自动切换到另一个就诊人为默认；无其他就诊人才拒绝
+        if ("false".equals(defaulted) && defaultRelation != null && defaultRelation.getId().equals(id)) {
+            UserPatientRelation fallback = list.stream()
+                    .filter(r -> !r.getId().equals(id))
+                    .findFirst().orElse(null);
+            if (fallback == null) {
+                return Result.fail("当前账户不能没有默认就诊人");
+            }
+            fallback.setDefaulted(true);
+            userPatientRelationService.updateUserPatientRelationById(fallback);
         }
 
         // 更新用户信息（姓名、手机号、身份证号）
@@ -230,7 +238,9 @@ public class UserPatientRelationManager {
         account.setUserId(userId);
         account.setRoleId(USER_ROLE);
         account.setPhone(phone);
-        account.setPassword(BCrypt.hashpw(String.valueOf(IdUtil.getSnowflakeNextId()), BCrypt.gensalt()));
+        // S19: 用手机号后 6 位作为初始密码（就诊人可知），替代可预测的雪花 ID
+        String initPwd = phone != null && phone.length() >= 6 ? phone.substring(phone.length() - 6) : "123456";
+        account.setPassword(BCrypt.hashpw(initPwd, BCrypt.gensalt()));
         account.setEnabled(true);
         accountService.insertAccount(account);
 

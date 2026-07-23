@@ -68,10 +68,8 @@ public class AuthManager {
      * @return 登录结果
      */
     public Result<LoginVo> login(String phone, String password, HttpServletResponse response) {
-        try{
-
-
-            List<Account> accountByPhone = accountService.getAccountByPhone(phone);
+        // S21: 不再 catch Exception 吞掉系统异常，DB/Redis 等异常往上抛由 GlobalExceptionHandler 处理
+        List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
             // 过滤出用户账户
             Account account = accountByPhone
@@ -133,10 +131,6 @@ public class AuthManager {
             response.addCookie(cookie);
 
             return Result.success(loginVo);
-        } catch (Exception e){
-            log.error("[login] 登录异常, phone={}", phone, e);
-            return Result.fail("登录失败");
-        }
     }
 
     /**
@@ -147,8 +141,16 @@ public class AuthManager {
      */
     @Transactional
     public Result<String> register(String phone, String password) {
-
-        if (accountService.getAccountByPhone(phone) != null && !accountService.getAccountByPhone(phone).isEmpty()) {
+        // S20: 手机号格式校验
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        if (password == null || password.length() < 6) {
+            return Result.fail("密码长度至少 6 位");
+        }
+        // S20: 缓存查询结果避免重复调用
+        List<Account> existing = accountService.getAccountByPhone(phone);
+        if (existing != null && !existing.isEmpty()) {
             return Result.info(10001,"账号已存在", null);
         }
 
