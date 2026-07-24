@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +14,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -32,11 +32,13 @@ public class PharmacyPrescriptionControllerV1 {
 
     private final PharmacyManager pharmacyManager;
 
-    /** 药师端 - 待发药列表 */
-    @Operation(summary = "药师端 - 待发药列表")
+    /** 药师端 - 待发药列表（F31支持可选分页） */
+    @Operation(summary = "药师端 - 待发药列表", description = "F31: 可选分页 pageNum/pageSize")
     @GetMapping("/pending")
-    public Result<List<PendingPrescriptionVO>> pending() {
-        return Result.success(pharmacyManager.listPending());
+    public Result<PageResult<PendingPrescriptionVO>> pending(
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer pageSize) {
+        return pharmacyManager.listPending(pageNum, pageSize);
     }
 
     /** 药师端 - 处方详情 */

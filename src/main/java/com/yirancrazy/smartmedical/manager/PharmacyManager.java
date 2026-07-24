@@ -2,12 +2,15 @@ package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
@@ -17,8 +20,10 @@ import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
@@ -59,6 +64,7 @@ public class PharmacyManager {
     private final PrescriptionItemService prescriptionItemService;
     private final DrugService drugService;
     private final DrugInventoryService drugInventoryService;
+    private final DrugInventoryMapper drugInventoryMapper;
     private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationService registrationService;
     private final MedicalRecordService medicalRecordService;
@@ -67,14 +73,20 @@ public class PharmacyManager {
     private final OrderStatusLogManager orderStatusLogManager;
 
     /**
-     * 待发药列表（status=1 已支付）
+     * 待发药列表（status=1 已支付，F31支持可选分页）
+     * @param pageNum 页码（可选）
+     * @param pageSize 每页条数（可选）
      * @return 待发药处方列表（按创建时间升序）
      */
-    public List<PendingPrescriptionVO> listPending() {
+    public Result<PageResult<PendingPrescriptionVO>> listPending(Integer pageNum, Integer pageSize) {
+        if (pageNum != null && pageSize != null) {
+            PageHelper.startPage(pageNum, pageSize);
+        }
         List<Prescription> list = prescriptionService.list(
                 new LambdaQueryWrapper<Prescription>()
                         .eq(Prescription::getStatus, PrescriptionStatus.PAID.getCode())
                         .orderByAsc(Prescription::getCreateTime));
+        PageInfo<Prescription> pageInfo = new PageInfo<>(list);
         List<PendingPrescriptionVO> vos = new ArrayList<>();
         for (Prescription rx : list) {
             PendingPrescriptionVO vo = new PendingPrescriptionVO();
@@ -94,7 +106,7 @@ public class PharmacyManager {
             }
             vos.add(vo);
         }
-        return vos;
+        return Result.success(new PageResult<>(pageInfo, vos));
     }
 
     /**
@@ -222,19 +234,23 @@ public class PharmacyManager {
     }
 
     /**
-     * 库存预警列表（stock_quantity < min_stock）
+     * 库存预警列表（stock_quantity < min_stock，F31支持可选分页）
+     * @param pageNum 页码（可选）
+     * @param pageSize 每页条数（可选）
      * @return 库存低于最低预警线的药品库存列表,按缺口升序
      */
-    public List<DrugInventory> listLowStock() {
-        return drugInventoryService.listAllDrugInventories()
-                .stream()
-                .filter(inv -> inv.getStockQuantity() != null
-                        && inv.getMinStock() != null
-                        && inv.getStockQuantity() < inv.getMinStock())
-                .sorted((a, b) -> Integer.compare(
-                        a.getStockQuantity() - a.getMinStock(),
-                        b.getStockQuantity() - b.getMinStock()))
-                .toList();
+    public Result<PageResult<DrugInventory>> listLowStock(Integer pageNum, Integer pageSize) {
+        if (pageNum != null && pageSize != null) {
+            PageHelper.startPage(pageNum, pageSize);
+        }
+        // F31: 过滤+排序下推到 SQL，避免 Java 端分页漏数据
+        // ponytail: DrugInventoryService 无 list(wrapper) 方法，直接走 mapper（同 RegistrationManager 直接注入 Mapper 的模式）
+        List<DrugInventory> list = drugInventoryMapper.selectList(
+                new LambdaQueryWrapper<DrugInventory>()
+                        .apply("stock_quantity < min_stock")
+                        .last("ORDER BY (stock_quantity - min_stock) ASC"));
+        PageInfo<DrugInventory> pageInfo = new PageInfo<>(list);
+        return Result.success(new PageResult<>(pageInfo, list));
     }
 
     /**
