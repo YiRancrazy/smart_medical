@@ -49,6 +49,13 @@ public class UserRegistrationControllerV1 {
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
     public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request,
                                              @RequestAttribute("currentUserId") Long userId) {
+        // 参数校验：防止 null 或空字符串导致 Long.valueOf 异常
+        if (request.getRegistrationScheduleId() == null || request.getRegistrationScheduleId().isEmpty()) {
+            return Result.fail("排班ID不能为空");
+        }
+        if (request.getPatientCardId() == null || request.getPatientCardId().isEmpty()) {
+            return Result.fail("就诊卡ID不能为空");
+        }
         return registrationManager.addRegistration(
                 Long.valueOf(request.getRegistrationScheduleId()),
                 userId,
