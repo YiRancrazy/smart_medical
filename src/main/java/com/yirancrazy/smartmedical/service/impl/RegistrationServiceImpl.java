@@ -91,8 +91,10 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Integer getTodayRegistrationCount() {
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        LocalDateTime todayEnd = LocalDate.now().plusDays(1).atStartOfDay();
+        // B13: 强制 Asia/Shanghai 时区
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        LocalDateTime todayStart = today.atStartOfDay();
+        LocalDateTime todayEnd = today.plusDays(1).atStartOfDay();
         QueryWrapper<Registration> queryWrapper = new QueryWrapper<>();
         queryWrapper.between("registration_time", todayStart, todayEnd);
         return registrationMapper.selectCount(queryWrapper).intValue();

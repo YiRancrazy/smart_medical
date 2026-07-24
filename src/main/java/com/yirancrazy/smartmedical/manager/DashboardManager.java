@@ -39,7 +39,8 @@ public class DashboardManager {
      * @return 7 项统计计数
      */
     public Result<DashboardStatsResponse> getStats() {
-        LocalDate today = LocalDate.now();
+        // B13: 强制 Asia/Shanghai 时区，避免容器默认 UTC 导致凌晨统计错位
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
         LocalDateTime dayStart = today.atStartOfDay();
         LocalDateTime dayEnd = today.plusDays(1).atStartOfDay();
 
