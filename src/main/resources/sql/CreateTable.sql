@@ -1117,7 +1117,7 @@ DROP TABLE IF EXISTS `registration_status_log`;
 CREATE TABLE `registration_status_log`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '日志ID',
   `registration_id` bigint UNSIGNED NOT NULL COMMENT '挂号记录ID',
-  `from_status` tinyint(1) NOT NULL COMMENT '变更前状态',
+  `from_status` tinyint(1) NULL DEFAULT NULL COMMENT '变更前状态（NULL=初始创建无前序状态）',
   `to_status` tinyint(1) NOT NULL COMMENT '变更后状态',
   `operator_id` bigint UNSIGNED NOT NULL COMMENT '操作人ID (0=系统/患者自助)',
   `operator_role` varchar(19) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '操作人角色 user/doctor/pharmacist/system',
