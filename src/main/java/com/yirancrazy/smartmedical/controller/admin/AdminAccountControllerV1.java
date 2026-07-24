@@ -3,15 +3,13 @@ package com.yirancrazy.smartmedical.controller.admin;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.AccountManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -38,5 +36,18 @@ public class AdminAccountControllerV1 {
             @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") Integer pageSize) {
         
         return accountManager.listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(username, roleId, enabled, pageNum, pageSize);
+    }
+
+    @PutMapping("/{accountId}")
+    @Operation(summary = "管理员端 - 更新账户（角色/启用状态/手机号）", description = "F20: 管理员编辑账户信息")
+    public Result<Void> updateAccount(@PathVariable Long accountId,
+                                      @RequestBody AccountUpdateRequest request) {
+        return accountManager.updateAccount(accountId, request);
+    }
+
+    @DeleteMapping("/{accountId}")
+    @Operation(summary = "管理员端 - 删除账户（软删除）", description = "F20: 管理员删除账户")
+    public Result<Void> deleteAccount(@PathVariable Long accountId) {
+        return accountManager.deleteAccount(accountId);
     }
 }

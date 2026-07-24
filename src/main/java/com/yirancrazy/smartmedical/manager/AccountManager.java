@@ -4,9 +4,11 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.*;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 
 @Manager
 @RequiredArgsConstructor
+@Slf4j
 public class AccountManager {
 
     private final AccountService accountService;
@@ -176,5 +179,46 @@ public class AccountManager {
         }
 
         return Result.success(new PageInfo<>(responseList));
+    }
+
+    /**
+     * 更新账户（角色 / 启用状态 / 手机号）
+     * @param accountId 账户 ID
+     * @param request 更新请求体
+     * @return 更新结果
+     */
+    public Result<Void> updateAccount(Long accountId, AccountUpdateRequest request) {
+        Account account = accountService.getAccountById(accountId);
+        if (account == null) {
+            return Result.fail("账户不存在");
+        }
+        if (request.getRoleId() != null) {
+            account.setRoleId(request.getRoleId());
+        }
+        if (request.getEnabled() != null) {
+            account.setEnabled(request.getEnabled());
+        }
+        if (request.getPhone() != null) {
+            account.setPhone(request.getPhone());
+        }
+        accountService.updateAccountById(account);
+        log.info("[account-update] accountId={} -> roleId={}, enabled={}, phone={}",
+                accountId, account.getRoleId(), account.getEnabled(), account.getPhone());
+        return Result.success(null);
+    }
+
+    /**
+     * 删除账户（软删除）
+     * @param accountId 账户 ID
+     * @return 删除结果
+     */
+    public Result<Void> deleteAccount(Long accountId) {
+        Account account = accountService.getAccountById(accountId);
+        if (account == null) {
+            return Result.fail("账户不存在");
+        }
+        accountService.deleteAccountById(accountId);
+        log.info("[account-delete] accountId={} soft-deleted", accountId);
+        return Result.success(null);
     }
 }
