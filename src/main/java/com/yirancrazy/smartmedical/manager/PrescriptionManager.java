@@ -22,8 +22,11 @@ import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionDetailVO;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionListVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
@@ -38,6 +41,7 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
+import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,6 +90,7 @@ public class PrescriptionManager {
     private final RegistrationScheduleService registrationScheduleService;
     private final OrderStatusLogManager orderStatusLogManager;
     private final PatientManager patientManager;
+    private final UserService userService;
 
     /**
      * 医生提交病历 + 开处方（最大事务）
@@ -399,6 +404,136 @@ public class PrescriptionManager {
                         doctorId, "doctor", "作废处方");
             }
         }
+    }
+
+    /**
+     * 医生端 - 处方列表（按当前医生过滤）
+     * @param doctorId 医生ID
+     * @return 处方列表 VO
+     */
+    public List<DoctorPrescriptionListVO> listDoctorPrescriptions(Long doctorId) {
+        if (doctorId == null) {
+            return Collections.emptyList();
+        }
+        List<MedicalRecord> records = medicalRecordService.list(
+                new LambdaQueryWrapper<MedicalRecord>()
+                        .eq(MedicalRecord::getDoctorId, doctorId));
+        if (records.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, MedicalRecord> recordMap = records.stream()
+                .collect(Collectors.toMap(MedicalRecord::getId, r -> r));
+        List<Long> recordIds = records.stream()
+                .map(MedicalRecord::getId)
+                .collect(Collectors.toList());
+
+        List<Prescription> prescriptions = prescriptionService.list(
+                new LambdaQueryWrapper<Prescription>()
+                        .in(Prescription::getMedicalRecordId, recordIds)
+                        .eq(Prescription::getDeleted, false)
+                        .orderByDesc(Prescription::getCreateTime));
+        if (prescriptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> patientIds = records.stream()
+                .map(MedicalRecord::getPatientId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, User> userMap = userService.listUsersByUserIds(patientIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        List<Long> prescriptionIds = prescriptions.stream()
+                .map(Prescription::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> itemCountMap = prescriptionItemService.list(
+                        new LambdaQueryWrapper<PrescriptionItem>()
+                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+                .stream()
+                .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
+
+        return prescriptions.stream().map(rx -> {
+            DoctorPrescriptionListVO vo = new DoctorPrescriptionListVO();
+            vo.setId(rx.getId());
+            vo.setMedicalRecordId(rx.getMedicalRecordId());
+            MedicalRecord record = recordMap.get(rx.getMedicalRecordId());
+            if (record != null) {
+                vo.setPatientId(record.getPatientId());
+                User user = userMap.get(record.getPatientId());
+                if (user != null) {
+                    vo.setPatientName(user.getNickname());
+                    vo.setPatientPhone(user.getUsername());
+                }
+            }
+            vo.setTotalAmount(rx.getTotalAmount());
+            vo.setStatus(rx.getStatus());
+            vo.setItemCount(itemCountMap.getOrDefault(rx.getId(), 0L).intValue());
+            vo.setCreateTime(rx.getCreateTime());
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 医生端 - 处方详情（含医生所有权校验）
+     * @param prescriptionId 处方ID
+     * @param doctorId 当前医生ID
+     * @return 处方详情 VO
+     * @throws BizException PRESCRIPTION_NOT_FOUND / PRESCRIPTION_NOT_OWNED
+     */
+    public DoctorPrescriptionDetailVO getDoctorPrescriptionDetail(Long prescriptionId, Long doctorId) {
+        Prescription rx = prescriptionService.getById(prescriptionId);
+        if (rx == null) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
+        }
+        MedicalRecord record = rx.getMedicalRecordId() == null
+                ? null : medicalRecordService.getById(rx.getMedicalRecordId());
+        if (record == null || !doctorId.equals(record.getDoctorId())) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
+        }
+
+        User user = record.getPatientId() == null
+                ? null : userService.getUserById(record.getPatientId());
+
+        List<PrescriptionItem> items = prescriptionItemService.list(
+                new LambdaQueryWrapper<PrescriptionItem>()
+                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        List<Long> drugIds = items.stream()
+                .map(PrescriptionItem::getDrugId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Drug> drugMap = drugIds.stream()
+                .map(drugService::getDrugById)
+                .filter(d -> d != null)
+                .collect(Collectors.toMap(Drug::getId, d -> d));
+
+        DoctorPrescriptionDetailVO vo = new DoctorPrescriptionDetailVO();
+        vo.setId(rx.getId());
+        vo.setMedicalRecordId(rx.getMedicalRecordId());
+        vo.setPatientId(record.getPatientId());
+        if (user != null) {
+            vo.setPatientName(user.getNickname());
+            vo.setPatientPhone(user.getUsername());
+        }
+        vo.setStatus(rx.getStatus());
+        vo.setTotalAmount(rx.getTotalAmount());
+        vo.setOrderId(rx.getOrderId());
+        vo.setCreateTime(rx.getCreateTime());
+        vo.setItems(items.stream().map(item -> {
+            DoctorPrescriptionDetailVO.PrescriptionItemVO itemVO = new DoctorPrescriptionDetailVO.PrescriptionItemVO();
+            itemVO.setDrugId(item.getDrugId());
+            Drug drug = drugMap.get(item.getDrugId());
+            if (drug != null) {
+                itemVO.setCommonName(drug.getCommonName());
+                itemVO.setSpecification(drug.getSpecification());
+                itemVO.setUnit(drug.getUnit());
+            }
+            itemVO.setUnitPrice(item.getUnitPrice());
+            itemVO.setQuantity(item.getQuantity());
+            itemVO.setUsageMethod(item.getUsageMethod());
+            return itemVO;
+        }).collect(Collectors.toList()));
+        return vo;
     }
 
     /**
