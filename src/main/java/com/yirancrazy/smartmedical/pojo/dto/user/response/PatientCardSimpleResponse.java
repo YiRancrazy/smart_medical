@@ -24,4 +24,5 @@ public class PatientCardSimpleResponse {
     private String patientCardId;       // 就诊卡ID
     private String relation;            // 与本人关系
     private Boolean defaultPatient; // 是否默认就诊人
+    private String remark;              // 备注（U06: 编辑页需回填，原列表接口丢失此字段）
 }

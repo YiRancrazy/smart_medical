@@ -61,4 +61,18 @@ public class UserPatientCardControllerV1 {
     public Result<List<PatientCardSimpleResponse>> listPatientCardSimpleResponseByUserId(@RequestAttribute("currentUserId") Long userId){
         return patientCardManager.listPatientCardSimpleResponseByUserId(userId);
     }
+
+    /**
+     * 按关系ID查询单条就诊人详情（含 remark）
+     * @param userId 账号id
+     * @param relationId 用户患者关系ID
+     * @return 单条就诊人详情
+     */
+    @GetMapping("/detail/{relationId}")
+    @Operation(summary = "用户端 - 按关系ID查询单条就诊人详情", description = "F24: 替代拉全列表 find by id，含 remark 字段")
+    public Result<PatientCardSimpleResponse> getPatientCardDetailByRelationId(
+            @RequestAttribute("currentUserId") Long userId,
+            @PathVariable Long relationId) {
+        return patientCardManager.getPatientCardDetailByRelationId(userId, relationId);
+    }
 }

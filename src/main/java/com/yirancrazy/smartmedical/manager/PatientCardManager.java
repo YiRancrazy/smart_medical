@@ -258,9 +258,48 @@ public class PatientCardManager {
             item.setPatientCardId(String.valueOf(currentPatientCard.getId()));
             item.setRelation(currentUserPatientRelation.getRelation());
             item.setDefaultPatient(currentUserPatientRelation.getDefaulted());
+            item.setRemark(currentUserPatientRelation.getRemark());
             result.add(item);
         }
 
+        return Result.success(result);
+    }
+
+    /**
+     * 按就诊人关系ID查询单条详情（含 remark）
+     * <p>F24: 替代前端拉全列表再 find by id 的 N+1 路径；同时回填 remark（U06）</p>
+     * @param currentUserId 当前登录用户ID（归属校验）
+     * @param relationId 用户患者关系ID
+     * @return 单条就诊人详情
+     * @throws BizException PATIENT_DATA_INVALID 关系不存在/不属于当前用户
+     */
+    public Result<PatientCardSimpleResponse> getPatientCardDetailByRelationId(Long currentUserId, Long relationId) {
+        UserPatientRelation relation = userPatientRelationService.getUserPatientRelationById(relationId);
+        if (relation == null || !currentUserId.equals(relation.getUserId())) {
+            throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
+        }
+        Patient patient = patientService.getPatientByUserId(relation.getPatientUserId());
+        User patientUser = userService.getUserById(relation.getPatientUserId());
+        Account patientAccount = accountService.getAccountByUserId(relation.getPatientUserId());
+        PatientCard patientCard = patient != null
+                ? patientCardService.getPatientCardById(patient.getPatientCardId())
+                : null;
+        if (patientUser == null || patientAccount == null || patientCard == null) {
+            throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
+        }
+
+        PatientCardSimpleResponse result = new PatientCardSimpleResponse();
+        result.setUserId(String.valueOf(patientAccount.getUserId()));
+        result.setUserPatientRelationId(String.valueOf(relation.getId()));
+        result.setPatientId(String.valueOf(patient.getId()));
+        result.setPatientName(patientUser.getNickname());
+        result.setPatientIdCard(patientUser.getIdCard());
+        result.setPatientPhone(DesensitizedUtil.mobilePhone(patientAccount.getPhone()));
+        result.setPatientCardSn(String.valueOf(patientCard.getSn()));
+        result.setPatientCardId(String.valueOf(patientCard.getId()));
+        result.setRelation(relation.getRelation());
+        result.setDefaultPatient(relation.getDefaulted());
+        result.setRemark(relation.getRemark());
         return Result.success(result);
     }
 }
