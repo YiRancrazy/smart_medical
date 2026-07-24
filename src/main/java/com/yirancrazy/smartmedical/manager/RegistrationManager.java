@@ -51,7 +51,7 @@ public class RegistrationManager {
     private final RegistrationStatusLogService registrationStatusLogService;
 
 
-    public Result<Registration> getRegistrationById(Long id, Long currentUserId) {
+    public Result<AppointmentResponseSimple> getRegistrationById(Long id, Long currentUserId) {
         Registration reg = registrationService.getRegistrationById(id);
         if (reg == null) {
             return Result.fail("挂号记录不存在");
@@ -61,7 +61,8 @@ public class RegistrationManager {
         if (!accessibleUserIds.contains(reg.getUserId())) {
             return Result.fail("无权查看该挂号记录");
         }
-        return Result.success(reg);
+        AppointmentResponseSimple vo = convertToAppointmentResponseSimple(reg);
+        return vo == null ? Result.fail("挂号关联信息不完整") : Result.success(vo);
     }
 
     /**
@@ -185,56 +186,68 @@ public class RegistrationManager {
         }
 
         for (Registration registration : registrationList) {
-            AppointmentResponseSimple item = new AppointmentResponseSimple();
-            item.setId(String.valueOf(registration.getId()));
-            item.setOrderId(registration.getOrderId() == null ? "" : String.valueOf(registration.getOrderId()));
-            item.setStatus(registration.getStatus());
-            item.setRegistrationPrice(0.0);
-
-            User patientUser = userService.getUserById(registration.getUserId());
-            item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
-
-            if (registration.getRegistrationScheduleId() == null) {
-                log.warn("跳过挂号 {}：未关联排班", registration.getId());
-                continue;
+            AppointmentResponseSimple item = convertToAppointmentResponseSimple(registration);
+            if (item != null) {
+                result.add(item);
             }
-            RegistrationSchedule schedule = registrationScheduleService
-                    .getRegistrationScheduleById(registration.getRegistrationScheduleId());
-            if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
-                log.warn("跳过挂号 {}：未找到排班 {}", registration.getId(),
-                        registration.getRegistrationScheduleId());
-                continue;
-            }
-            RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                    .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
-            if (template == null || template.getDoctorId() == null) {
-                log.warn("跳过挂号 {}：未找到排班模板 {}", registration.getId(),
-                        schedule.getRegistrationScheduleTemplateId());
-                continue;
-            }
-            Doctor doctor = doctorService.getDoctorById(template.getDoctorId());
-            if (doctor == null) {
-                log.warn("跳过挂号 {}：未找到医生 {}", registration.getId(), template.getDoctorId());
-                continue;
-            }
-            Department department = doctor.getDepartmentId() == null
-                    ? null
-                    : departmentService.getDepartmentById(doctor.getDepartmentId());
-            DoctorPosition position = doctor.getDoctorPositionId() == null
-                    ? null
-                    : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
-
-            item.setScheduleDate(template.getRegistrationDate() == null ? "" : template.getRegistrationDate().toString());
-            item.setScheduleTime(template.getStartTime() == null ? "" : template.getStartTime().toString());
-            item.setRegistrationPrice(template.getPrice() == null ? 0.0 : template.getPrice() / 100.0);
-            item.setDoctorId(String.valueOf(doctor.getId()));
-            item.setDoctorName(doctor.getName());
-            item.setDoctorAvatar(doctor.getAvatar());
-            item.setDoctorPosition(position == null ? "" : position.getName());
-            item.setDepartmentId(department == null ? "" : String.valueOf(department.getId()));
-            item.setDepartmentName(department == null ? "" : department.getName());
-            result.add(item);
         }
         return Result.success(new PageResult<>(pageInfo, result));
+    }
+
+    /**
+     * 将 Registration 实体转为前端展示 VO（U14 详情/报到共用）
+     * @param registration 挂号实体
+     * @return 展示 VO，关联信息不完整时返回 null
+     */
+    private AppointmentResponseSimple convertToAppointmentResponseSimple(Registration registration) {
+        AppointmentResponseSimple item = new AppointmentResponseSimple();
+        item.setId(String.valueOf(registration.getId()));
+        item.setOrderId(registration.getOrderId() == null ? "" : String.valueOf(registration.getOrderId()));
+        item.setStatus(registration.getStatus());
+        item.setRegistrationPrice(0.0);
+
+        User patientUser = userService.getUserById(registration.getUserId());
+        item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
+
+        if (registration.getRegistrationScheduleId() == null) {
+            log.warn("跳过挂号 {}：未关联排班", registration.getId());
+            return null;
+        }
+        RegistrationSchedule schedule = registrationScheduleService
+                .getRegistrationScheduleById(registration.getRegistrationScheduleId());
+        if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+            log.warn("跳过挂号 {}：未找到排班 {}", registration.getId(),
+                    registration.getRegistrationScheduleId());
+            return null;
+        }
+        RegistrationScheduleTemplate template = registrationScheduleTemplateService
+                .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
+        if (template == null || template.getDoctorId() == null) {
+            log.warn("跳过挂号 {}：未找到排班模板 {}", registration.getId(),
+                    schedule.getRegistrationScheduleTemplateId());
+            return null;
+        }
+        Doctor doctor = doctorService.getDoctorById(template.getDoctorId());
+        if (doctor == null) {
+            log.warn("跳过挂号 {}：未找到医生 {}", registration.getId(), template.getDoctorId());
+            return null;
+        }
+        Department department = doctor.getDepartmentId() == null
+                ? null
+                : departmentService.getDepartmentById(doctor.getDepartmentId());
+        DoctorPosition position = doctor.getDoctorPositionId() == null
+                ? null
+                : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
+
+        item.setScheduleDate(template.getRegistrationDate() == null ? "" : template.getRegistrationDate().toString());
+        item.setScheduleTime(template.getStartTime() == null ? "" : template.getStartTime().toString());
+        item.setRegistrationPrice(template.getPrice() == null ? 0.0 : template.getPrice() / 100.0);
+        item.setDoctorId(String.valueOf(doctor.getId()));
+        item.setDoctorName(doctor.getName());
+        item.setDoctorAvatar(doctor.getAvatar());
+        item.setDoctorPosition(position == null ? "" : position.getName());
+        item.setDepartmentId(department == null ? "" : String.valueOf(department.getId()));
+        item.setDepartmentName(department == null ? "" : department.getName());
+        return item;
     }
 }

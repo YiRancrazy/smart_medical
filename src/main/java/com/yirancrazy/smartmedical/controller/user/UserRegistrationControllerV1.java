@@ -32,10 +32,10 @@ public class UserRegistrationControllerV1 {
     private final RegistrationCheckInManager registrationCheckInManager;
 
     @GetMapping("/{id:\\d+}")
-    @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息")
+    @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息（U14: 返回包含医生/科室/排班的展示VO）")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
-    public Result<Registration> getRegistrationById(@PathVariable String id,
-                                                    @RequestAttribute("currentUserId") Long userId) {
+    public Result<AppointmentResponseSimple> getRegistrationById(@PathVariable String id,
+                                                                 @RequestAttribute("currentUserId") Long userId) {
         return registrationManager.getRegistrationById(Long.parseLong(id), userId);
     }
 
