@@ -6,6 +6,7 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.InsertRegistrationRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
+import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,11 +62,14 @@ public class UserRegistrationControllerV1 {
      * @return 挂号记录
      */
     @GetMapping("/simple/list")
-    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录；可指定就诊卡过滤")
+    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录；可指定就诊卡过滤；U27支持可选分页(pageNum/pageSize)")
     @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
-    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(@RequestAttribute("currentUserId") Long userId,
-                                                                       @RequestParam(required = false) Long patientCardId) {
-        return registrationManager.getRegistrationByUid(userId, patientCardId);
+    public Result<PageResult<AppointmentResponseSimple>> getRegistrationByUid(
+            @RequestAttribute("currentUserId") Long userId,
+            @RequestParam(required = false) Long patientCardId,
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer pageSize) {
+        return registrationManager.getRegistrationByUid(userId, patientCardId, pageNum, pageSize);
     }
 
     /**

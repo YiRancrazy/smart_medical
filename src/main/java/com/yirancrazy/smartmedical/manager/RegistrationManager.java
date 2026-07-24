@@ -2,12 +2,15 @@ package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
+import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import com.yirancrazy.smartmedical.service.*;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
@@ -154,20 +157,31 @@ public class RegistrationManager {
     }
 
     /**
-     * 获取用户预约列表
+     * 获取用户预约列表（支持可选分页，U27）
      * ponytail: G13 已知限制 — 逐条查 user/schedule/template/doctor/department/position（N+1），
      *           用户挂号记录通常 < 100，当前可接受；数据量增大时改为批量 listByIds + Map 缓存
      * @param currentUserId 当前登录用户id
      * @param patientCardId 就诊卡id（为 null 时返回全部关联就诊人）
-     * @return 用户预约信息简单响应列表
+     * @param pageNum 页码（可选，传则分页）
+     * @param pageSize 每页条数（可选，传则分页）
+     * @return 用户预约信息（PageResult 包含 list + total；未传分页参数时 total = list.size）
      */
-    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(Long currentUserId, Long patientCardId) {
+    public Result<PageResult<AppointmentResponseSimple>> getRegistrationByUid(
+            Long currentUserId, Long patientCardId, Integer pageNum, Integer pageSize) {
         List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(currentUserId, patientCardId);
+        if (patientUserIds == null || patientUserIds.isEmpty()) {
+            return Result.success(new PageResult<>(1, pageSize == null ? 0 : pageSize, 0L, 0, new ArrayList<>()));
+        }
+        // U27: 可选分页，PageHelper 拦截下一条 MyBatis 查询
+        if (pageNum != null && pageSize != null) {
+            PageHelper.startPage(pageNum, pageSize);
+        }
         List<Registration> registrationList = registrationService.listRegistrationsByUserIds(patientUserIds);
+        PageInfo<Registration> pageInfo = new PageInfo<>(registrationList);
 
         List<AppointmentResponseSimple> result = new ArrayList<>();
         if (registrationList == null || registrationList.isEmpty()) {
-            return Result.success(result);
+            return Result.success(new PageResult<>(pageInfo, result));
         }
 
         for (Registration registration : registrationList) {
@@ -221,6 +235,6 @@ public class RegistrationManager {
             item.setDepartmentName(department == null ? "" : department.getName());
             result.add(item);
         }
-        return Result.success(result);
+        return Result.success(new PageResult<>(pageInfo, result));
     }
 }

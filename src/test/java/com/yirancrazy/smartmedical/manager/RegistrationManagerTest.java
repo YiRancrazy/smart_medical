@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
+import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorPositionService;
 import com.yirancrazy.smartmedical.service.DoctorService;
@@ -72,11 +73,11 @@ class RegistrationManagerTest {
     void getRegistrationByUid_emptyList_returnsEmptyResult() {
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(Collections.emptyList());
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null);
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
         assertNotNull(result.getData());
-        assertTrue(result.getData().isEmpty());
+        assertTrue(result.getData().getList().isEmpty());
     }
 
     @Test
@@ -96,10 +97,10 @@ class RegistrationManagerTest {
         when(registrationScheduleService.getRegistrationScheduleById(99L)).thenReturn(schedule);
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(88L)).thenReturn(null);
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null);
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
-        assertTrue(result.getData().isEmpty(), "registration with missing template should be skipped, not NPE");
+        assertTrue(result.getData().getList().isEmpty(), "registration with missing template should be skipped, not NPE");
     }
 
     @Test
@@ -144,11 +145,11 @@ class RegistrationManagerTest {
         lenient().when(departmentService.getDepartmentById(11L)).thenReturn(department);
         lenient().when(doctorPositionService.getPositionById(22L)).thenReturn(position);
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null);
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
-        assertEquals(1, result.getData().size());
-        AppointmentResponseSimple item = result.getData().get(0);
+        assertEquals(1, result.getData().getList().size());
+        AppointmentResponseSimple item = result.getData().getList().get(0);
         assertEquals("101", item.getId());
         assertEquals("55", item.getDoctorId());
         assertEquals("张三", item.getDoctorName());
@@ -168,9 +169,9 @@ class RegistrationManagerTest {
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
         when(userService.getUserById(7L)).thenReturn(new User());
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null);
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
-        assertTrue(result.getData().isEmpty());
+        assertTrue(result.getData().getList().isEmpty());
     }
 }
