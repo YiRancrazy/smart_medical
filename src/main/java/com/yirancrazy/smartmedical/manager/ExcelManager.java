@@ -26,7 +26,9 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Excel 导入管理器
@@ -43,7 +45,18 @@ public class ExcelManager {
     private final RegistrationScheduleService registrationScheduleService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
 
-    private static final DateTimeFormatter SLASH_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy/M/d");
+    private static final DateTimeFormatter[] DATE_FORMATTERS = new DateTimeFormatter[]{
+            DateTimeFormatter.ofPattern("yyyy/M/d"),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd"),
+            DateTimeFormatter.ofPattern("yyyy-M-d"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("yyyy年M月d日"),
+            DateTimeFormatter.ofPattern("yyyy年MM月dd日"),
+            DateTimeFormatter.ofPattern("yyyy/M/d HH:mm:ss"),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"),
+            DateTimeFormatter.ofPattern("yyyy-M-d HH:mm:ss"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    };
 
     /**
      * 上传挂号排班 excel 文件
@@ -103,9 +116,16 @@ public class ExcelManager {
             return Result.fail("未读取到有效数据，请检查文件内容");
         }
 
-        // 去重：跳过已存在的同医生/日期/开始时段模板
+        // 去重：跳过文件内重复及数据库已存在的同医生/日期/开始时段模板
+        Set<String> seen = new HashSet<>();
         List<RegistrationScheduleTemplate> toInsert = new ArrayList<>();
         for (RegistrationScheduleTemplate template : templates) {
+            String key = template.getDoctorId() + "#" + template.getRegistrationDate() + "#" + template.getStartTime();
+            if (seen.contains(key)) {
+                log.warn("[excel] 文件内重复，跳过：doctorId={}, date={}, startTime={}",
+                        template.getDoctorId(), template.getRegistrationDate(), template.getStartTime());
+                continue;
+            }
             List<RegistrationScheduleTemplate> existing = registrationScheduleTemplateService
                     .getRegistrationScheduleTemplateByDoctorIdAndDate(
                             template.getDoctorId(), template.getRegistrationDate());
@@ -116,6 +136,7 @@ public class ExcelManager {
                 log.warn("[excel] 模板已存在，跳过：doctorId={}, date={}, startTime={}",
                         template.getDoctorId(), template.getRegistrationDate(), template.getStartTime());
             } else {
+                seen.add(key);
                 toInsert.add(template);
             }
         }
@@ -188,23 +209,24 @@ public class ExcelManager {
 
         LocalDate date = parseDate(row.getRegistrationDate());
         if (date == null) {
-            errors.add("第" + rowNo + "行：排班日期格式错误，支持 yyyy-MM-dd 或 yyyy/M/d");
+            errors.add("第" + rowNo + "行：排班日期格式错误，当前值=[" + row.getRegistrationDate() + "]，支持 yyyy-MM-dd 或 yyyy/M/d");
             return null;
         }
         template.setRegistrationDate(date);
 
-        try {
-            template.setStartTime(LocalTime.parse(row.getStartTime().trim()));
-            template.setEndTime(LocalTime.parse(row.getEndTime().trim()));
-        } catch (DateTimeParseException e) {
-            errors.add("第" + rowNo + "行：时间格式错误，支持 HH:mm 或 HH:mm:ss");
+        LocalTime startTime = parseTime(row.getStartTime());
+        LocalTime endTime = parseTime(row.getEndTime());
+        if (startTime == null || endTime == null) {
+            errors.add("第" + rowNo + "行：时间格式错误，开始时间=[" + row.getStartTime() + "], 结束时间=[" + row.getEndTime() + "], 支持 HH:mm 或 HH:mm:ss");
             return null;
         }
+        template.setStartTime(startTime);
+        template.setEndTime(endTime);
 
         template.setTotalQuota(row.getTotal());
 
         try {
-            template.setPrice(Integer.valueOf(row.getPrice().trim()));
+            template.setPrice(Integer.valueOf(row.getPrice().trim()) * 100);
         } catch (NumberFormatException e) {
             errors.add("第" + rowNo + "行：挂号价格格式错误");
             return null;
@@ -264,21 +286,82 @@ public class ExcelManager {
     }
 
     /**
-     * 解析日期，支持 yyyy-MM-dd 与 yyyy/M/d
+     * 解析日期，支持 yyyy-MM-dd、yyyy/M/d、yyyy/MM/dd、yyyy年MM月dd日、Excel 数字日期等
      * @param dateStr 日期字符串
      * @return 解析后的日期；失败返回 null
      */
     private LocalDate parseDate(String dateStr) {
-        String trimmed = dateStr.trim();
+        if (StrUtil.isBlank(dateStr)) {
+            return null;
+        }
+        String trimmed = dateStr.trim().replace("\uFEFF", "");
+
+        // ISO 日期
         try {
             return LocalDate.parse(trimmed);
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException ignored) {
+        }
+
+        // 自定义格式（含日期时间）
+        for (DateTimeFormatter formatter : DATE_FORMATTERS) {
             try {
-                return LocalDate.parse(trimmed, SLASH_DATE_FORMATTER);
-            } catch (DateTimeParseException ex) {
-                return null;
+                return LocalDate.parse(trimmed, formatter);
+            } catch (DateTimeParseException ignored) {
+            }
+            try {
+                return LocalDateTime.parse(trimmed, formatter).toLocalDate();
+            } catch (DateTimeParseException ignored) {
             }
         }
+
+        // yyyyMMdd 纯数字日期（如 20260725）以及 Excel 保存后带小数的变体（如 20260726.5）
+        try {
+            String intPart = trimmed.contains(".") ? trimmed.substring(0, trimmed.indexOf('.')) : trimmed;
+            return LocalDate.parse(intPart, DateTimeFormatter.ofPattern("yyyyMMdd"));
+        } catch (DateTimeParseException | NumberFormatException ignored) {
+        }
+
+        // Excel 数字日期（1899-12-30 起的天数），仅解析合理范围内的数值
+        try {
+            double excelDays = Double.parseDouble(trimmed);
+            if (excelDays > 0 && excelDays < 50000) {
+                return LocalDate.of(1899, 12, 30).plusDays((long) excelDays);
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return null;
+    }
+
+    /**
+     * 解析时间，支持 HH:mm、HH:mm:ss、H:mm、H:mm:ss，以及从日期时间字符串中提取时间
+     * @param timeStr 时间字符串
+     * @return 解析后的时间；失败返回 null
+     */
+    private LocalTime parseTime(String timeStr) {
+        if (StrUtil.isBlank(timeStr)) {
+            return null;
+        }
+        String trimmed = timeStr.trim().replace("\uFEFF", "");
+
+        // 从日期时间字符串中提取时间部分（如 "2026/07/25 09:00:00"）
+        int spaceIdx = trimmed.lastIndexOf(' ');
+        if (spaceIdx > 0) {
+            trimmed = trimmed.substring(spaceIdx + 1);
+        }
+
+        DateTimeFormatter[] formatters = new DateTimeFormatter[]{
+                DateTimeFormatter.ofPattern("HH:mm"),
+                DateTimeFormatter.ofPattern("HH:mm:ss"),
+                DateTimeFormatter.ofPattern("H:mm"),
+                DateTimeFormatter.ofPattern("H:mm:ss")
+        };
+        for (DateTimeFormatter formatter : formatters) {
+            try {
+                return LocalTime.parse(trimmed, formatter);
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+        return null;
     }
 
     /**
