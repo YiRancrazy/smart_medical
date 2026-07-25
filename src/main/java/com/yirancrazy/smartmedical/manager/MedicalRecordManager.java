@@ -285,10 +285,10 @@ public class MedicalRecordManager {
      * 用户端 - 病历详情（含权限校验）
      * @param id 病历ID
      * @param userId 当前用户ID
-     * @return 病历实体
+     * @return 用户端病历详情 VO
      * @throws BizException MEDICAL_RECORD_NOT_FOUND / MEDICAL_RECORD_NOT_OWNED
      */
-    public MedicalRecord getMedicalRecordById(Long id, Long userId) {
+    public com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO getMedicalRecordById(Long id, Long userId) {
         MedicalRecord record = medicalRecordService.getById(id);
         if (record == null) {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
@@ -298,7 +298,84 @@ public class MedicalRecordManager {
         if (!accessibleUserIds.contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }
-        return record;
+        return toUserDetailVO(record);
+    }
+
+    /**
+     * 病历实体转用户端详情 VO
+     * @param record 病历实体
+     * @return 用户端详情 VO
+     */
+    private com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO toUserDetailVO(MedicalRecord record) {
+        if (record == null) {
+            return null;
+        }
+        com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO vo =
+                new com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO();
+        vo.setId(record.getId());
+        vo.setRegistrationId(record.getRegistrationId());
+        fillPatientInfo(vo, record.getPatientId());
+        vo.setChiefComplaint(record.getChiefComplaint());
+        vo.setPresentIllness(record.getPresentIllness());
+        vo.setPastHistory(record.getPastHistory());
+        vo.setPhysicalExam(record.getPhysicalExam());
+        vo.setDiagnosis(record.getDiagnosis());
+        vo.setTreatmentPlan(record.getTreatmentPlan());
+        vo.setStatus(record.getStatus());
+        fillDoctorAndDepartment(vo, record.getDoctorId());
+        fillVisitDateAndPrescription(vo, record);
+        vo.setCreateTime(record.getCreateTime());
+        return vo;
+    }
+
+    private void fillPatientInfo(com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO vo, Long patientId) {
+        if (patientId == null) {
+            return;
+        }
+        User user = userService.getUserById(patientId);
+        if (user != null) {
+            vo.setPatientName(user.getNickname());
+        }
+        Account account = accountService.getAccountByUserId(patientId);
+        if (account != null) {
+            vo.setPatientPhone(account.getPhone());
+        }
+    }
+
+    private void fillDoctorAndDepartment(com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO vo, Long doctorId) {
+        if (doctorId == null) {
+            return;
+        }
+        Doctor doctor = doctorService.getDoctorById(doctorId);
+        if (doctor != null) {
+            vo.setDoctorName(doctor.getName());
+            if (doctor.getDepartmentId() != null) {
+                Department dept = departmentService.getDepartmentById(doctor.getDepartmentId());
+                if (dept != null) {
+                    vo.setDepartmentName(dept.getName());
+                }
+            }
+        }
+    }
+
+    private void fillVisitDateAndPrescription(com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO vo, MedicalRecord record) {
+        if (record.getRegistrationId() != null) {
+            Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
+            if (reg != null && reg.getRegistrationScheduleId() != null) {
+                RegistrationSchedule schedule = registrationScheduleService
+                        .getRegistrationScheduleById(reg.getRegistrationScheduleId());
+                if (schedule != null) {
+                    vo.setVisitDate(schedule.getStartTime());
+                }
+            }
+        }
+        Prescription prescription = prescriptionService.getOne(
+                new LambdaQueryWrapper<Prescription>()
+                        .eq(Prescription::getMedicalRecordId, record.getId())
+                        .last("LIMIT 1"));
+        if (prescription != null) {
+            vo.setPrescriptionId(prescription.getId());
+        }
     }
 
     /**

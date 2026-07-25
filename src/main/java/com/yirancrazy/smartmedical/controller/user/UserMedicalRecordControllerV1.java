@@ -2,9 +2,10 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
 import com.yirancrazy.smartmedical.manager.PatientManager;
-import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordDetailVO;
+import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,9 +46,9 @@ public class UserMedicalRecordControllerV1 {
 
     @Operation(summary = "用户端 - 病历详情")
     @Parameter(name = "id", description = "病历ID", required = true)
-    @GetMapping("/{id:\\d+}")
-    public Result<MedicalRecord> detail(@PathVariable Long id,
-                                       @RequestAttribute("currentUserId") Long userId) {
+    @GetMapping("/{id:\\\\d+}")
+    public Result<MedicalRecordDetailVO> detail(@PathVariable Long id,
+                                                @RequestAttribute("currentUserId") Long userId) {
         return Result.success(medicalRecordManager.getMedicalRecordById(id, userId));
     }
 }
