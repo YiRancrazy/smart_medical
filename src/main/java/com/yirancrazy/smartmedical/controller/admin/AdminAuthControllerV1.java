@@ -58,7 +58,7 @@ public class AdminAuthControllerV1 {
 
     @PostMapping("/refresh")
     @Operation(summary = "管理员端 - 刷新token")
-    public Result<String> refresh(@CookieValue("Refresh-token") String refreshToken,
+    public Result<String> refresh(@CookieValue(value = "Refresh-token", required = false) String refreshToken,
                                    HttpServletResponse response) {
         return userAuthManager.refresh(refreshToken, response);
     }

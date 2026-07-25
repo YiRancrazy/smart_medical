@@ -63,7 +63,7 @@ public class UserAuthControllerV1 {
 
     @PostMapping("/refresh")
     @Operation(summary = "用户端 - 刷新token", description = "刷新access token")
-    public Result<String> refresh(@CookieValue("Refresh-token") String refreshToken,
+    public Result<String> refresh(@CookieValue(value = "Refresh-token", required = false) String refreshToken,
                                    HttpServletResponse response) {
         return authManager.refresh(refreshToken, response);
     }
