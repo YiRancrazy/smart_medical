@@ -848,7 +848,7 @@ CREATE TABLE `registration_schedule`  (
   `start_time` datetime NULL DEFAULT NULL COMMENT '开始时间',
   `end_time` datetime NULL DEFAULT NULL COMMENT '结束时间',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '状态: 1-正常, 0-停诊, 2-已满',
-  `remaining_quota` int NULL DEFAULT NULL COMMENT '总号源数',
+  `remaining_quota` int NULL DEFAULT NULL COMMENT '总号源数' CHECK (`remaining_quota` >= 0),
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
