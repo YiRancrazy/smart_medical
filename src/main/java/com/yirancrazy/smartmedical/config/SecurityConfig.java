@@ -5,8 +5,10 @@ import com.yirancrazy.smartmedical.filter.JwtAuthenticationFilter;
 import com.yirancrazy.smartmedical.pojo.Result;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -116,6 +118,23 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * CROSS-01: prod 环境启动时校验 CORS 来源，禁止通配符与 Allow-Credentials=true 共存
+     */
+    @Configuration
+    @Profile("prod")
+    public static class ProdCorsOriginChecker {
+        @Value("${cors.allowed-origins:*}")
+        private String allowedOrigins;
+
+        @PostConstruct
+        public void check() {
+            if (allowedOrigins == null || allowedOrigins.trim().isEmpty() || allowedOrigins.contains("*")) {
+                throw new IllegalStateException("生产环境 CORS 来源不能为通配符，请配置 cors.allowed-origins 为具体域名");
+            }
+        }
     }
 
     /**
