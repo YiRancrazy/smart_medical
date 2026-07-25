@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -51,7 +52,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
-    private static final String[] WHITE_LIST = {
+    /**
+     * BUG-B01: 精确匹配白名单路径，避免 startsWith 前缀绕过（如 /swagger-ui/../api/xxx）
+     */
+    private static final Set<String> WHITE_LIST_EXACT = Set.of(
             "/api/admin/v1/auth/login",
             "/api/admin/v1/auth/refresh",
             "/api/user/v1/auth/login",
@@ -62,14 +66,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/pharmacy/v1/auth/login",
             "/api/pharmacy/v1/auth/refresh",
             "/doc.html",
-            "/swagger-ui",
             "/swagger-ui.html",
-            "/swagger-resources",
-            "/v2/api-docs",
-            "/v3/api-docs",
-            "/webjars",
             "/favicon.ico",
             "/error"
+    );
+
+    /**
+     * 需要前缀匹配的白名单（Swagger 静态资源子路径较多，无法穷举）
+     */
+    private static final String[] WHITE_LIST_PREFIX = {
+            "/swagger-ui/",
+            "/swagger-resources/",
+            "/v2/api-docs",
+            "/v3/api-docs",
+            "/webjars/"
     };
 
     /**
@@ -219,8 +229,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @return 是否在白名单中
      */
     private boolean isWhitelisted(String uri) {
-        for (String allowPath : WHITE_LIST) {
-            if (uri.startsWith(allowPath)) {
+        if (WHITE_LIST_EXACT.contains(uri)) {
+            return true;
+        }
+        for (String prefix : WHITE_LIST_PREFIX) {
+            if (uri.startsWith(prefix)) {
                 return true;
             }
         }
