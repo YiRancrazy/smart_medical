@@ -143,8 +143,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // 校验 Redis 中 token 仍存在（支持 logout 撤销）：login 写入 adminAccessTokenPrefix+accountId，
             // logout 删除同一 key，Filter 必须比对否则登出后旧 token 在 exp 前仍有效
-            Object cached = redisUtil.get(adminAccessTokenPrefix + accountId);
-            if (cached == null || !token.equals(cached.toString())) {
+            // BUG-B10: Redis 不可达时降级为仅校验签名和过期时间，避免全站 500
+            Object cached;
+            boolean redisAvailable;
+            try {
+                cached = redisUtil.get(adminAccessTokenPrefix + accountId);
+                redisAvailable = true;
+            } catch (Exception e) {
+                log.warn("[jwt] Redis 校验失败，降级为仅校验签名和过期时间: {}", e.getMessage());
+                cached = null;
+                redisAvailable = false;
+            }
+            if (redisAvailable && (cached == null || !token.equals(cached.toString()))) {
                 unauthorized(response, "access_token 已失效");
                 return;
             }
