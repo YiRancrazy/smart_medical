@@ -1,5 +1,7 @@
 package com.yirancrazy.smartmedical.config;
 
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,5 +18,16 @@ public class MybatisPlusConfig {
     @Bean
     public MybatisPlusMetaObjectHandler myMetaObjectHandler() {
         return new MybatisPlusMetaObjectHandler();
+    }
+
+    /**
+     * 注册 MyBatis-Plus 插件：乐观锁等
+     */
+    @Bean
+    public MybatisPlusInterceptor mybatisPlusInterceptor() {
+        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        // 处方表使用 @Version 乐观锁，必须注册此拦截器
+        interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
+        return interceptor;
     }
 }
