@@ -268,9 +268,9 @@ public class PrescriptionManager {
             inventoryTransactionService.insertInventoryTransaction(txn);
         }
 
-        // 7. registration 状态迁移:就诊中 → 待支付(处方补缴)
+        // 7. registration 状态迁移:就诊中 → 完成(处方账单进入门诊费用页待支付)
         statusLogManager.transition(reg,
-                RegistrationStatusEnum.PENDING_PAYMENT.getCode(),
+                RegistrationStatusEnum.COMPLETED.getCode(),
                 doctorId, "doctor", "提交病历开方");
 
         // 8. 构造返回 VO
@@ -280,7 +280,7 @@ public class PrescriptionManager {
         vo.setOrderId(order.getId());
         vo.setOrderSn(String.valueOf(order.getSn()));
         vo.setTotalAmount(totalAmount);
-        vo.setRegistrationStatus(RegistrationStatusEnum.PENDING_PAYMENT.getCode());
+        vo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
         return vo;
     }
 
@@ -395,7 +395,8 @@ public class PrescriptionManager {
         rx.setStatus(PrescriptionStatus.CANCELLED.getCode());
         prescriptionService.updateById(rx);
 
-        // registration 回退到 IN_TREATMENT (就诊中)
+        // registration 状态回退：仅旧流程产生的 PENDING_PAYMENT 回退到就诊中；
+        // 新流程提交后挂号已完成，作废处方不再回退挂号状态
         if (record != null) {
             Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
             if (reg != null && reg.getStatus() == RegistrationStatusEnum.PENDING_PAYMENT.getCode()) {
