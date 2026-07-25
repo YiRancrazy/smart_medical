@@ -92,10 +92,13 @@ class RegistrationManagerTest {
         schedule.setId(99L);
         schedule.setRegistrationScheduleTemplateId(88L);
 
+        User user = new User();
+        user.setId(7L);
+
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
-        when(userService.getUserById(7L)).thenReturn(new User());
-        when(registrationScheduleService.getRegistrationScheduleById(99L)).thenReturn(schedule);
-        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(88L)).thenReturn(null);
+        when(userService.listUsersByUserIds(List.of(7L))).thenReturn(List.of(user));
+        when(registrationScheduleService.listRegistrationSchedulesByIds(List.of(99L))).thenReturn(List.of(schedule));
+        when(registrationScheduleTemplateService.listAllRegistrationScheduleTemplateByIdList(List.of(88L))).thenReturn(Collections.emptyList());
 
         Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
@@ -116,6 +119,7 @@ class RegistrationManagerTest {
         schedule.setRegistrationScheduleTemplateId(88L);
 
         RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(88L);
         template.setDoctorId(55L);
 
         Doctor doctor = new Doctor();
@@ -138,12 +142,12 @@ class RegistrationManagerTest {
         user.setNickname("李四");
 
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
-        when(userService.getUserById(7L)).thenReturn(user);
-        when(registrationScheduleService.getRegistrationScheduleById(99L)).thenReturn(schedule);
-        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(88L)).thenReturn(template);
-        when(doctorService.getDoctorById(55L)).thenReturn(doctor);
-        lenient().when(departmentService.getDepartmentById(11L)).thenReturn(department);
-        lenient().when(doctorPositionService.getPositionById(22L)).thenReturn(position);
+        when(userService.listUsersByUserIds(List.of(7L))).thenReturn(List.of(user));
+        when(registrationScheduleService.listRegistrationSchedulesByIds(List.of(99L))).thenReturn(List.of(schedule));
+        when(registrationScheduleTemplateService.listAllRegistrationScheduleTemplateByIdList(List.of(88L))).thenReturn(List.of(template));
+        when(doctorService.listDoctorsByIds(List.of(55L))).thenReturn(List.of(doctor));
+        when(departmentService.listDepartmentsByIds(List.of(11L))).thenReturn(List.of(department));
+        when(doctorPositionService.listPositionsByIds(List.of(22L))).thenReturn(List.of(position));
 
         Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
@@ -166,8 +170,12 @@ class RegistrationManagerTest {
         registration.setUserId(7L);
         // registrationScheduleTemplateId 留空
 
+        User user = new User();
+        user.setId(7L);
+
         when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
-        when(userService.getUserById(7L)).thenReturn(new User());
+        when(userService.listUsersByUserIds(List.of(7L))).thenReturn(List.of(user));
+        when(registrationScheduleService.listRegistrationSchedulesByIds(Collections.emptyList())).thenReturn(Collections.emptyList());
 
         Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 

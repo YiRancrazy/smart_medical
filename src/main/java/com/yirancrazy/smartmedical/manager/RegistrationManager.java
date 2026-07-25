@@ -19,7 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -180,18 +185,135 @@ public class RegistrationManager {
         List<Registration> registrationList = registrationService.listRegistrationsByUserIds(patientUserIds);
         PageInfo<Registration> pageInfo = new PageInfo<>(registrationList);
 
+        List<AppointmentResponseSimple> result = convertToAppointmentResponseSimpleBatch(registrationList);
+        return Result.success(new PageResult<>(pageInfo, result));
+    }
+
+    /**
+     * 批量将 Registration 列表转为前端展示 VO，避免 N+1 查询
+     * @param registrations 挂号实体列表
+     * @return 展示 VO 列表
+     */
+    private List<AppointmentResponseSimple> convertToAppointmentResponseSimpleBatch(List<Registration> registrations) {
         List<AppointmentResponseSimple> result = new ArrayList<>();
-        if (registrationList == null || registrationList.isEmpty()) {
-            return Result.success(new PageResult<>(pageInfo, result));
+        if (registrations == null || registrations.isEmpty()) {
+            return result;
         }
 
-        for (Registration registration : registrationList) {
-            AppointmentResponseSimple item = convertToAppointmentResponseSimple(registration);
+        // BUG-B07: 批量收集 ID 并一次性查询，避免 N+1
+        Set<Long> userIds = new HashSet<>();
+        Set<Long> scheduleIds = new HashSet<>();
+        for (Registration r : registrations) {
+            if (r.getUserId() != null) {
+                userIds.add(r.getUserId());
+            }
+            if (r.getRegistrationScheduleId() != null) {
+                scheduleIds.add(r.getRegistrationScheduleId());
+            }
+        }
+
+        Map<Long, User> userMap = userService.listUsersByUserIds(new ArrayList<>(userIds)).stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        Map<Long, RegistrationSchedule> scheduleMap = registrationScheduleService
+                .listRegistrationSchedulesByIds(new ArrayList<>(scheduleIds)).stream()
+                .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s, (a, b) -> a));
+
+        Set<Long> templateIds = scheduleMap.values().stream()
+                .map(RegistrationSchedule::getRegistrationScheduleTemplateId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, RegistrationScheduleTemplate> templateMap = registrationScheduleTemplateService
+                .listAllRegistrationScheduleTemplateByIdList(new ArrayList<>(templateIds)).stream()
+                .collect(Collectors.toMap(RegistrationScheduleTemplate::getId, t -> t, (a, b) -> a));
+
+        Set<Long> doctorIds = templateMap.values().stream()
+                .map(RegistrationScheduleTemplate::getDoctorId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Doctor> doctorMap = doctorService.listDoctorsByIds(new ArrayList<>(doctorIds)).stream()
+                .collect(Collectors.toMap(Doctor::getId, d -> d, (a, b) -> a));
+
+        Set<Long> departmentIds = doctorMap.values().stream()
+                .map(Doctor::getDepartmentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> positionIds = doctorMap.values().stream()
+                .map(Doctor::getDoctorPositionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Department> departmentMap = departmentService.listDepartmentsByIds(new ArrayList<>(departmentIds))
+                .stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<Long, DoctorPosition> positionMap = doctorPositionService.listPositionsByIds(new ArrayList<>(positionIds))
+                .stream().collect(Collectors.toMap(DoctorPosition::getId, p -> p, (a, b) -> a));
+
+        for (Registration registration : registrations) {
+            AppointmentResponseSimple item = buildAppointmentResponseSimple(
+                    registration, userMap, scheduleMap, templateMap, doctorMap, departmentMap, positionMap);
             if (item != null) {
                 result.add(item);
             }
         }
-        return Result.success(new PageResult<>(pageInfo, result));
+        return result;
+    }
+
+    /**
+     * 从批量查询的 Map 中组装单个 AppointmentResponseSimple
+     */
+    private AppointmentResponseSimple buildAppointmentResponseSimple(
+            Registration registration,
+            Map<Long, User> userMap,
+            Map<Long, RegistrationSchedule> scheduleMap,
+            Map<Long, RegistrationScheduleTemplate> templateMap,
+            Map<Long, Doctor> doctorMap,
+            Map<Long, Department> departmentMap,
+            Map<Long, DoctorPosition> positionMap) {
+        AppointmentResponseSimple item = new AppointmentResponseSimple();
+        item.setId(String.valueOf(registration.getId()));
+        item.setOrderId(registration.getOrderId() == null ? "" : String.valueOf(registration.getOrderId()));
+        item.setStatus(registration.getStatus());
+        item.setRegistrationPrice(0);
+
+        User patientUser = userMap.get(registration.getUserId());
+        item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
+
+        if (registration.getRegistrationScheduleId() == null) {
+            log.warn("跳过挂号 {}：未关联排班", registration.getId());
+            return null;
+        }
+        RegistrationSchedule schedule = scheduleMap.get(registration.getRegistrationScheduleId());
+        if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+            log.warn("跳过挂号 {}：未找到排班 {}", registration.getId(),
+                    registration.getRegistrationScheduleId());
+            return null;
+        }
+        RegistrationScheduleTemplate template = templateMap.get(schedule.getRegistrationScheduleTemplateId());
+        if (template == null || template.getDoctorId() == null) {
+            log.warn("跳过挂号 {}：未找到排班模板 {}", registration.getId(),
+                    schedule.getRegistrationScheduleTemplateId());
+            return null;
+        }
+        Doctor doctor = doctorMap.get(template.getDoctorId());
+        if (doctor == null) {
+            log.warn("跳过挂号 {}：未找到医生 {}", registration.getId(), template.getDoctorId());
+            return null;
+        }
+        Department department = doctor.getDepartmentId() == null
+                ? null
+                : departmentMap.get(doctor.getDepartmentId());
+        DoctorPosition position = doctor.getDoctorPositionId() == null
+                ? null
+                : positionMap.get(doctor.getDoctorPositionId());
+
+        item.setScheduleDate(template.getRegistrationDate() == null ? "" : template.getRegistrationDate().toString());
+        item.setScheduleTime(template.getStartTime() == null ? "" : template.getStartTime().toString());
+        item.setRegistrationPrice(template.getPrice());
+        item.setDoctorId(String.valueOf(doctor.getId()));
+        item.setDoctorName(doctor.getName());
+        item.setDoctorAvatar(doctor.getAvatar());
+        item.setDoctorPosition(position == null ? "" : position.getName());
+        item.setDepartmentId(department == null ? "" : String.valueOf(department.getId()));
+        item.setDepartmentName(department == null ? "" : department.getName());
+        return item;
     }
 
     /**
@@ -204,7 +326,7 @@ public class RegistrationManager {
         item.setId(String.valueOf(registration.getId()));
         item.setOrderId(registration.getOrderId() == null ? "" : String.valueOf(registration.getOrderId()));
         item.setStatus(registration.getStatus());
-        item.setRegistrationPrice(0.0);
+        item.setRegistrationPrice(0);
 
         User patientUser = userService.getUserById(registration.getUserId());
         item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
@@ -241,7 +363,7 @@ public class RegistrationManager {
 
         item.setScheduleDate(template.getRegistrationDate() == null ? "" : template.getRegistrationDate().toString());
         item.setScheduleTime(template.getStartTime() == null ? "" : template.getStartTime().toString());
-        item.setRegistrationPrice(template.getPrice() == null ? 0.0 : template.getPrice().doubleValue());
+        item.setRegistrationPrice(template.getPrice());
         item.setDoctorId(String.valueOf(doctor.getId()));
         item.setDoctorName(doctor.getName());
         item.setDoctorAvatar(doctor.getAvatar());

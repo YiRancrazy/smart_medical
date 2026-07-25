@@ -6,6 +6,7 @@ import com.yirancrazy.smartmedical.service.DoctorPositionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -59,6 +60,19 @@ public class DoctorPositionServiceImpl implements DoctorPositionService {
     @Override
     public DoctorPosition getPositionById(Long id) {
         return doctorPositionMapper.selectById(id);
+    }
+
+    /**
+     * 根据ID列表批量查询医生职位
+     * @param ids 医生职位ID列表
+     * @return 医生职位列表
+     */
+    @Override
+    public List<DoctorPosition> listPositionsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return doctorPositionMapper.selectByIds(ids);
     }
 
     /**
