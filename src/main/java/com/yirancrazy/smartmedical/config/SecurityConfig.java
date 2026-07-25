@@ -42,6 +42,29 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /**
+     * CROSS-04: 统一白名单，供 JwtAuthenticationFilter 与 SecurityFilterChain 共用
+     */
+    public static final String[] PERMIT_ALL_PATHS = {
+            "/api/admin/v1/auth/login",
+            "/api/admin/v1/auth/refresh",
+            "/api/user/v1/auth/login",
+            "/api/user/v1/auth/register",
+            "/api/user/v1/auth/refresh",
+            "/api/doctor/v1/auth/login",
+            "/api/doctor/v1/auth/refresh",
+            "/api/pharmacy/v1/auth/login",
+            "/api/pharmacy/v1/auth/refresh",
+            "/doc.html",
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/swagger-resources/**",
+            "/v3/api-docs/**",
+            "/webjars/**",
+            "/favicon.ico",
+            "/error"
+    };
+
+    /**
      * 允许的 CORS 来源；默认 "*" 全放开（dev），生产环境通过 CORS_ALLOWED_ORIGINS 环境变量收紧
      * 多个用逗号分隔，例如：https://admin.hospital.com,https://user.hospital.com
      */
@@ -58,25 +81,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/admin/v1/auth/login",
-                                "/api/admin/v1/auth/refresh",
-                                "/api/user/v1/auth/login",
-                                "/api/user/v1/auth/register",
-                                "/api/user/v1/auth/refresh",
-                                "/api/doctor/v1/auth/login",
-                                "/api/doctor/v1/auth/refresh",
-                                "/api/pharmacy/v1/auth/login",
-                                "/api/pharmacy/v1/auth/refresh",
-                                "/doc.html",
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/swagger-resources/**",
-                                "/v3/api-docs/**",
-                                "/webjars/**",
-                                "/favicon.ico",
-                                "/error"
-                        ).permitAll()
+                        .requestMatchers(PERMIT_ALL_PATHS).permitAll()
                         .requestMatchers("/api/admin/v1/**").hasRole("admin")
                         .requestMatchers("/api/doctor/v1/**").hasRole("doctor")
                         .requestMatchers("/api/pharmacy/v1/**").hasRole("pharmacist")

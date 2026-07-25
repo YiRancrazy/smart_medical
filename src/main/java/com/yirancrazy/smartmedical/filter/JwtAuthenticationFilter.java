@@ -4,6 +4,7 @@ import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yirancrazy.smartmedical.config.SecurityConfig;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.FilterChain;
@@ -19,13 +20,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -53,34 +54,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     /**
-     * BUG-B01: 精确匹配白名单路径，避免 startsWith 前缀绕过（如 /swagger-ui/../api/xxx）
+     * CROSS-04: 白名单统一由 SecurityConfig.PERMIT_ALL_PATHS 控制，避免 Filter 与 SecurityFilterChain 两份清单不一致
      */
-    private static final Set<String> WHITE_LIST_EXACT = Set.of(
-            "/api/admin/v1/auth/login",
-            "/api/admin/v1/auth/refresh",
-            "/api/user/v1/auth/login",
-            "/api/user/v1/auth/register",
-            "/api/user/v1/auth/refresh",
-            "/api/doctor/v1/auth/login",
-            "/api/doctor/v1/auth/refresh",
-            "/api/pharmacy/v1/auth/login",
-            "/api/pharmacy/v1/auth/refresh",
-            "/doc.html",
-            "/swagger-ui.html",
-            "/favicon.ico",
-            "/error"
-    );
-
-    /**
-     * 需要前缀匹配的白名单（Swagger 静态资源子路径较多，无法穷举）
-     */
-    private static final String[] WHITE_LIST_PREFIX = {
-            "/swagger-ui/",
-            "/swagger-resources/",
-            "/v2/api-docs",
-            "/v3/api-docs",
-            "/webjars/"
-    };
+    private static final List<String> PERMIT_ALL_PATHS = List.of(SecurityConfig.PERMIT_ALL_PATHS);
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     /**
      *
@@ -183,7 +160,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 因此 currentDoctorId=currentUserId 安全；pharmacist 无独立表，currentPharmacistId 用 userId 作操作者ID
             request.setAttribute("currentDoctorId", currentUserId);
             request.setAttribute("currentPharmacistId", currentUserId);
-            log.debug("JWT 认证通过：accountId={}, userId={}, uri={}", accountId, currentUserId, uri);
+            log.debug("JWT 认证通过：accountId={}, userId={}, uri={}", accountId, currentUserId, request.getRequestURI());
             filterChain.doFilter(request, response);
         } catch (Exception e) {
             log.warn("[jwt] 解析 token 失败: {}", e.getMessage());
@@ -225,15 +202,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * 判断 URI 是否在白名单中
-     * @param uri URI
+     * @param uri 请求 URI
      * @return 是否在白名单中
      */
     private boolean isWhitelisted(String uri) {
-        if (WHITE_LIST_EXACT.contains(uri)) {
-            return true;
-        }
-        for (String prefix : WHITE_LIST_PREFIX) {
-            if (uri.startsWith(prefix)) {
+        for (String pattern : PERMIT_ALL_PATHS) {
+            if (PATH_MATCHER.match(pattern, uri)) {
                 return true;
             }
         }
