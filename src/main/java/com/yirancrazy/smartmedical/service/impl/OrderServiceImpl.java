@@ -130,6 +130,19 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
+     * 根据用户ID和订单类型ID列表获取订单列表
+     * @param userId 用户ID
+     * @param orderTypeIds 订单类型ID列表
+     * @return 订单列表
+     */
+    @Override
+    public List<Order> getOrdersByUserIdAndOrderTypeIds(Long userId, List<Long> orderTypeIds) {
+        return ordersMapper.selectList(new QueryWrapper<Order>()
+                .eq("user_id", userId)
+                .in("order_type_id", orderTypeIds));
+    }
+
+    /**
      * 根据订单状态获取订单列表
      * @param status 订单状态
      * @return 订单列表

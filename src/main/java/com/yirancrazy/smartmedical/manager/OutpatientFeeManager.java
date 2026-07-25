@@ -30,8 +30,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OutpatientFeeManager {
 
-    /** 订单类型:药品订单(DDL order_type.id=2) */
-    private static final long ORDER_TYPE_DRUG = 2L;
+    /** 订单类型:挂号订单(DDL order_type.id=1)、药品订单(DDL order_type.id=2) */
+    private static final List<Long> OUTPATIENT_FEE_ORDER_TYPES = List.of(1L, 2L);
 
     private final OrderService orderService;
     private final OrderTypeService orderTypeService;
@@ -50,7 +50,7 @@ public class OutpatientFeeManager {
         Map<Long, String> orderTypeNameMap = loadOrderTypeNameMap();
 
         PageHelper.startPage(pageNum, pageSize);
-        List<Order> orders = orderService.getOrdersByUserIdAndOrderTypeId(userId, ORDER_TYPE_DRUG);
+        List<Order> orders = orderService.getOrdersByUserIdAndOrderTypeIds(userId, OUTPATIENT_FEE_ORDER_TYPES);
         PageInfo<Order> pageInfo = new PageInfo<>(orders);
 
         if (orders.isEmpty()) {
