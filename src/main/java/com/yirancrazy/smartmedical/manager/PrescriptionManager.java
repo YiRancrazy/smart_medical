@@ -10,6 +10,8 @@ import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
+import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
@@ -34,6 +36,8 @@ import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionLi
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
+import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
@@ -85,6 +89,7 @@ public class PrescriptionManager {
     private final RegistrationService registrationService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final DoctorService doctorService;
+    private final DepartmentService departmentService;
     private final MedicalRecordService medicalRecordService;
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
@@ -99,6 +104,7 @@ public class PrescriptionManager {
     private final OrderStatusLogManager orderStatusLogManager;
     private final PatientManager patientManager;
     private final UserService userService;
+    private final AccountService accountService;
 
     /**
      * 医生提交病历 + 开处方（最大事务）
@@ -472,7 +478,10 @@ public class PrescriptionManager {
                 User user = userMap.get(record.getPatientId());
                 if (user != null) {
                     vo.setPatientName(user.getNickname());
-                    vo.setPatientPhone(user.getUsername());
+                }
+                Account account = accountService.getAccountByUserId(record.getPatientId());
+                if (account != null) {
+                    vo.setPatientPhone(account.getPhone());
                 }
             }
             vo.setTotalAmount(rx.getTotalAmount());
@@ -522,7 +531,11 @@ public class PrescriptionManager {
         vo.setPatientId(record.getPatientId());
         if (user != null) {
             vo.setPatientName(user.getNickname());
-            vo.setPatientPhone(user.getUsername());
+        }
+        Account account = record.getPatientId() == null
+                ? null : accountService.getAccountByUserId(record.getPatientId());
+        if (account != null) {
+            vo.setPatientPhone(account.getPhone());
         }
         vo.setStatus(rx.getStatus());
         vo.setTotalAmount(rx.getTotalAmount());
@@ -608,8 +621,9 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
         }
         // 通过 medicalRecord → patientId 校验所有权（复用可访问患者集合，含家属授权）
+        MedicalRecord record = null;
         if (rx.getMedicalRecordId() != null) {
-            MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
+            record = medicalRecordService.getById(rx.getMedicalRecordId());
             if (record == null) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
@@ -621,17 +635,52 @@ public class PrescriptionManager {
         List<PrescriptionItem> items = prescriptionItemService.list(
                 new LambdaQueryWrapper<PrescriptionItem>()
                         .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        List<Long> drugIds = items.stream()
+                .map(PrescriptionItem::getDrugId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Drug> drugMap = drugIds.stream()
+                .map(drugService::getDrugById)
+                .filter(d -> d != null)
+                .collect(Collectors.toMap(Drug::getId, d -> d));
 
         PrescriptionDetailVO vo = new PrescriptionDetailVO();
         vo.setId(rx.getId());
+        vo.setMedicalRecordId(rx.getMedicalRecordId());
         vo.setStatus(rx.getStatus());
         vo.setTotalAmount(rx.getTotalAmount());
         vo.setOrderId(rx.getOrderId());
+        vo.setCreateTime(rx.getCreateTime());
+        if (record != null) {
+            User user = record.getPatientId() == null
+                    ? null : userService.getUserById(record.getPatientId());
+            if (user != null) {
+                vo.setPatientName(user.getNickname());
+            }
+            Doctor doctor = record.getDoctorId() == null
+                    ? null : doctorService.getDoctorById(record.getDoctorId());
+            if (doctor != null) {
+                vo.setDoctorName(doctor.getName());
+                if (doctor.getDepartmentId() != null) {
+                    Department dept = departmentService.getDepartmentById(doctor.getDepartmentId());
+                    if (dept != null) {
+                        vo.setDepartmentName(dept.getName());
+                    }
+                }
+            }
+        }
         vo.setItems(items.stream().map(item -> {
             PrescriptionDetailVO.PrescriptionItemVO itemVO = new PrescriptionDetailVO.PrescriptionItemVO();
             itemVO.setDrugId(item.getDrugId());
             itemVO.setQuantity(item.getQuantity());
             itemVO.setUsageMethod(item.getUsageMethod());
+            itemVO.setUnitPrice(item.getUnitPrice());
+            Drug drug = drugMap.get(item.getDrugId());
+            if (drug != null) {
+                itemVO.setDrugName(drug.getCommonName());
+                itemVO.setSpecification(drug.getSpecification());
+                itemVO.setUnit(drug.getUnit());
+            }
             return itemVO;
         }).collect(Collectors.toList()));
         return vo;
@@ -806,7 +855,10 @@ public class PrescriptionManager {
             User user = userService.getUserById(record.getPatientId());
             if (user != null) {
                 vo.setPatientName(user.getNickname());
-                vo.setPatientPhone(user.getUsername());
+            }
+            Account account = accountService.getAccountByUserId(record.getPatientId());
+            if (account != null) {
+                vo.setPatientPhone(account.getPhone());
             }
             Doctor doctor = doctorService.getDoctorById(record.getDoctorId());
             if (doctor != null) {

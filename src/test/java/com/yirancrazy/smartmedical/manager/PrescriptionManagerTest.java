@@ -7,6 +7,7 @@ import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.User;
@@ -22,6 +23,7 @@ import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
 import org.junit.jupiter.api.Test;
@@ -68,6 +70,7 @@ class PrescriptionManagerTest {
     @Mock private OrderStatusLogManager orderStatusLogManager;
     @Mock private PatientManager patientManager;
     @Mock private UserService userService;
+    @Mock private AccountService accountService;
 
     @InjectMocks
     private PrescriptionManager prescriptionManager;
@@ -93,11 +96,15 @@ class PrescriptionManagerTest {
         User user = new User();
         user.setId(3001L);
         user.setNickname("张三");
-        user.setUsername("13800138000");
+
+        Account account = new Account();
+        account.setUserId(3001L);
+        account.setPhone("13800138000");
 
         when(medicalRecordService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(record));
         when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(rx));
         when(userService.listUsersByUserIds(List.of(3001L))).thenReturn(List.of(user));
+        when(accountService.getAccountByUserId(3001L)).thenReturn(account);
         PrescriptionItem item = new PrescriptionItem();
         item.setPrescriptionId(4001L);
         when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
@@ -177,7 +184,10 @@ class PrescriptionManagerTest {
         User user = new User();
         user.setId(3001L);
         user.setNickname("张三");
-        user.setUsername("13800138000");
+
+        Account account = new Account();
+        account.setUserId(3001L);
+        account.setPhone("13800138000");
 
         PrescriptionItem item = new PrescriptionItem();
         item.setDrugId(6001L);
@@ -194,6 +204,7 @@ class PrescriptionManagerTest {
         when(prescriptionService.getById(4001L)).thenReturn(rx);
         when(medicalRecordService.getById(1001L)).thenReturn(record);
         when(userService.getUserById(3001L)).thenReturn(user);
+        when(accountService.getAccountByUserId(3001L)).thenReturn(account);
         when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
         when(drugService.getDrugById(6001L)).thenReturn(drug);
 
