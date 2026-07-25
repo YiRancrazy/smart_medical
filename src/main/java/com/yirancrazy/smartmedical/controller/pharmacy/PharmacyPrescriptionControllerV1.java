@@ -1,8 +1,13 @@
 package com.yirancrazy.smartmedical.controller.pharmacy;
 
+import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.PharmacyManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionManager;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
@@ -12,8 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +37,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class PharmacyPrescriptionControllerV1 {
 
     private final PharmacyManager pharmacyManager;
+    private final PrescriptionManager prescriptionManager;
+
+    /** 药师端 - 历史处方分页列表 */
+    @Operation(summary = "药师端 - 历史处方分页列表")
+    @PostMapping("/page")
+    public Result<PageInfo<PrescriptionPageItemVO>> page(@RequestBody PrescriptionQueryRequest request) {
+        return Result.success(prescriptionManager.pagePrescriptions(request, null));
+    }
+
+    /** 药师端 - 历史处方详情 */
+    @Operation(summary = "药师端 - 历史处方详情")
+    @GetMapping("/history/{id:\\d+}")
+    public Result<PrescriptionDetailVO> historyDetail(@PathVariable Long id) {
+        return Result.success(prescriptionManager.getPrescriptionDetailForAdmin(id));
+    }
 
     /** 药师端 - 待发药列表（F31支持可选分页） */
     @Operation(summary = "药师端 - 待发药列表", description = "F31: 可选分页 pageNum/pageSize")

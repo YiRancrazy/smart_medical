@@ -90,4 +90,11 @@ public interface UserService {
      * @return 用户对象
      */
     User getUserByIdCard(String idCard);
+
+    /**
+     * 根据用户姓名模糊查询用户ID列表
+     * @param nickname 用户姓名（模糊）
+     * @return 用户ID列表
+     */
+    List<Long> listUserIdsByNicknameLike(String nickname);
 }

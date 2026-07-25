@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
@@ -23,6 +24,9 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionDetailVO;
@@ -30,6 +34,7 @@ import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionLi
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
@@ -46,7 +51,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -77,6 +84,7 @@ public class PrescriptionManager {
 
     private final RegistrationService registrationService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
+    private final DoctorService doctorService;
     private final MedicalRecordService medicalRecordService;
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
@@ -624,6 +632,213 @@ public class PrescriptionManager {
             itemVO.setDrugId(item.getDrugId());
             itemVO.setQuantity(item.getQuantity());
             itemVO.setUsageMethod(item.getUsageMethod());
+            return itemVO;
+        }).collect(Collectors.toList()));
+        return vo;
+    }
+
+    /**
+     * 管理端/医生端 - 处方历史分页查询
+     * @param request 查询条件
+     * @param doctorId 医生ID；null 表示查询全部（管理员/药师），非null则按医生过滤
+     * @return 处方分页列表
+     */
+    public PageInfo<com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO> pagePrescriptions(
+            PrescriptionQueryRequest request, Long doctorId) {
+
+        List<Long> allowedMedicalRecordIds = resolveAllowedMedicalRecordIds(doctorId, request.getPatientName());
+        boolean restrictByMedicalRecord = allowedMedicalRecordIds != null;
+        if (restrictByMedicalRecord && allowedMedicalRecordIds.isEmpty()) {
+            return new PageInfo<>(Collections.emptyList());
+        }
+
+        LambdaQueryWrapper<Prescription> wrapper = new LambdaQueryWrapper<Prescription>()
+                .eq(Prescription::getDeleted, false)
+                .orderByDesc(Prescription::getCreateTime);
+
+        if (restrictByMedicalRecord) {
+            wrapper.in(Prescription::getMedicalRecordId, allowedMedicalRecordIds);
+        }
+        if (request.getStatus() != null) {
+            wrapper.eq(Prescription::getStatus, request.getStatus());
+        }
+        if (request.getStartDate() != null) {
+            wrapper.ge(Prescription::getCreateTime, request.getStartDate().atStartOfDay());
+        }
+        if (request.getEndDate() != null) {
+            wrapper.le(Prescription::getCreateTime, request.getEndDate().atTime(LocalTime.MAX));
+        }
+
+        int pageNum = request.getPageNum() == null || request.getPageNum() < 1 ? 1 : request.getPageNum();
+        int pageSize = request.getPageSize() == null || request.getPageSize() < 1 ? 10 : request.getPageSize();
+        PageHelper.startPage(pageNum, pageSize);
+        List<Prescription> prescriptions = prescriptionService.list(wrapper);
+        return new PageInfo<>(toAdminPageItemVOs(prescriptions));
+    }
+
+    /**
+     * 根据医生ID和患者姓名解析允许查询的病历ID集合
+     * @param doctorId 医生ID
+     * @param patientName 患者姓名
+     * @return 允许的病历ID集合；null 表示无限制
+     */
+    private List<Long> resolveAllowedMedicalRecordIds(Long doctorId, String patientName) {
+        LambdaQueryWrapper<MedicalRecord> wrapper = new LambdaQueryWrapper<MedicalRecord>()
+                .eq(MedicalRecord::getDeleted, false);
+
+        boolean restricted = false;
+        if (doctorId != null) {
+            wrapper.eq(MedicalRecord::getDoctorId, doctorId);
+            restricted = true;
+        }
+
+        List<Long> patientUserIds = null;
+        if (patientName != null && !patientName.trim().isEmpty()) {
+            patientUserIds = userService.listUserIdsByNicknameLike(patientName.trim());
+            if (patientUserIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+            wrapper.in(MedicalRecord::getPatientId, patientUserIds);
+            restricted = true;
+        }
+
+        if (!restricted) {
+            return null;
+        }
+        return medicalRecordService.list(wrapper).stream()
+                .map(MedicalRecord::getId)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 批量转换处方实体为管理端列表 VO
+     * @param prescriptions 处方列表
+     * @return 管理端列表 VO
+     */
+    private List<com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO> toAdminPageItemVOs(
+            List<Prescription> prescriptions) {
+        if (prescriptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> medicalRecordIds = prescriptions.stream()
+                .map(Prescription::getMedicalRecordId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, MedicalRecord> recordMap = medicalRecordService.list(
+                        new LambdaQueryWrapper<MedicalRecord>().in(MedicalRecord::getId, medicalRecordIds))
+                .stream()
+                .collect(Collectors.toMap(MedicalRecord::getId, r -> r));
+
+        List<Long> patientIds = recordMap.values().stream()
+                .map(MedicalRecord::getPatientId)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> doctorIds = recordMap.values().stream()
+                .map(MedicalRecord::getDoctorId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, User> userMap = userService.listUsersByUserIds(patientIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, Doctor> doctorMap = doctorService.listDoctorsByIds(doctorIds).stream()
+                .collect(Collectors.toMap(Doctor::getId, d -> d));
+
+        List<Long> prescriptionIds = prescriptions.stream()
+                .map(Prescription::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> itemCountMap = prescriptionItemService.list(
+                        new LambdaQueryWrapper<PrescriptionItem>()
+                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+                .stream()
+                .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
+
+        return prescriptions.stream().map(rx -> {
+            com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO vo =
+                    new com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO();
+            vo.setId(rx.getId());
+            vo.setMedicalRecordId(rx.getMedicalRecordId());
+            vo.setTotalAmount(rx.getTotalAmount());
+            vo.setStatus(rx.getStatus());
+            vo.setItemCount(itemCountMap.getOrDefault(rx.getId(), 0L).intValue());
+            vo.setCreateTime(rx.getCreateTime());
+
+            MedicalRecord record = recordMap.get(rx.getMedicalRecordId());
+            if (record != null) {
+                User user = userMap.get(record.getPatientId());
+                if (user != null) {
+                    vo.setPatientName(user.getNickname());
+                }
+                Doctor doctor = doctorMap.get(record.getDoctorId());
+                if (doctor != null) {
+                    vo.setDoctorName(doctor.getName());
+                }
+            }
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 管理端 - 处方详情
+     * @param id 处方ID
+     * @return 处方详情 VO
+     * @throws BizException PRESCRIPTION_NOT_FOUND
+     */
+    public com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO getPrescriptionDetailForAdmin(Long id) {
+        Prescription rx = prescriptionService.getById(id);
+        if (rx == null) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
+        }
+        MedicalRecord record = rx.getMedicalRecordId() == null
+                ? null : medicalRecordService.getById(rx.getMedicalRecordId());
+
+        com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO vo =
+                new com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO();
+        vo.setId(rx.getId());
+        vo.setMedicalRecordId(rx.getMedicalRecordId());
+        vo.setStatus(rx.getStatus());
+        vo.setTotalAmount(rx.getTotalAmount());
+        vo.setOrderId(rx.getOrderId());
+        vo.setCreateTime(rx.getCreateTime());
+
+        if (record != null) {
+            vo.setPatientId(record.getPatientId());
+            User user = userService.getUserById(record.getPatientId());
+            if (user != null) {
+                vo.setPatientName(user.getNickname());
+                vo.setPatientPhone(user.getUsername());
+            }
+            Doctor doctor = doctorService.getDoctorById(record.getDoctorId());
+            if (doctor != null) {
+                vo.setDoctorName(doctor.getName());
+            }
+        }
+
+        List<PrescriptionItem> items = prescriptionItemService.list(
+                new LambdaQueryWrapper<PrescriptionItem>()
+                        .eq(PrescriptionItem::getPrescriptionId, id));
+        List<Long> drugIds = items.stream()
+                .map(PrescriptionItem::getDrugId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Drug> drugMap = drugIds.stream()
+                .map(drugService::getDrugById)
+                .filter(d -> d != null)
+                .collect(Collectors.toMap(Drug::getId, d -> d));
+
+        vo.setItems(items.stream().map(item -> {
+            com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO.PrescriptionItemVO itemVO =
+                    new com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO.PrescriptionItemVO();
+            itemVO.setDrugId(item.getDrugId());
+            itemVO.setUnitPrice(item.getUnitPrice());
+            itemVO.setQuantity(item.getQuantity());
+            itemVO.setUsageMethod(item.getUsageMethod());
+            Drug drug = drugMap.get(item.getDrugId());
+            if (drug != null) {
+                itemVO.setCommonName(drug.getCommonName());
+                itemVO.setSpecification(drug.getSpecification());
+                itemVO.setUnit(drug.getUnit());
+            }
             return itemVO;
         }).collect(Collectors.toList()));
         return vo;

@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -117,5 +118,21 @@ public class UserServiceImpl implements UserService {
                         .eq(User::getIdCard, idCard)
                         .last("LIMIT 1"));
         return users.isEmpty() ? null : users.get(0);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Long> listUserIdsByNicknameLike(String nickname) {
+        if (nickname == null || nickname.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return userMapper.selectList(
+                new LambdaQueryWrapper<User>()
+                        .like(User::getNickname, nickname.trim()))
+                .stream()
+                .map(User::getId)
+                .toList();
     }
 }

@@ -118,6 +118,13 @@ public interface RegistrationService {
     List<Registration> listRegistrationsByUserIds(List<Long> userIds);
 
     /**
+     * 根据挂号记录ID列表批量查询挂号信息
+     * @param ids 挂号记录ID列表
+     * @return 挂号信息列表
+     */
+    List<Registration> listRegistrationsByIds(List<Long> ids);
+
+    /**
      * 根据订单ID获取挂号信息
      * @param orderId 订单ID
      * @return 挂号信息

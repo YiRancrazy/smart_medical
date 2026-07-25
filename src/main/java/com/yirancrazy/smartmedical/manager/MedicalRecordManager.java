@@ -14,6 +14,10 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.MedicalRecordListVO;
@@ -29,9 +33,14 @@ import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 病历业务编排
@@ -290,5 +299,154 @@ public class MedicalRecordManager {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }
         return record;
+    }
+
+    /**
+     * 管理端/医生端 - 病历历史分页查询
+     * @param request 查询条件
+     * @param doctorId 医生ID；null 表示查询全部（管理员/药师），非null则按医生过滤
+     * @return 病历分页列表
+     */
+    public PageInfo<MedicalRecordPageItemVO> pageMedicalRecords(MedicalRecordQueryRequest request, Long doctorId) {
+        LambdaQueryWrapper<MedicalRecord> wrapper = new LambdaQueryWrapper<MedicalRecord>()
+                .eq(MedicalRecord::getDeleted, false)
+                .orderByDesc(MedicalRecord::getCreateTime);
+
+        if (doctorId != null) {
+            wrapper.eq(MedicalRecord::getDoctorId, doctorId);
+        }
+
+        LocalDate startDate = request.getStartDate();
+        LocalDate endDate = request.getEndDate();
+        if (startDate != null) {
+            wrapper.ge(MedicalRecord::getCreateTime, startDate.atStartOfDay());
+        }
+        if (endDate != null) {
+            wrapper.le(MedicalRecord::getCreateTime, endDate.atTime(LocalTime.MAX));
+        }
+
+        List<Long> patientUserIds = null;
+        if (request.getPatientName() != null && !request.getPatientName().trim().isEmpty()) {
+            patientUserIds = userService.listUserIdsByNicknameLike(request.getPatientName().trim());
+            if (patientUserIds.isEmpty()) {
+                return new PageInfo<>(Collections.emptyList());
+            }
+            wrapper.in(MedicalRecord::getPatientId, patientUserIds);
+        }
+
+        int pageNum = request.getPageNum() == null || request.getPageNum() < 1 ? 1 : request.getPageNum();
+        int pageSize = request.getPageSize() == null || request.getPageSize() < 1 ? 10 : request.getPageSize();
+        PageHelper.startPage(pageNum, pageSize);
+        List<MedicalRecord> records = medicalRecordService.list(wrapper);
+        return new PageInfo<>(toAdminPageItemVOs(records));
+    }
+
+    /**
+     * 批量转换病历实体为管理端列表 VO，使用批量查询避免 N+1
+     * @param records 病历列表
+     * @return 管理端列表 VO
+     */
+    private List<MedicalRecordPageItemVO> toAdminPageItemVOs(List<MedicalRecord> records) {
+        if (records.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> patientIds = records.stream().map(MedicalRecord::getPatientId).distinct().collect(Collectors.toList());
+        List<Long> doctorIds = records.stream().map(MedicalRecord::getDoctorId).distinct().collect(Collectors.toList());
+        List<Long> registrationIds = records.stream().map(MedicalRecord::getRegistrationId).distinct().collect(Collectors.toList());
+
+        Map<Long, User> userMap = userService.listUsersByUserIds(patientIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, Doctor> doctorMap = doctorService.listDoctorsByIds(doctorIds).stream()
+                .collect(Collectors.toMap(Doctor::getId, d -> d));
+        List<Long> departmentIds = doctorMap.values().stream().map(Doctor::getDepartmentId).distinct().collect(Collectors.toList());
+        Map<Long, Department> departmentMap = departmentService.listDepartmentsByIds(departmentIds).stream()
+                .collect(Collectors.toMap(Department::getId, d -> d));
+
+        Map<Long, Registration> registrationMap = registrationService.listRegistrationsByIds(registrationIds).stream()
+                .collect(Collectors.toMap(Registration::getId, r -> r));
+        List<Long> scheduleIds = registrationMap.values().stream()
+                .map(Registration::getRegistrationScheduleId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, RegistrationSchedule> scheduleMap = registrationScheduleService.listRegistrationSchedulesByIds(scheduleIds).stream()
+                .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s));
+
+        return records.stream().map(record -> {
+            MedicalRecordPageItemVO vo = new MedicalRecordPageItemVO();
+            vo.setId(record.getId());
+            vo.setRegistrationId(record.getRegistrationId());
+            vo.setDiagnosis(record.getDiagnosis());
+            vo.setCreateTime(record.getCreateTime());
+
+            User user = userMap.get(record.getPatientId());
+            if (user != null) {
+                vo.setPatientName(user.getNickname());
+            }
+
+            Doctor doctor = doctorMap.get(record.getDoctorId());
+            if (doctor != null) {
+                vo.setDoctorName(doctor.getName());
+                Department dept = departmentMap.get(doctor.getDepartmentId());
+                if (dept != null) {
+                    vo.setDepartmentName(dept.getName());
+                }
+            }
+
+            Registration reg = registrationMap.get(record.getRegistrationId());
+            if (reg != null) {
+                RegistrationSchedule schedule = scheduleMap.get(reg.getRegistrationScheduleId());
+                if (schedule != null) {
+                    vo.setVisitDate(schedule.getStartTime());
+                }
+            }
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 管理端 - 病历详情
+     * @param id 病历ID
+     * @return 病历详情 VO
+     * @throws BizException MEDICAL_RECORD_NOT_FOUND
+     */
+    public com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO getMedicalRecordDetailForAdmin(Long id) {
+        MedicalRecord record = medicalRecordService.getById(id);
+        if (record == null) {
+            throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND);
+        }
+        com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO vo =
+                new com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO();
+        vo.setId(record.getId());
+        vo.setRegistrationId(record.getRegistrationId());
+        vo.setDoctorId(record.getDoctorId());
+        vo.setPatientId(record.getPatientId());
+        vo.setChiefComplaint(record.getChiefComplaint());
+        vo.setPresentIllness(record.getPresentIllness());
+        vo.setPastHistory(record.getPastHistory());
+        vo.setPhysicalExam(record.getPhysicalExam());
+        vo.setDiagnosis(record.getDiagnosis());
+        vo.setTreatmentPlan(record.getTreatmentPlan());
+        vo.setStatus(record.getStatus());
+
+        User user = userService.getUserById(record.getPatientId());
+        if (user != null) {
+            vo.setPatientName(user.getNickname());
+        }
+        Account account = accountService.getAccountByUserId(record.getPatientId());
+        if (account != null) {
+            vo.setPatientPhone(account.getPhone());
+        }
+        Doctor doctor = doctorService.getDoctorById(record.getDoctorId());
+        if (doctor != null) {
+            vo.setDoctorName(doctor.getName());
+            if (doctor.getDepartmentId() != null) {
+                Department dept = departmentService.getDepartmentById(doctor.getDepartmentId());
+                if (dept != null) {
+                    vo.setDepartmentName(dept.getName());
+                }
+            }
+        }
+        return vo;
     }
 }

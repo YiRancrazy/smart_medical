@@ -1,8 +1,11 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
+import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
 import com.yirancrazy.smartmedical.manager.PrescriptionManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
@@ -13,9 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -71,5 +74,31 @@ public class DoctorMedicalRecordControllerV1 {
     public Result<PrescriptionSubmitVO> submit(@RequestBody SubmitPrescriptionRequest req,
                                                @RequestAttribute("currentDoctorId") Long doctorId) {
         return Result.success(prescriptionManager.submit(req.getRegistrationId(), req, doctorId));
+    }
+
+    /**
+     * 医生端 - 历史病历分页列表
+     * @param request 查询条件
+     * @param doctorId 当前医生ID
+     * @return 病历分页列表
+     */
+    @Operation(summary = "医生端 - 历史病历分页列表")
+    @PostMapping("/history/page")
+    public Result<PageInfo<MedicalRecordPageItemVO>> historyPage(
+            @RequestBody MedicalRecordQueryRequest request,
+            @RequestAttribute("currentDoctorId") Long doctorId) {
+        return Result.success(medicalRecordManager.pageMedicalRecords(request, doctorId));
+    }
+
+    /**
+     * 医生端 - 历史病历详情
+     * @param id 病历ID
+     * @return 病历详情
+     */
+    @Operation(summary = "医生端 - 历史病历详情")
+    @GetMapping("/history/{id:\\d+}")
+    public Result<com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO> historyDetail(
+            @PathVariable Long id) {
+        return Result.success(medicalRecordManager.getMedicalRecordDetailForAdmin(id));
     }
 }
