@@ -77,6 +77,14 @@ public interface OrderService {
     List<Order> getOrdersByUserId(Long userId);
 
     /**
+     * 根据用户ID和订单类型ID获取订单列表
+     * @param userId 用户ID
+     * @param orderTypeId 订单类型ID
+     * @return 订单列表
+     */
+    List<Order> getOrdersByUserIdAndOrderTypeId(Long userId, Long orderTypeId);
+
+    /**
      * 根据订单状态获取订单列表
      * @param status 订单状态
      * @return 订单列表

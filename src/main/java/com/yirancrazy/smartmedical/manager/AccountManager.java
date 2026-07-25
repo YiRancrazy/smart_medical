@@ -93,12 +93,13 @@ public class AccountManager {
                         .filter(item -> item.getId().equals(account.getUserId()))
                         .findFirst().orElse(null);
 
-                response.setAccountId(account.getId());
+                response.setId(String.valueOf(account.getId()));
                 response.setUserId(account.getUserId());
+                response.setPhone(account.getPhone());
 
                 if (admin == null) {
                     response.setUsername("");
-                    response.setDepartment("");
+                    response.setDepartmentName("");
                     response.setDepartmentId(null);
                 } else {
                     response.setUsername(admin.getName());
@@ -106,7 +107,7 @@ public class AccountManager {
                             .filter(d -> d.getId().equals(admin.getDepartmentId()))
                             .findFirst().orElse(null);
                     if (department != null) {
-                        response.setDepartment(department.getName());
+                        response.setDepartmentName(department.getName());
                         response.setDepartmentId(admin.getDepartmentId());
                     }
                 }
@@ -129,12 +130,13 @@ public class AccountManager {
                         .filter(item -> item.getId().equals(account.getUserId()))
                         .findFirst().orElse(null);
 
-                response.setAccountId(account.getId());
+                response.setId(String.valueOf(account.getId()));
                 response.setUserId(account.getUserId());
+                response.setPhone(account.getPhone());
 
                 if (doctor == null) {
                     response.setUsername("");
-                    response.setDepartment("");
+                    response.setDepartmentName("");
                     response.setDepartmentId(null);
                 } else {
                     response.setUsername(doctor.getName());
@@ -142,7 +144,7 @@ public class AccountManager {
                             .filter(d -> d.getId().equals(doctor.getDepartmentId()))
                             .findFirst().orElse(null);
                     if (department != null) {
-                        response.setDepartment(department.getName());
+                        response.setDepartmentName(department.getName());
                         response.setDepartmentId(doctor.getDepartmentId());
                     }
                 }
@@ -160,10 +162,11 @@ public class AccountManager {
                 responseList.add(response);
             } else {
                 // 未知角色（如患者/药师）暂只填充账号基础字段
-                response.setAccountId(account.getId());
+                response.setId(String.valueOf(account.getId()));
                 response.setUserId(account.getUserId());
+                response.setPhone(account.getPhone());
                 response.setUsername("");
-                response.setDepartment("");
+                response.setDepartmentName("");
                 response.setRoleId(account.getRoleId());
                 response.setEnabled(account.getEnabled());
                 response.setCreateTime(account.getCreateTime());

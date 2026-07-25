@@ -194,7 +194,7 @@ public class PrescriptionManager {
         order.setId(IdUtil.getSnowflakeNextId());
         order.setUserId(reg.getUserId());
         order.setOrderTypeId(ORDER_TYPE_DRUG);
-        order.setSn(System.currentTimeMillis());
+        order.setSn(IdUtil.getSnowflakeNextId());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(totalAmount);
         order.setOrderCreateTime(LocalDateTime.now());

@@ -21,13 +21,16 @@ import java.time.LocalDateTime;
 public class AccountDetailResponse {
 
     @Schema(description = "账户ID")
-    private Long accountId;
+    private String id;
 
     @Schema(description = "用户ID")
     private Long userId;
 
     @Schema(description = "用户名")
     private String username;
+
+    @Schema(description = "手机号")
+    private String phone;
 
     @Schema(description = "角色")
     private String role;
@@ -36,7 +39,7 @@ public class AccountDetailResponse {
     private Long roleId;
 
     @Schema(description = "科室名称")
-    private String department;
+    private String departmentName;
 
     @Schema(description = "科室ID")
     private Long departmentId;
