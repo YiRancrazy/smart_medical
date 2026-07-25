@@ -65,7 +65,7 @@ class JwtAuthenticationFilterTest {
                 .setPayload("sub", accountId.toString())
                 .setPayload("userId", accountId.toString())
                 .setPayload("role", "1")
-                .setPayload("exp", System.currentTimeMillis() + 3600000)
+                .setPayload("exp", System.currentTimeMillis() / 1000 + 3600)
                 .setKey(accessSecretKey.getBytes())
                 .sign();
 

@@ -133,8 +133,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String sub = String.valueOf(payload.getClaim("sub"));
             long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
 
-            // exp 字段已经是毫秒级时间戳，直接比较即可
-            if (exp < System.currentTimeMillis()) {
+            // CROSS-02: exp 使用秒级 Unix 时间戳，与 JWT 标准保持一致
+            if (exp < System.currentTimeMillis() / 1000) {
                 unauthorized(response, "access_token 过期");
                 return;
             }

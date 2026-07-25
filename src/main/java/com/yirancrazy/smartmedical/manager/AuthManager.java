@@ -122,14 +122,13 @@ public class AuthManager {
             User user = userService.getUserById(account.getUserId());
 
             // 生成JWT访问令牌
-            Long currentTimeMillis = System.currentTimeMillis();
-            String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeMillis);
-
+            Long currentTimeSeconds = System.currentTimeMillis() / 1000;
+            String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
             // 存储JWT访问令牌（admin前缀用于所有角色，统一管理）
             redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 30, TimeUnit.MINUTES);
 
             // 生成JWT 刷新令牌（包含role信息，刷新时直接解析）
-            String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeMillis);
+            String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
 
             // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
             redisUtil.setEx(adminRefreshTokenPrefix+account.getId().toString(),refreshJwt,30, TimeUnit.DAYS);
@@ -261,7 +260,7 @@ public class AuthManager {
             }
 
             long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
-            if (exp < System.currentTimeMillis()) {
+            if (exp < System.currentTimeMillis() / 1000) {
                 return Result.fail("Refresh token 已过期");
             }
             // Redis 比对：统一用 adminRefreshTokenPrefix + accountId（所有角色共用）
@@ -269,10 +268,9 @@ public class AuthManager {
             if (redisRefresh == null || !redisRefresh.equals(refreshToken)) {
                 return Result.fail("Refresh token 已失效");
             }
-
             // 签发新 access JWT（统一30分钟有效期）
-            Long currentTimeMillis = System.currentTimeMillis();
-            String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeMillis);
+            Long currentTimeSeconds = System.currentTimeMillis() / 1000;
+            String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeSeconds);
 
             // 覆盖旧 access（旧 token 立即失效）
             redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 30, TimeUnit.MINUTES);
@@ -286,9 +284,9 @@ public class AuthManager {
     }
 
     /**
-     * 生成访问JWT（30分钟有效期）
+     * 生成访问JWT（30分钟有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    private String generateAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
+    private String generateAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -298,18 +296,18 @@ public class AuthManager {
         payload.put(JWTPayload.SUBJECT, accountId);
         payload.put("userId", userId);
         payload.put("role", roleId);
-        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 30);
-        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30 * 60);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
 
         return JWTUtil.createToken(header, payload, accessSecretKey.getBytes());
     }
 
     /**
-     * 生成刷新JWT（30天有效期，包含role信息）
+     * 生成刷新JWT（30天有效期，包含role信息），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    private String generateRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
+    private String generateRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -319,9 +317,9 @@ public class AuthManager {
         payload.put(JWTPayload.SUBJECT, accountId);
         payload.put("userId", userId);
         payload.put("role", roleId); // refresh token包含role，刷新时直接解析
-        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 30);
-        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30L * 24 * 60 * 60);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
 
         return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());
