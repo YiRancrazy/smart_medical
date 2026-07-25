@@ -755,7 +755,7 @@ CREATE TABLE `payment_record`  (
   `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除: 0未删除 1已删除',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_order_id`(`order_id` ASC) USING BTREE COMMENT '订单ID索引',
-  INDEX `idx_transaction_no`(`transaction_sn` ASC) USING BTREE COMMENT '交易流水号索引'
+  UNIQUE KEY `uk_transaction_sn`(`transaction_sn` ASC) USING BTREE COMMENT '第三方交易流水号唯一索引，防止重复回调产生多条支付记录'
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '支付记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------

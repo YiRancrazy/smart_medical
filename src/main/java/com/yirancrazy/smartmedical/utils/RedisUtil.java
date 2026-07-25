@@ -59,6 +59,18 @@ public final class RedisUtil {
     }
 
     /**
+     * 仅在 key 不存在时写入字符串并设置过期时间
+     * @param key 键
+     * @param value 值
+     * @param timeout 过期时长
+     * @param unit 时间单位
+     * @return true 表示 key 不存在且写入成功；false 表示 key 已存在；异常时返回 null
+     */
+    public Boolean setIfAbsent(String key, String value, long timeout, TimeUnit unit) {
+        return redisTemplate.opsForValue().setIfAbsent(key, value, timeout, unit);
+    }
+
+    /**
      * 自增计数并在首次自增时设置过期时间（用于滑动窗口限流等场景）
      * @param key 键
      * @param delta 自增量（通常为 1）

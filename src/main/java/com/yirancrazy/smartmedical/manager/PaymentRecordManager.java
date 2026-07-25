@@ -11,13 +11,16 @@ import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleResponse;
 import com.yirancrazy.smartmedical.service.*;
+import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +41,7 @@ public class PaymentRecordManager {
     private static final int PAYMENT_STATUS_SUCCESS = 2;
 
     private final PaymentRecordService paymentRecordService;
+    private final RedisUtil redisUtil;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final OrderService orderService;
@@ -135,6 +139,19 @@ public class PaymentRecordManager {
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> paySuccess(Long orderId, Long currentUserId, Integer paymentMethodId,
                                    Long transactionSn, Integer realAmount) {
+        // 0. 第三方交易流水号去重：先 Redis SETNX，再 DB UNIQUE 兜底
+        if (transactionSn != null) {
+            try {
+                Boolean first = redisUtil.setIfAbsent("payment:txn:" + transactionSn, "1", 24, TimeUnit.HOURS);
+                if (Boolean.FALSE.equals(first)) {
+                    log.warn("[payment-success] transactionSn={} 重复回调，幂等跳过", transactionSn);
+                    return Result.success(null);
+                }
+            } catch (Exception e) {
+                log.warn("[payment-success] Redis SETNX 失败，依赖 DB 兜底: {}", e.getMessage());
+            }
+        }
+
         // 1. 加载 Order
         Order order = orderService.getOrderById(orderId);
         if (order == null) {
@@ -175,7 +192,12 @@ public class PaymentRecordManager {
         record.setStatus(PAYMENT_STATUS_SUCCESS);
         record.setTransactionSn(transactionSn);
         record.setPaymentTime(LocalDateTime.now());
-        paymentRecordService.insertPaymentRecord(record);
+        try {
+            paymentRecordService.insertPaymentRecord(record);
+        } catch (DuplicateKeyException e) {
+            log.warn("[payment-success] transactionSn={} 已存在，幂等跳过", transactionSn);
+            return Result.success(null);
+        }
 
         // 3. 原子更新 Order.status: WAITING_FOR_PAYMENT → PAID，并发幂等
         int updated = ordersMapper.update(null,
