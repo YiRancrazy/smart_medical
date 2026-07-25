@@ -16,8 +16,6 @@ import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -89,12 +87,8 @@ public class PatientCardManager {
         result.setPatientAvatar(defaultPatientUser.getAvatar());
         result.setPatientIdCard(defaultPatientUser.getIdCard());
 
-        // 由于存储的门诊余额为int，所以需要除100
-        BigDecimal balance = BigDecimal.valueOf(patientCard.getOutpatientBalance()); // 被除数 int 存储的门诊余额
-        BigDecimal divisor = BigDecimal.valueOf(100); // 除数
-        // 门诊余额，转换为BigDecimal相除，保留两位小数，四舍五入
-        BigDecimal outPatientBalance = balance.divide(divisor,2, RoundingMode.HALF_UP);
-        result.setOutPatientBalance(String.valueOf(outPatientBalance));  // 转换成字符串
+        // 门诊余额以分为单位存储，直接返回分
+        result.setOutPatientBalance(String.valueOf(patientCard.getOutpatientBalance()));
 
         return Result.success(result);
     }

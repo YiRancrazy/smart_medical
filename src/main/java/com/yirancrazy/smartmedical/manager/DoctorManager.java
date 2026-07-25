@@ -159,9 +159,9 @@ public class DoctorManager {
             temp.setPosition(position == null ? "" : position.getName());
            for (RegistrationScheduleTemplate template : recentRegistrationListByDoctorIdList){
                if (template.getDoctorId().equals(doctor.getId())){
-                   // getRecentRegistrationListByDoctorIdList 返回的就是排班模板行，直接取 price
+                   // 数据库存储为"分"，直接返回
                    int price = template.getPrice() == null ? 0 : template.getPrice();
-                   temp.setPrice(BigDecimal.valueOf(price).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
+                   temp.setPrice(BigDecimal.valueOf(price));
                 break;
                }
            }

@@ -160,7 +160,7 @@ public class RegistrationScheduleManager {
         if (registrationScheduleTemplate == null) {
             return Result.fail("挂号排班模板不存在");
         }
-        // 数据库存储已为"分"，直接返回
+        // 数据库存储为"分"，直接返回
         Integer priceInFen = registrationScheduleTemplate.getPrice();
         return Result.success(priceInFen);
     }

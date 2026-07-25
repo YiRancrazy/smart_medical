@@ -241,7 +241,7 @@ public class RegistrationManager {
 
         item.setScheduleDate(template.getRegistrationDate() == null ? "" : template.getRegistrationDate().toString());
         item.setScheduleTime(template.getStartTime() == null ? "" : template.getStartTime().toString());
-        item.setRegistrationPrice(template.getPrice() == null ? 0.0 : template.getPrice() / 100.0);
+        item.setRegistrationPrice(template.getPrice() == null ? 0.0 : template.getPrice().doubleValue());
         item.setDoctorId(String.valueOf(doctor.getId()));
         item.setDoctorName(doctor.getName());
         item.setDoctorAvatar(doctor.getAvatar());
