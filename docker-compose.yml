@@ -1,0 +1,130 @@
+# 智慧医疗一键部署
+# 前置：确保已安装 Docker 和 Docker Compose
+# 启动：docker-compose up -d
+# 停止：docker-compose down
+# 日志：docker-compose logs -f backend
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: smart-medical-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: smart_medical
+      MYSQL_USER: smart
+      MYSQL_PASSWORD: smart123456
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./src/main/resources/sql/CreateTable.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./src/main/resources/sql/TestData.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - smart-medical-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: smart-medical-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smart-medical-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: smart-medical-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - ./data/minio:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smart-medical-net
+
+  backend:
+    build: .
+    container_name: smart-medical-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: smart
+      SPRING_DATASOURCE_PASSWORD: smart123456
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ""
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_FILE_HOST: http://localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      JWT_ACCESS_SECRET_KEY: ${JWT_ACCESS_SECRET_KEY:-change-me-access-secret}
+      JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-change-me-refresh-secret}
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localdev:5173,http://localdev:5174
+    ports:
+      - "8080:8080"
+    networks:
+      - smart-medical-net
+
+  admin:
+    build:
+      context: ./front/admin
+      dockerfile: Dockerfile
+    container_name: smart-medical-admin
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    networks:
+      - smart-medical-net
+
+  user:
+    build:
+      context: ./front/user
+      dockerfile: Dockerfile
+    container_name: smart-medical-user
+    depends_on:
+      - backend
+    ports:
+      - "5174:80"
+    networks:
+      - smart-medical-net
+
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:
+
+networks:
+  smart-medical-net:
+    driver: bridge
