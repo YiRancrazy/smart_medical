@@ -1,0 +1,28 @@
+@import './variables.less';
+
+.glass-card() {
+  background: @glass-bg;
+  backdrop-filter: blur(@glass-blur);
+  -webkit-backdrop-filter: blur(@glass-blur);
+  border: 1px solid @glass-border;
+  border-radius: @border-radius-lg;
+  box-shadow: @shadow-glass;
+}
+
+.glass-card-elevated() {
+  background: @glass-bg-elevated;
+  backdrop-filter: blur(@glass-blur);
+  -webkit-backdrop-filter: blur(@glass-blur);
+  border: 1px solid @glass-border;
+  border-radius: @border-radius-lg;
+  box-shadow: @shadow-elevated;
+}
+
+.glass-card-subtle() {
+  background: @glass-bg-subtle;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid @glass-border;
+  border-radius: @border-radius-lg;
+  box-shadow: @shadow-sm;
+}

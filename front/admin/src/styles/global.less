@@ -1,0 +1,129 @@
+@import './variables.less';
+@import './glassmorphism.less';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: @gradient-primary;
+  background-attachment: fixed;
+  min-height: 100vh;
+  font-family: @font-family;
+  color: @text-color;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.admin-layout {
+  min-height: 100vh;
+  padding: @spacing-md;
+  gap: @spacing-md;
+  background: @gradient-primary;
+}
+
+.layout-main {
+  gap: @spacing-md;
+  background: transparent !important;
+}
+
+.logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: @spacing-sm;
+  font-weight: @font-weight-semibold;
+  font-size: @font-size-lg;
+  color: @sider-text;
+}
+
+.layout-sider.ant-layout-sider,
+.layout-sider.ant-layout-sider-light {
+  background: @sider-bg !important;
+  backdrop-filter: blur(@glass-blur);
+  -webkit-backdrop-filter: blur(@glass-blur);
+  border: 1px solid @glass-border;
+  border-radius: @border-radius-xl;
+  height: calc(100vh - 2 * @spacing-md);
+  overflow: auto;
+  box-shadow: @shadow-glass;
+
+  .ant-menu {
+    background: transparent;
+    border-right: none;
+  }
+
+  .ant-menu-item {
+    color: @text-color;
+    border-radius: @border-radius-sm;
+  }
+
+  .ant-menu-item-selected {
+    background: @primary-color !important;
+    color: #fff !important;
+    border-radius: @border-radius-sm;
+    font-weight: @font-weight-medium;
+  }
+
+  .ant-menu-item:hover {
+    color: @primary-color;
+  }
+}
+
+.layout-header.ant-layout-header {
+  display: flex;
+  align-items: center;
+  gap: @spacing-base;
+  padding: 0 @spacing-lg;
+  background: @header-bg !important;
+  backdrop-filter: blur(@glass-blur);
+  -webkit-backdrop-filter: blur(@glass-blur);
+  border-bottom: 1px solid @glass-border;
+  border-radius: @border-radius-lg;
+  height: 56px;
+
+  .header-title {
+    flex: 1;
+    font-size: @font-size-lg;
+    font-weight: @font-weight-medium;
+    color: @text-color;
+  }
+}
+
+.layout-content {
+  padding: @page-padding;
+  background: @glass-bg-subtle;
+  backdrop-filter: blur(@glass-blur);
+  -webkit-backdrop-filter: blur(@glass-blur);
+  border: 1px solid @glass-border;
+  border-radius: @border-radius-lg;
+}
+
+.glass-table {
+  .glass-card();
+
+  .ant-table {
+    background: transparent;
+  }
+
+  .ant-table-thead > tr > th {
+    background: rgba(16, 185, 129, 0.06);
+    border-bottom: 1px solid @glass-border;
+  }
+
+  .ant-table-tbody > tr > td {
+    border-bottom: 1px solid rgba(229, 230, 235, 0.5);
+  }
+
+  .ant-table-tbody > tr:hover > td {
+    background: rgba(16, 185, 129, 0.04);
+  }
+}
