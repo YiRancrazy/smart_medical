@@ -1,0 +1,22 @@
+@import './glassmorphism.scss';
+@import './reset.scss';
+@import './transitions.scss';
+
+:root {
+  --van-primary-color: #{$color-primary};
+  --van-tabbar-item-active-color: #{$color-primary};
+  --van-button-primary-background: #{$color-primary};
+  --van-button-primary-border-color: #{$color-primary};
+}
+
+.page {
+  padding: $page-padding;
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
