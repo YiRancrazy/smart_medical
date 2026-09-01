@@ -94,18 +94,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 验证token
         try {
+            // 先验签后解析——parseToken 仅解码 base64 头部，未做签名校验
             JWT jwt = JWTUtil.parseToken(token);
-
-            // 设置验证密钥
             jwt.setKey(accessSecretKey.getBytes());
 
-            // 验证token签名
             if (!jwt.verify()) {
                 unauthorized(response, "无效的 access_token");
                 return;
             }
 
-            // 验证token有效期
+            // 安全解析 payload（此时签名已验证通过）
             JWTPayload payload = jwt.getPayload();
             String sub = String.valueOf(payload.getClaim("sub"));
             long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
