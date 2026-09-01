@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.controller.user;
 import com.yirancrazy.smartmedical.pojo.PaymentMethod;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.booking.confirm.PayMethodVo;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +35,7 @@ public class UserPayMethodControllerV1 {
      * @param id 支付类型ID
      * @return 支付类型
      */
+    @Operation(summary = "用户端 - 根据ID获取支付类型")
     @GetMapping("/{id:\\d+}")
     public Result<PaymentMethod> getPayMethodById(@PathVariable("id") Long id) {
         return PayMethodManager.getPayMethodById(id);
@@ -43,8 +45,8 @@ public class UserPayMethodControllerV1 {
      * 获取默认支付类型
      * @return 默认支付类型
      */
+    @Operation(summary = "用户端 - 获取默认支付类型")
     @GetMapping("/default")
-    @Tag(name = "获取默认支付类型", description = "获取默认支付类型接口")
     public Result<PayMethodVo> getDefaultPayMethod() {
         return PayMethodManager.getDefaultPayMethod();
     }
@@ -53,8 +55,8 @@ public class UserPayMethodControllerV1 {
      * 获取所有支付类型
      * @return 支付类型列表
      */
+    @Operation(summary = "用户端 - 获取所有支付类型")
     @GetMapping("/all")
-    @Tag(name = "获取所有支付类型", description = "获取所有支付类型接口")
     public Result<List<PaymentMethod>> getAllPayMethod() {
         return PayMethodManager.getAllPayMethod();
     }
@@ -63,8 +65,8 @@ public class UserPayMethodControllerV1 {
      * 获取所有一级支付类型
      * @return 一级支付类型列表
      */
+    @Operation(summary = "用户端 - 获取所有一级支付类型")
     @GetMapping("/list/all/parent")
-    @Tag(name = "获取所有一级支付类型", description = "获取所有一级支付类型接口")
     public Result<List<PayMethodVo>> listParentPayMethods() {
         return PayMethodManager.listParentPayMethods();
     }
