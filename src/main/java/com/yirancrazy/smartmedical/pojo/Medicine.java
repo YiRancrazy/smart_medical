@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -79,7 +78,7 @@ public class Medicine {
     @TableField(exist = false)
     private Integer quantity;
 
-    @Schema(description = "价格")
+    @Schema(description = "价格（单位：分）")
     @TableField("price")
-    private BigDecimal price;
+    private Integer price;
 }
