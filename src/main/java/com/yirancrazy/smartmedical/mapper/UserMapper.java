@@ -17,10 +17,6 @@ import org.apache.ibatis.annotations.Select;
 public interface UserMapper extends BaseMapper<User> {
 
 
-    // 清空整张表
-    @Select("TRUNCATE TABLE user")
-    void truncateTable();
-
     @Select("SELECT CAST(account.id AS CHAR) AS accountId, "
             + "CAST(user.id AS CHAR) AS userId, "
             + "user.nickname, user.username, user.avatar "
