@@ -11,6 +11,8 @@ spring:
     username: ${MYSQL_USERNAME}
     password: ${MYSQL_PASSWORD}
     url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8
+
+pagehelper:
   reasonable: true
   support-methods-arguments: true
   page-size-zero: true
