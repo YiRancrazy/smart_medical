@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.pojo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -60,6 +62,7 @@ public class Department {
     private LocalDateTime updateTime;             // 记录更新时间
 
     @Schema(description = "删除（1是0否）")
-    @TableField(value = "is_deleted")
+    @TableLogic
+    @TableField(value = "is_deleted", fill = FieldFill.INSERT)
     private Boolean deleted;
 }

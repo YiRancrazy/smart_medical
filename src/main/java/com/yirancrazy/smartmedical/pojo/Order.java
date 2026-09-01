@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.pojo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -55,6 +57,7 @@ public class Order {
     private LocalDateTime updateTime;
 
     @Schema(description = "是否删除")
-    @TableField(value = "is_deleted")
+    @TableLogic
+    @TableField(value = "is_deleted", fill = FieldFill.INSERT)
     private Boolean deleted;
 }
