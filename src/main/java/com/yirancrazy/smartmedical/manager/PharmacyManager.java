@@ -136,6 +136,47 @@ public class PharmacyManager {
      */
     @Transactional(rollbackFor = Exception.class)
     public DispenseVO dispense(Long prescriptionId, Long pharmacistId) {
+        // 1. 校验处方 + 加载明细
+        Prescription rx = validatePrescription(prescriptionId);
+        List<PrescriptionItem> items = prescriptionItemService.list(
+                new LambdaQueryWrapper<PrescriptionItem>()
+                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+
+        // 2. 批量查药品信息
+        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
+        Map<Long, Drug> drugMap = drugService.listDrugsByIds(drugIds).stream()
+                .collect(Collectors.toMap(Drug::getId, d -> d));
+
+        // 3. 逐条发药:行锁 + 扣减 + 流水
+        DispenseVO vo = new DispenseVO();
+        vo.setPrescriptionId(prescriptionId);
+        List<DispenseVO.DispenseItem> voItems = new ArrayList<>();
+        for (PrescriptionItem item : items) {
+            processDispenseItem(item, drugMap, pharmacistId, voItems);
+        }
+        vo.setItems(voItems);
+
+        // 4. 处方置为已发药 + 更新挂号状态
+        LocalDateTime dispensedAt = LocalDateTime.now();
+        updatePrescriptionAfterDispense(rx, pharmacistId, dispensedAt);
+
+        // 5. 药品订单置为已完成
+        completeDrugOrder(rx, pharmacistId);
+
+        vo.setPrescriptionStatus(PrescriptionStatus.DISPENSED.getCode());
+        vo.setDispensedAt(dispensedAt);
+
+        log.info("[pharmacy-dispense] prescriptionId={}, pharmacistId={}, itemCount={}",
+                prescriptionId, pharmacistId, items.size());
+        return vo;
+    }
+
+    // ========== dispense() 子方法 ==========
+
+    /**
+     * 校验处方存在且已支付
+     */
+    private Prescription validatePrescription(Long prescriptionId) {
         Prescription rx = prescriptionService.getById(prescriptionId);
         if (rx == null) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
@@ -144,79 +185,66 @@ public class PharmacyManager {
                 || rx.getStatus() != PrescriptionStatus.PAID.getCode()) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_PAID);
         }
+        return rx;
+    }
 
-        // 加载所有 item
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+    /**
+     * 对单条处方明细执行发药操作：行锁扣减 + 出库流水
+     */
+    private void processDispenseItem(PrescriptionItem item, Map<Long, Drug> drugMap,
+                                      Long pharmacistId, List<DispenseVO.DispenseItem> voItems) {
+        Drug drug = drugMap.get(item.getDrugId());
 
-        DispenseVO vo = new DispenseVO();
-        vo.setPrescriptionId(prescriptionId);
-        List<DispenseVO.DispenseItem> voItems = new ArrayList<>();
-
-        // 批量查药品信息，消除 N+1
-        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
-        Map<Long, Drug> drugMap = drugService.listDrugsByIds(drugIds).stream()
-                .collect(Collectors.toMap(Drug::getId, d -> d));
-
-        // 对每个药品:FOR UPDATE 行锁 + 扣减 + 流水
-        for (PrescriptionItem item : items) {
-            Drug drug = drugMap.get(item.getDrugId());
-
-            // 行锁(关键:必须用自定义 selectForUpdate 方法,锁该 drugId 对应库存行)
-            DrugInventory inv = drugInventoryService.selectForUpdate(item.getDrugId());
-            if (inv == null) {
-                throw new BizException(BizErrorCode.DRUG_NOT_FOUND,
-                        "drugId=" + item.getDrugId());
-            }
-            // 锁定时已扣减 available，发药阶段仅校验 locked
-            if (inv.getLockedQuantity() < item.getQuantity()) {
-                throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
-                        "drugName=" + (drug == null ? item.getDrugId() : drug.getCommonName())
-                                + ", locked=" + inv.getLockedQuantity()
-                                + ", required=" + item.getQuantity());
-            }
-
-            int beforeStock = inv.getStockQuantity();
-            // 锁定时已扣减 available，发药仅扣减 stock 与 locked
-            inv.setStockQuantity(inv.getStockQuantity() - item.getQuantity());
-            inv.setLockedQuantity(inv.getLockedQuantity() - item.getQuantity());
-            inv.setLastOutboundTime(LocalDateTime.now());
-            drugInventoryService.updateDrugInventoryById(inv);
-
-            // 出库流水
-            InventoryTransaction txn = new InventoryTransaction();
-            txn.setId(IdUtil.getSnowflakeNextId());
-            txn.setDrugId(item.getDrugId());
-            txn.setWarehouseId(inv.getWarehouseId());
-            txn.setTransactionType(TXN_OUTBOUND);
-            txn.setRelatedOrder(rx.getOrderId() == null ? null : String.valueOf(rx.getOrderId()));
-            txn.setQuantityChange(-item.getQuantity());
-            // S30: 记 stock_quantity 前后值（发药只改 stock/locked，available 不变）
-            txn.setQuantityBefore(beforeStock);
-            txn.setQuantityAfter(inv.getStockQuantity());
-            txn.setOperatorId(pharmacistId);
-            txn.setOperatorName("pharmacist");
-            txn.setRemark("发药出库");
-            inventoryTransactionService.insertInventoryTransaction(txn);
-
-            DispenseVO.DispenseItem voItem = new DispenseVO.DispenseItem();
-            voItem.setDrugId(item.getDrugId());
-            voItem.setDrugName(drug == null ? null : drug.getCommonName());
-            voItem.setQuantity(item.getQuantity());
-            voItem.setStockAfter(inv.getStockQuantity());
-            voItems.add(voItem);
+        DrugInventory inv = drugInventoryService.selectForUpdate(item.getDrugId());
+        if (inv == null) {
+            throw new BizException(BizErrorCode.DRUG_NOT_FOUND,
+                    "drugId=" + item.getDrugId());
         }
-        vo.setItems(voItems);
+        if (inv.getLockedQuantity() < item.getQuantity()) {
+            throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
+                    "drugName=" + (drug == null ? item.getDrugId() : drug.getCommonName())
+                            + ", locked=" + inv.getLockedQuantity()
+                            + ", required=" + item.getQuantity());
+        }
 
-        // 处方置为已发药
-        LocalDateTime dispensedAt = LocalDateTime.now();
+        int beforeStock = inv.getStockQuantity();
+        inv.setStockQuantity(inv.getStockQuantity() - item.getQuantity());
+        inv.setLockedQuantity(inv.getLockedQuantity() - item.getQuantity());
+        inv.setLastOutboundTime(LocalDateTime.now());
+        drugInventoryService.updateDrugInventoryById(inv);
+
+        InventoryTransaction txn = new InventoryTransaction();
+        txn.setId(IdUtil.getSnowflakeNextId());
+        txn.setDrugId(item.getDrugId());
+        txn.setWarehouseId(inv.getWarehouseId());
+        txn.setTransactionType(TXN_OUTBOUND);
+        txn.setRelatedOrder(String.valueOf(item.getDrugId()));
+        txn.setQuantityChange(-item.getQuantity());
+        txn.setQuantityBefore(beforeStock);
+        txn.setQuantityAfter(inv.getStockQuantity());
+        txn.setOperatorId(pharmacistId);
+        txn.setOperatorName("pharmacist");
+        txn.setRemark("发药出库");
+        inventoryTransactionService.insertInventoryTransaction(txn);
+
+        DispenseVO.DispenseItem voItem = new DispenseVO.DispenseItem();
+        voItem.setDrugId(item.getDrugId());
+        voItem.setDrugName(drug == null ? null : drug.getCommonName());
+        voItem.setQuantity(item.getQuantity());
+        voItem.setStockAfter(inv.getStockQuantity());
+        voItems.add(voItem);
+    }
+
+    /**
+     * 发药后更新处方状态和挂号状态
+     */
+    private void updatePrescriptionAfterDispense(Prescription rx, Long pharmacistId, LocalDateTime dispensedAt) {
         rx.setStatus(PrescriptionStatus.DISPENSED.getCode());
         rx.setPharmacistId(pharmacistId);
         rx.setDispensedAt(dispensedAt);
         prescriptionService.updateById(rx);
 
-        // registration 状态迁移 → COMPLETED(已就诊/完成),自动填充 visitEndTime
+        // registration 状态迁移 → COMPLETED
         if (rx.getMedicalRecordId() != null) {
             MedicalRecord record = medicalRecordService.getById(rx.getMedicalRecordId());
             if (record != null && record.getRegistrationId() != null) {
@@ -228,18 +256,18 @@ public class PharmacyManager {
                 }
             }
         }
+    }
 
-        vo.setPrescriptionStatus(PrescriptionStatus.DISPENSED.getCode());
-        vo.setDispensedAt(dispensedAt);
-
-        // 药品订单置为已完成
+    /**
+     * 发药后将药品订单置为已完成
+     */
+    private void completeDrugOrder(Prescription rx, Long pharmacistId) {
         if (rx.getOrderId() != null) {
             Order order = orderService.getOrderById(rx.getOrderId());
             if (order != null && order.getStatus() != null
                     && order.getStatus() == OrderStatus.PAID.getCode()) {
                 order.setStatus(OrderStatus.FINISHED.getCode());
                 orderService.updateOrderById(order);
-                // S31: 写订单状态变更日志 PAID → FINISHED
                 OrderStatusLog orderLog = new OrderStatusLog();
                 orderLog.setOrderId(order.getId());
                 orderLog.setFromStatus(OrderStatus.PAID.getCode());
@@ -250,10 +278,6 @@ public class PharmacyManager {
                 orderStatusLogManager.addOrderStatusLog(orderLog);
             }
         }
-
-        log.info("[pharmacy-dispense] prescriptionId={}, pharmacistId={}, itemCount={}",
-                prescriptionId, pharmacistId, items.size());
-        return vo;
     }
 
     /**

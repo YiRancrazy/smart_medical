@@ -116,6 +116,48 @@ public class PrescriptionManager {
     @Transactional(rollbackFor = Exception.class)
     public PrescriptionSubmitVO submit(Long regId, SubmitPrescriptionRequest req, Long doctorId) {
         // 1. 校验挂号存在 + ownership + status
+        Registration reg = validateRegistration(regId, doctorId);
+
+        // 2. 创建/更新病历 (status=1 已提交)
+        MedicalRecord record = saveMedicalRecord(reg, doctorId, req);
+
+        // 无处方药品：直接完成就诊，不创建空处方/订单
+        if (req.getItems() == null || req.getItems().isEmpty()) {
+            return handleNoPrescription(reg, record, doctorId);
+        }
+
+        // 3. 校验所有药品 + 库存 + 累计金额
+        DrugValidationResult drugResult = validateDrugsAndBuildCache(req.getItems());
+
+        // 4. 创建处方 + 药品订单
+        PrescriptionOrderResult poResult = createPrescriptionAndOrder(reg, record, drugResult.totalAmount);
+
+        // 5. 逐条:处方明细 + 订单明细 + 锁定库存 + 流水
+        processDrugItems(req.getItems(), poResult.prescription, poResult.order, doctorId,
+                drugResult.drugCache, drugResult.inventoryCache);
+
+        // 6. registration 状态迁移:就诊中 → 完成
+        statusLogManager.transition(reg,
+                RegistrationStatusEnum.COMPLETED.getCode(),
+                doctorId, "doctor", "提交病历开方");
+
+        // 7. 构造返回 VO
+        PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
+        vo.setMedicalRecordId(record.getId());
+        vo.setPrescriptionId(poResult.prescription.getId());
+        vo.setOrderId(poResult.order.getId());
+        vo.setOrderSn(String.valueOf(poResult.order.getSn()));
+        vo.setTotalAmount(drugResult.totalAmount);
+        vo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
+        return vo;
+    }
+
+    // ========== submit() 子方法 ==========
+
+    /**
+     * 校验挂号记录存在性、医生归属和状态
+     */
+    private Registration validateRegistration(Long regId, Long doctorId) {
         Registration reg = registrationService.getRegistrationById(regId);
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
@@ -133,17 +175,21 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "仅就诊中状态可提交病历开方，已开方请先作废");
         }
+        return reg;
+    }
 
-        // 2. 校验所有药品 + 库存 + 累计金额
+    /**
+     * 校验药品存在性和库存充足，返回药品缓存、库存缓存和总金额
+     */
+    private DrugValidationResult validateDrugsAndBuildCache(List<PrescriptionItemRequest> items) {
         int totalAmount = 0;
-        // 批量查药品和库存，消除 N+1
-        List<Long> drugIds = req.getItems().stream().map(PrescriptionItemRequest::getDrugId).distinct().collect(Collectors.toList());
+        List<Long> drugIds = items.stream().map(PrescriptionItemRequest::getDrugId).distinct().collect(Collectors.toList());
         Map<Long, Drug> drugCache = drugService.listDrugsByIds(drugIds).stream()
                 .collect(Collectors.toMap(Drug::getId, d -> d));
         Map<Long, DrugInventory> inventoryCache = drugInventoryMapper.selectList(
                 new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
                 .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
-        for (PrescriptionItemRequest item : req.getItems()) {
+        for (PrescriptionItemRequest item : items) {
             Drug drug = drugCache.get(item.getDrugId());
             if (drug == null) {
                 throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + item.getDrugId());
@@ -157,8 +203,14 @@ public class PrescriptionManager {
             }
             totalAmount += drug.getPrice() * item.getQuantity();
         }
+        return new DrugValidationResult(drugCache, inventoryCache, totalAmount);
+    }
 
-        // 3. 创建/更新病历 (status=1 已提交)
+    /**
+     * 创建或更新病历记录
+     */
+    private MedicalRecord saveMedicalRecord(Registration reg, Long doctorId, SubmitPrescriptionRequest req) {
+        Long regId = reg.getId();
         MedicalRecord record = medicalRecordService.getOne(
                 new LambdaQueryWrapper<MedicalRecord>()
                         .eq(MedicalRecord::getRegistrationId, regId)
@@ -182,20 +234,27 @@ public class PrescriptionManager {
         } else {
             medicalRecordService.updateById(record);
         }
+        return record;
+    }
 
-        // 无处方药品：直接完成就诊，不创建空处方/订单
-        if (req.getItems() == null || req.getItems().isEmpty()) {
-            statusLogManager.transition(reg,
-                    RegistrationStatusEnum.COMPLETED.getCode(),
-                    doctorId, "doctor", "就诊完成(无处方)");
-            PrescriptionSubmitVO emptyVo = new PrescriptionSubmitVO();
-            emptyVo.setMedicalRecordId(record.getId());
-            emptyVo.setTotalAmount(0);
-            emptyVo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
-            return emptyVo;
-        }
+    /**
+     * 无处方药品时直接完成就诊
+     */
+    private PrescriptionSubmitVO handleNoPrescription(Registration reg, MedicalRecord record, Long doctorId) {
+        statusLogManager.transition(reg,
+                RegistrationStatusEnum.COMPLETED.getCode(),
+                doctorId, "doctor", "就诊完成(无处方)");
+        PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
+        vo.setMedicalRecordId(record.getId());
+        vo.setTotalAmount(0);
+        vo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
+        return vo;
+    }
 
-        // 4. 创建处方头 (status=0 待支付)
+    /**
+     * 创建处方头 + 药品订单，并关联订单ID到处方
+     */
+    private PrescriptionOrderResult createPrescriptionAndOrder(Registration reg, MedicalRecord record, int totalAmount) {
         Prescription rx = new Prescription();
         rx.setId(IdUtil.getSnowflakeNextId());
         rx.setMedicalRecordId(record.getId());
@@ -203,7 +262,6 @@ public class PrescriptionManager {
         rx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
         prescriptionService.save(rx);
 
-        // 5. 创建药品订单 (status=0 待支付)
         Order order = new Order();
         order.setId(IdUtil.getSnowflakeNextId());
         order.setUserId(reg.getUserId());
@@ -214,12 +272,18 @@ public class PrescriptionManager {
         order.setOrderCreateTime(LocalDateTime.now());
         orderService.insertOrder(order);
 
-        // 关联订单ID到处方
         rx.setOrderId(order.getId());
         prescriptionService.updateById(rx);
 
-        // 6. 逐条:处方明细 + 订单明细 + 锁定库存 + 流水
-        for (PrescriptionItemRequest item : req.getItems()) {
+        return new PrescriptionOrderResult(rx, order);
+    }
+
+    /**
+     * 逐条创建处方明细、订单明细、锁定库存并写入库存异动流水
+     */
+    private void processDrugItems(List<PrescriptionItemRequest> items, Prescription rx, Order order,
+                                   Long doctorId, Map<Long, Drug> drugCache, Map<Long, DrugInventory> inventoryCache) {
+        for (PrescriptionItemRequest item : items) {
             Drug drug = drugCache.get(item.getDrugId());
 
             PrescriptionItem rxItem = new PrescriptionItem();
@@ -240,7 +304,6 @@ public class PrescriptionManager {
             orderItem.setProductionName(drug.getCommonName());
             orderItemService.insertOrderItem(orderItem);
 
-            // 锁定库存：locked += q, available -= q，原子扣减防止并发超卖
             DrugInventory inv = inventoryCache.get(item.getDrugId());
             if (inv == null) {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
@@ -277,21 +340,36 @@ public class PrescriptionManager {
             txn.setOperatorName("doctor");
             inventoryTransactionService.insertInventoryTransaction(txn);
         }
+    }
 
-        // 7. registration 状态迁移:就诊中 → 完成(处方账单进入门诊费用页待支付)
-        statusLogManager.transition(reg,
-                RegistrationStatusEnum.COMPLETED.getCode(),
-                doctorId, "doctor", "提交病历开方");
+    // ========== 内部类 ==========
 
-        // 8. 构造返回 VO
-        PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
-        vo.setMedicalRecordId(record.getId());
-        vo.setPrescriptionId(rx.getId());
-        vo.setOrderId(order.getId());
-        vo.setOrderSn(String.valueOf(order.getSn()));
-        vo.setTotalAmount(totalAmount);
-        vo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
-        return vo;
+    /**
+     * 药品校验结果：药品缓存、库存缓存、总金额
+     */
+    private static class DrugValidationResult {
+        private final Map<Long, Drug> drugCache;
+        private final Map<Long, DrugInventory> inventoryCache;
+        private final int totalAmount;
+
+        DrugValidationResult(Map<Long, Drug> drugCache, Map<Long, DrugInventory> inventoryCache, int totalAmount) {
+            this.drugCache = drugCache;
+            this.inventoryCache = inventoryCache;
+            this.totalAmount = totalAmount;
+        }
+    }
+
+    /**
+     * 处方+订单创建结果
+     */
+    private static class PrescriptionOrderResult {
+        private final Prescription prescription;
+        private final Order order;
+
+        PrescriptionOrderResult(Prescription prescription, Order order) {
+            this.prescription = prescription;
+            this.order = order;
+        }
     }
 
     /**

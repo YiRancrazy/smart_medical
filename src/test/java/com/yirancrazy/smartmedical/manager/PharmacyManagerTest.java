@@ -17,6 +17,17 @@ import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.pojo.Drug;
+import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
+import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
+import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,8 +39,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -79,8 +94,8 @@ class PharmacyManagerTest {
         reg.setUserId(5001L);
 
         when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(rx));
-        when(medicalRecordService.getById(3001L)).thenReturn(record);
-        when(registrationService.getRegistrationById(4001L)).thenReturn(reg);
+        when(medicalRecordService.listByIds(List.of(3001L))).thenReturn(List.of(record));
+        when(registrationService.listRegistrationsByIds(List.of(4001L))).thenReturn(List.of(reg));
 
         Result<PageResult<PendingPrescriptionVO>> result = pharmacyManager.listPending(null, null);
 
@@ -165,5 +180,95 @@ class PharmacyManagerTest {
 
         assertTrue(result.getData().getList().isEmpty());
         assertEquals(0L, result.getData().getTotal());
+    }
+
+    // ===== dispense() 测试 =====
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void dispense_happyPath_dispensesAllItems() {
+        Long pharmacistId = 3001L;
+        Prescription rx = new Prescription();
+        rx.setId(1001L);
+        rx.setMedicalRecordId(2001L);
+        rx.setOrderId(4001L);
+        rx.setStatus(PrescriptionStatus.PAID.getCode());
+
+        PrescriptionItem item = new PrescriptionItem();
+        item.setDrugId(5001L);
+        item.setQuantity(2);
+
+        Drug drug = new Drug();
+        drug.setId(5001L);
+        drug.setCommonName("阿莫西林");
+
+        DrugInventory inv = new DrugInventory();
+        inv.setDrugId(5001L);
+        inv.setId(6001L);
+        inv.setWarehouseId(7001L);
+        inv.setStockQuantity(20);
+        inv.setLockedQuantity(5);
+        inv.setAvailableQuantity(15);
+
+        MedicalRecord record = new MedicalRecord();
+        record.setId(2001L);
+        record.setRegistrationId(8001L);
+
+        Registration reg = new Registration();
+        reg.setId(8001L);
+        reg.setStatus(RegistrationStatusEnum.SUCCESS.getCode());
+
+        Order order = new Order();
+        order.setId(4001L);
+        order.setStatus(OrderStatus.PAID.getCode());
+
+        when(prescriptionService.getById(1001L)).thenReturn(rx);
+        when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
+        when(drugService.listDrugsByIds(List.of(5001L))).thenReturn(List.of(drug));
+        when(drugInventoryService.selectForUpdate(5001L)).thenReturn(inv);
+        when(medicalRecordService.getById(2001L)).thenReturn(record);
+        when(registrationService.getRegistrationById(8001L)).thenReturn(reg);
+        when(orderService.getOrderById(4001L)).thenReturn(order);
+
+        DispenseVO vo = pharmacyManager.dispense(1001L, pharmacistId);
+
+        assertNotNull(vo);
+        assertEquals(1001L, vo.getPrescriptionId());
+        assertEquals(1, vo.getItems().size());
+        assertEquals(5001L, vo.getItems().get(0).getDrugId());
+        assertEquals(2, vo.getItems().get(0).getQuantity());
+        assertEquals(PrescriptionStatus.DISPENSED.getCode(), vo.getPrescriptionStatus());
+        assertNotNull(vo.getDispensedAt());
+        // 库存扣减验证
+        assertEquals(18, inv.getStockQuantity());
+        assertEquals(3, inv.getLockedQuantity());
+        verify(drugInventoryService).updateDrugInventoryById(inv);
+        verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
+        verify(prescriptionService).updateById(rx);
+        verify(statusLogManager).transition(eq(reg), anyInt(), eq(pharmacistId), eq("pharmacist"), eq("发药完成"));
+        verify(orderService).updateOrderById(order);
+        verify(orderStatusLogManager).addOrderStatusLog(any(OrderStatusLog.class));
+    }
+
+    @Test
+    void dispense_notFound_throwsException() {
+        when(prescriptionService.getById(1001L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> pharmacyManager.dispense(1001L, 3001L));
+        assertEquals(BizErrorCode.PRESCRIPTION_NOT_FOUND.getCode(), ex.getCode());
+    }
+
+    @Test
+    void dispense_notPaid_throwsException() {
+        Prescription rx = new Prescription();
+        rx.setId(1001L);
+        rx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
+
+        when(prescriptionService.getById(1001L)).thenReturn(rx);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> pharmacyManager.dispense(1001L, 3001L));
+        assertEquals(BizErrorCode.PRESCRIPTION_NOT_PAID.getCode(), ex.getCode());
     }
 }

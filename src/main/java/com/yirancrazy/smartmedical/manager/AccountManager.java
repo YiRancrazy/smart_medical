@@ -53,23 +53,49 @@ public class AccountManager {
 
         PageInfo<Account> accounts = accountService.listAllAccountsByRoleIdAndEnabledAndPage(username, roleId, enabled, pageNum, pageSize);
 
-        List<AccountDetailResponse> responseList = new ArrayList<>();
-
         if (accounts.getList() == null || accounts.getList().isEmpty()) {
-            return Result.success(new PageInfo<>(responseList));
+            return Result.success(new PageInfo<>(new ArrayList<>()));
         }
 
-        List<Long> userIds = roleId == null ? List.of() : accounts.getList().stream().map(Account::getUserId).toList();
+        // 根据 roleId 批量加载关联实体
+        RelatedEntities entities = loadRelatedEntities(accounts.getList(), roleId);
 
+        // 逐条构建响应
+        List<AccountDetailResponse> responseList = accounts.getList().stream()
+                .map(account -> buildAccountDetailResponse(account, roleId, entities.adminList, entities.doctorList))
+                .collect(Collectors.toList());
+
+        return Result.success(new PageInfo<>(responseList));
+    }
+
+    // ========== 子方法 + 内部类 ==========
+
+    /**
+     * 关联实体集合：管理员列表 + 医生列表
+     */
+    private static class RelatedEntities {
+        private final List<Admin> adminList;
+        private final List<Doctor> doctorList;
+
+        RelatedEntities(List<Admin> adminList, List<Doctor> doctorList) {
+            this.adminList = adminList;
+            this.doctorList = doctorList;
+        }
+    }
+
+    /**
+     * 根据 roleId 批量加载关联的管理员/医生实体
+     */
+    private RelatedEntities loadRelatedEntities(List<Account> accounts, Long roleId) {
         List<Doctor> doctorList = new ArrayList<>();
         List<Admin> adminList = new ArrayList<>();
 
         if (roleId == null) {
-            // 未指定 roleId 时按账号实际 roleId 分别拉取关联实体
-            List<Long> adminUserIds = accounts.getList().stream()
+            // 未指定 roleId 时按账号实际 roleId 分别拉取
+            List<Long> adminUserIds = accounts.stream()
                     .filter(a -> a.getRoleId() != null && a.getRoleId() == 1L)
                     .map(Account::getUserId).toList();
-            List<Long> doctorUserIds = accounts.getList().stream()
+            List<Long> doctorUserIds = accounts.stream()
                     .filter(a -> a.getRoleId() != null && a.getRoleId() == 2L)
                     .map(Account::getUserId).toList();
             if (!adminUserIds.isEmpty()) {
@@ -79,110 +105,75 @@ public class AccountManager {
                 doctorList = doctorService.listDoctorsByIds(doctorUserIds);
             }
         } else if (roleId == 1L) {
-            adminList = adminService.listAdminsByIds(userIds);
+            adminList = adminService.listAdminsByIds(accounts.stream().map(Account::getUserId).toList());
         } else if (roleId == 2L) {
-            doctorList = doctorService.listDoctorsByIds(userIds);
+            doctorList = doctorService.listDoctorsByIds(accounts.stream().map(Account::getUserId).toList());
         }
 
-        for (Account account : accounts.getList()) {
-            AccountDetailResponse response = new AccountDetailResponse();
+        return new RelatedEntities(adminList, doctorList);
+    }
 
-            Long accRole = account.getRoleId();
-            if (Objects.equals(roleId, 1L) || (roleId == null && accRole != null && accRole == 1L)) {
-                Admin admin = adminList
-                        .stream()
-                        .filter(item -> item.getId().equals(account.getUserId()))
+    /**
+     * 为单个账户构建详情响应
+     */
+    private AccountDetailResponse buildAccountDetailResponse(Account account, Long roleId,
+                                                              List<Admin> adminList, List<Doctor> doctorList) {
+        AccountDetailResponse response = new AccountDetailResponse();
+        response.setId(String.valueOf(account.getId()));
+        response.setUserId(account.getUserId());
+        response.setPhone(account.getPhone());
+        response.setRoleId(account.getRoleId());
+        response.setEnabled(account.getEnabled());
+        response.setCreateTime(account.getCreateTime());
+        response.setUpdateTime(account.getUpdateTime());
+
+        Long accRole = account.getRoleId();
+        boolean isAdmin = Objects.equals(roleId, 1L) || (roleId == null && accRole != null && accRole == 1L);
+        boolean isDoctor = Objects.equals(roleId, 2L) || (roleId == null && accRole != null && accRole == 2L);
+
+        if (isAdmin) {
+            Admin admin = adminList.stream()
+                    .filter(item -> item.getId().equals(account.getUserId()))
+                    .findFirst().orElse(null);
+            response.setUsername(admin == null ? "" : admin.getName());
+            if (admin != null) {
+                Department department = DEPARTMENT_LIST.stream()
+                        .filter(d -> d.getId().equals(admin.getDepartmentId()))
                         .findFirst().orElse(null);
-
-                response.setId(String.valueOf(account.getId()));
-                response.setUserId(account.getUserId());
-                response.setPhone(account.getPhone());
-
-                if (admin == null) {
-                    response.setUsername("");
-                    response.setDepartmentName("");
-                    response.setDepartmentId(null);
-                } else {
-                    response.setUsername(admin.getName());
-                    Department department = DEPARTMENT_LIST.stream()
-                            .filter(d -> d.getId().equals(admin.getDepartmentId()))
-                            .findFirst().orElse(null);
-                    if (department != null) {
-                        response.setDepartmentName(department.getName());
-                        response.setDepartmentId(admin.getDepartmentId());
-                    }
-                }
-
-                Role role = ROLE_LIST.stream()
-                        .filter(r -> r.getId().equals(account.getRoleId()))
-                        .findFirst().orElse(null);
-                if (role != null) {
-                    response.setRole(role.getRemark());
-                }
-                response.setRoleId(account.getRoleId());
-                response.setEnabled(account.getEnabled());
-                response.setCreateTime(account.getCreateTime());
-                response.setUpdateTime(account.getUpdateTime());
-                responseList.add(response);
-
-            } else if (Objects.equals(roleId, 2L) || (roleId == null && accRole != null && accRole == 2L)) {
-                Doctor doctor = doctorList
-                        .stream()
-                        .filter(item -> item.getId().equals(account.getUserId()))
-                        .findFirst().orElse(null);
-
-                response.setId(String.valueOf(account.getId()));
-                response.setUserId(account.getUserId());
-                response.setPhone(account.getPhone());
-
-                if (doctor == null) {
-                    response.setUsername("");
-                    response.setDepartmentName("");
-                    response.setDepartmentId(null);
-                } else {
-                    response.setUsername(doctor.getName());
-                    Department department = DEPARTMENT_LIST.stream()
-                            .filter(d -> d.getId().equals(doctor.getDepartmentId()))
-                            .findFirst().orElse(null);
-                    if (department != null) {
-                        response.setDepartmentName(department.getName());
-                        response.setDepartmentId(doctor.getDepartmentId());
-                    }
-                }
-
-                Role role = ROLE_LIST.stream()
-                        .filter(r -> r.getId().equals(account.getRoleId()))
-                        .findFirst().orElse(null);
-                if (role != null) {
-                    response.setRole(role.getRemark());
-                }
-                response.setRoleId(account.getRoleId());
-                response.setEnabled(account.getEnabled());
-                response.setCreateTime(account.getCreateTime());
-                response.setUpdateTime(account.getUpdateTime());
-                responseList.add(response);
+                response.setDepartmentName(department == null ? "" : department.getName());
+                response.setDepartmentId(admin.getDepartmentId());
             } else {
-                // 未知角色（如患者/药师）暂只填充账号基础字段
-                response.setId(String.valueOf(account.getId()));
-                response.setUserId(account.getUserId());
-                response.setPhone(account.getPhone());
-                response.setUsername("");
                 response.setDepartmentName("");
-                response.setRoleId(account.getRoleId());
-                response.setEnabled(account.getEnabled());
-                response.setCreateTime(account.getCreateTime());
-                response.setUpdateTime(account.getUpdateTime());
-                Role role = ROLE_LIST.stream()
-                        .filter(r -> r.getId().equals(account.getRoleId()))
-                        .findFirst().orElse(null);
-                if (role != null) {
-                    response.setRole(role.getRemark());
-                }
-                responseList.add(response);
+                response.setDepartmentId(null);
             }
+        } else if (isDoctor) {
+            Doctor doctor = doctorList.stream()
+                    .filter(item -> item.getId().equals(account.getUserId()))
+                    .findFirst().orElse(null);
+            response.setUsername(doctor == null ? "" : doctor.getName());
+            if (doctor != null) {
+                Department department = DEPARTMENT_LIST.stream()
+                        .filter(d -> d.getId().equals(doctor.getDepartmentId()))
+                        .findFirst().orElse(null);
+                response.setDepartmentName(department == null ? "" : department.getName());
+                response.setDepartmentId(doctor.getDepartmentId());
+            } else {
+                response.setDepartmentName("");
+                response.setDepartmentId(null);
+            }
+        } else {
+            response.setUsername("");
+            response.setDepartmentName("");
+            response.setDepartmentId(null);
         }
 
-        return Result.success(new PageInfo<>(responseList));
+        Role role = ROLE_LIST.stream()
+                .filter(r -> r.getId().equals(account.getRoleId()))
+                .findFirst().orElse(null);
+        if (role != null) {
+            response.setRole(role.getRemark());
+        }
+        return response;
     }
 
     /**

@@ -26,6 +26,18 @@ import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.pojo.DrugInventory;
+import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
+import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.OrderItem;
+import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,9 +50,14 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -206,7 +223,7 @@ class PrescriptionManagerTest {
         when(userService.getUserById(3001L)).thenReturn(user);
         when(accountService.getAccountByUserId(3001L)).thenReturn(account);
         when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
-        when(drugService.getDrugById(6001L)).thenReturn(drug);
+        when(drugService.listDrugsByIds(List.of(6001L))).thenReturn(List.of(drug));
 
         DoctorPrescriptionDetailVO vo = prescriptionManager.getDoctorPrescriptionDetail(4001L, 2001L);
 
@@ -259,5 +276,177 @@ class PrescriptionManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> prescriptionManager.getDoctorPrescriptionDetail(4001L, 2001L));
         assertEquals(BizErrorCode.PRESCRIPTION_NOT_OWNED.getCode(), ex.getCode());
+    }
+
+    // ===== submit() 测试 =====
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void submit_happyPathWithItems_createsPrescriptionAndOrder() {
+        Long doctorId = 2001L;
+        Registration reg = new Registration();
+        reg.setId(1001L);
+        reg.setUserId(3001L);
+        reg.setStatus(RegistrationStatusEnum.IN_TREATMENT.getCode());
+        reg.setRegistrationScheduleId(5001L);
+
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(5001L);
+        schedule.setRegistrationScheduleTemplateId(6001L);
+
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(6001L);
+        template.setDoctorId(2001L);
+
+        Drug drug = new Drug();
+        drug.setId(7001L);
+        drug.setCommonName("阿莫西林");
+        drug.setPrice(1000);
+
+        DrugInventory inv = new DrugInventory();
+        inv.setDrugId(7001L);
+        inv.setId(8001L);
+        inv.setWarehouseId(9001L);
+        inv.setAvailableQuantity(10);
+        inv.setLockedQuantity(0);
+
+        PrescriptionItemRequest itemReq = new PrescriptionItemRequest();
+        itemReq.setDrugId(7001L);
+        itemReq.setQuantity(2);
+        itemReq.setUsageMethod("每日一次");
+
+        SubmitPrescriptionRequest req = new SubmitPrescriptionRequest();
+        req.setItems(List.of(itemReq));
+        req.setChiefComplaint("头痛");
+        req.setDiagnosis("感冒");
+
+        when(registrationService.getRegistrationById(1001L)).thenReturn(reg);
+        when(registrationScheduleService.getRegistrationScheduleById(5001L)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
+        when(drugService.listDrugsByIds(List.of(7001L))).thenReturn(List.of(drug));
+        when(drugInventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(inv));
+        when(drugInventoryMapper.update(eq(null), any())).thenReturn(1);
+        when(medicalRecordService.getOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        doAnswer(answer -> {
+            MedicalRecord r = answer.getArgument(0);
+            r.setId(1001L);
+            return true;
+        }).when(medicalRecordService).save(any(MedicalRecord.class));
+
+        PrescriptionSubmitVO vo = prescriptionManager.submit(1001L, req, doctorId);
+
+        assertNotNull(vo);
+        assertNotNull(vo.getMedicalRecordId());
+        assertNotNull(vo.getPrescriptionId());
+        assertNotNull(vo.getOrderId());
+        assertEquals(2000, vo.getTotalAmount());
+        assertEquals(RegistrationStatusEnum.COMPLETED.getCode(), vo.getRegistrationStatus());
+        verify(medicalRecordService).save(any(MedicalRecord.class));
+        verify(prescriptionService).save(any(Prescription.class));
+        verify(orderService).insertOrder(any(Order.class));
+        verify(prescriptionItemService).save(any(PrescriptionItem.class));
+        verify(orderItemService).insertOrderItem(any(OrderItem.class));
+        verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
+        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.COMPLETED.getCode()),
+                eq(doctorId), eq("doctor"), eq("提交病历开方"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void submit_noItems_returnsDirectlyWithoutPrescription() {
+        Long doctorId = 2001L;
+        Registration reg = new Registration();
+        reg.setId(1001L);
+        reg.setUserId(3001L);
+        reg.setStatus(RegistrationStatusEnum.IN_TREATMENT.getCode());
+        reg.setRegistrationScheduleId(5001L);
+
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(5001L);
+        schedule.setRegistrationScheduleTemplateId(6001L);
+
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(6001L);
+        template.setDoctorId(2001L);
+
+        SubmitPrescriptionRequest req = new SubmitPrescriptionRequest();
+        req.setItems(null);
+        req.setChiefComplaint("头痛");
+        req.setDiagnosis("感冒");
+
+        when(registrationService.getRegistrationById(1001L)).thenReturn(reg);
+        when(registrationScheduleService.getRegistrationScheduleById(5001L)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
+        when(medicalRecordService.getOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        PrescriptionSubmitVO vo = prescriptionManager.submit(1001L, req, doctorId);
+
+        assertNotNull(vo);
+        assertNull(vo.getPrescriptionId());
+        assertNull(vo.getOrderId());
+        assertEquals(0, vo.getTotalAmount());
+        assertEquals(RegistrationStatusEnum.COMPLETED.getCode(), vo.getRegistrationStatus());
+        verify(medicalRecordService).save(any(MedicalRecord.class));
+        verify(prescriptionService, never()).save(any());
+        verify(orderService, never()).insertOrder(any());
+        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.COMPLETED.getCode()),
+                eq(doctorId), eq("doctor"), eq("就诊完成(无处方)"));
+    }
+
+    @Test
+    void submit_registrationNotFound_throwsException() {
+        when(registrationService.getRegistrationById(1001L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
+        assertEquals(BizErrorCode.REGISTRATION_NOT_FOUND.getCode(), ex.getCode());
+    }
+
+    @Test
+    void submit_doctorNotMatch_throwsException() {
+        Registration reg = new Registration();
+        reg.setId(1001L);
+        reg.setStatus(RegistrationStatusEnum.IN_TREATMENT.getCode());
+        reg.setRegistrationScheduleId(5001L);
+
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(5001L);
+        schedule.setRegistrationScheduleTemplateId(6001L);
+
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(6001L);
+        template.setDoctorId(9999L);
+
+        when(registrationService.getRegistrationById(1001L)).thenReturn(reg);
+        when(registrationScheduleService.getRegistrationScheduleById(5001L)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
+        assertEquals(BizErrorCode.DOCTOR_NOT_MATCH.getCode(), ex.getCode());
+    }
+
+    @Test
+    void submit_wrongStatus_throwsException() {
+        Registration reg = new Registration();
+        reg.setId(1001L);
+        reg.setStatus(RegistrationStatusEnum.SUCCESS.getCode());
+        reg.setRegistrationScheduleId(5001L);
+
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(5001L);
+        schedule.setRegistrationScheduleTemplateId(6001L);
+
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(6001L);
+        template.setDoctorId(2001L);
+
+        when(registrationService.getRegistrationById(1001L)).thenReturn(reg);
+        when(registrationScheduleService.getRegistrationScheduleById(5001L)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
+        assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
     }
 }

@@ -139,25 +139,62 @@ public class PaymentRecordManager {
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> paySuccess(Long orderId, Long currentUserId, Integer paymentMethodId,
                                    Long transactionSn, Integer realAmount) {
-        // 0. 第三方交易流水号去重：先 Redis SETNX，再 DB UNIQUE 兜底
-        if (transactionSn != null) {
-            try {
-                Boolean first = redisUtil.setIfAbsent("payment:txn:" + transactionSn, "1", 24, TimeUnit.HOURS);
-                if (Boolean.FALSE.equals(first)) {
-                    log.warn("[payment-success] transactionSn={} 重复回调，幂等跳过", transactionSn);
-                    return Result.success(null);
-                }
-            } catch (Exception e) {
-                log.warn("[payment-success] Redis SETNX 失败，依赖 DB 兜底: {}", e.getMessage());
-            }
+        // 0. 第三方交易流水号去重
+        if (dedupTransaction(transactionSn)) {
+            return Result.success(null);
         }
 
-        // 1. 加载 Order
+        // 1. 校验订单 + 金额
+        Order order = validateOrder(orderId, currentUserId, realAmount);
+        if (order == null) {
+            return Result.success(null);
+        }
+
+        // 2. 创建支付记录
+        createPaymentRecord(orderId, paymentMethodId, transactionSn, realAmount, order);
+
+        // 3. 原子更新订单状态
+        updateOrderToPaid(orderId, order);
+
+        // 4. 同步挂号 + 处方状态
+        syncRegistrationAndPrescription(orderId);
+
+        log.info("[payment-success] orderId={}, paymentMethodId={}, realAmount={}",
+                orderId, paymentMethodId, realAmount);
+        return Result.success(null);
+    }
+
+    // ========== paySuccess() 子方法 ==========
+
+    /**
+     * 第三方交易流水号去重：Redis SETNX + DB UNIQUE 兜底
+     * @return true 表示已处理过，调用方应直接返回
+     */
+    private boolean dedupTransaction(Long transactionSn) {
+        if (transactionSn == null) {
+            return false;
+        }
+        try {
+            Boolean first = redisUtil.setIfAbsent("payment:txn:" + transactionSn, "1", 24, TimeUnit.HOURS);
+            if (Boolean.FALSE.equals(first)) {
+                log.warn("[payment-success] transactionSn={} 重复回调，幂等跳过", transactionSn);
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("[payment-success] Redis SETNX 失败，依赖 DB 兜底: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * 校验订单存在性、归属和金额；已支付幂等返回 null
+     */
+    private Order validateOrder(Long orderId, Long currentUserId, Integer realAmount) {
         Order order = orderService.getOrderById(orderId);
         if (order == null) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单不存在");
         }
-        // G07: 校验订单归属
+        // 归属校验
         if (currentUserId != null && !currentUserId.equals(order.getUserId())) {
             log.warn("[payment-success] orderId={} 属于 userId={} 但 currentUserId={} 调用，拒绝",
                     orderId, order.getUserId(), currentUserId);
@@ -167,21 +204,26 @@ public class PaymentRecordManager {
         if (order.getStatus() != null && order.getStatus() == OrderStatus.PAID.getCode()) {
             log.info("[payment-success] orderId={} already paid, skip", orderId);
             syncRegistrationStatusPaid(orderId);
-            return Result.success(null);
+            return null;
         }
         if (order.getStatus() == null || order.getStatus() != OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单当前状态不可支付");
         }
-
-        // 金额校验：实付金额必须等于订单应付金额
+        // 金额校验
         Integer expected = order.getTotalAmount() == null ? 0 : order.getTotalAmount();
         Integer actual = realAmount != null ? realAmount : expected;
         if (!expected.equals(actual)) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID,
                     "支付金额不一致：应付=" + expected + "，实付=" + actual);
         }
+        return order;
+    }
 
-        // 2. 创建 PaymentRecord (status=2 成功)
+    /**
+     * 创建支付记录 (status=2 成功)
+     */
+    private void createPaymentRecord(Long orderId, Integer paymentMethodId,
+                                      Long transactionSn, Integer realAmount, Order order) {
         PaymentRecord record = new PaymentRecord();
         record.setId(IdUtil.getSnowflakeNextId());
         record.setSn(System.currentTimeMillis());
@@ -196,10 +238,13 @@ public class PaymentRecordManager {
             paymentRecordService.insertPaymentRecord(record);
         } catch (DuplicateKeyException e) {
             log.warn("[payment-success] transactionSn={} 已存在，幂等跳过", transactionSn);
-            return Result.success(null);
         }
+    }
 
-        // 3. 原子更新 Order.status: WAITING_FOR_PAYMENT → PAID，并发幂等
+    /**
+     * 原子更新订单状态 WAITING_FOR_PAYMENT → PAID
+     */
+    private void updateOrderToPaid(Long orderId, Order order) {
         int updated = ordersMapper.update(null,
                 new UpdateWrapper<Order>()
                         .eq("id", orderId)
@@ -208,10 +253,9 @@ public class PaymentRecordManager {
         if (updated == 0) {
             log.info("[payment-success] orderId={} concurrent paid, skip", orderId);
             syncRegistrationStatusPaid(orderId);
-            return Result.success(null);
+            return;
         }
-
-        // S24: 写订单状态变更日志 WAITING_FOR_PAYMENT → PAID
+        // 写订单状态变更日志
         OrderStatusLog orderLog = new OrderStatusLog();
         orderLog.setOrderId(orderId);
         orderLog.setFromStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
@@ -220,22 +264,21 @@ public class PaymentRecordManager {
         orderLog.setOperatorRole("system");
         orderLog.setRemark("支付成功");
         orderStatusLogManager.addOrderStatusLog(orderLog);
+    }
 
-        // 4. 联动挂号:标记挂号为支付成功/待就诊
+    /**
+     * 同步挂号 + 处方状态
+     */
+    private void syncRegistrationAndPrescription(Long orderId) {
+        // 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
         if (registration != null) {
-            // G06: 支付回调由系统触发，operatorId=0L, role=system
             registrationStatusLogManager.transition(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
                     0L, "system", "支付成功");
         }
-
-        // 5. 联动处方:标记处方为已支付
+        // 联动处方:标记处方为已支付
         prescriptionManager.markAsPaid(orderId);
-
-        log.info("[payment-success] orderId={}, paymentMethodId={}, realAmount={}",
-                orderId, paymentMethodId, realAmount);
-        return Result.success(null);
     }
 
     /**
@@ -247,7 +290,6 @@ public class PaymentRecordManager {
         // 仅当挂号仍处于待支付时才补同步，避免回退已报到/就诊中等状态
         if (registration != null
                 && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
-            // G06: 补同步同样记 system
             registrationStatusLogManager.transition(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
                     0L, "system", "支付成功(补同步)");

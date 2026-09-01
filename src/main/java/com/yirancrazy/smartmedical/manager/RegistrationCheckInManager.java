@@ -114,22 +114,50 @@ public class RegistrationCheckInManager {
      */
     @Transactional(rollbackFor = Exception.class)
     public void cancel(Long regId, Long userId, String reason) {
+        // 1. 校验挂号存在 + 权限
+        Registration reg = validateCancelPermission(regId, userId);
+
+        // 2. 校验状态可取消
+        validateCancelStatus(reg);
+
+        // 3. 恢复号源
+        restoreQuota(reg);
+
+        // 4. 联动处理订单（关闭待支付 / 退款已支付）
+        handleOrderForCancel(reg, userId);
+
+        // 5. 状态迁移 → 已取消
+        statusLogManager.transition(reg,
+                RegistrationStatusEnum.CANCELED.getCode(),
+                userId, "user",
+                reason != null && !reason.isEmpty() ? reason : "用户取消");
+    }
+
+    // ========== cancel() 子方法 ==========
+
+    /**
+     * 校验挂号存在性 + 归属权限
+     */
+    private Registration validateCancelPermission(Long regId, Long userId) {
         Registration reg = registrationService.getRegistrationById(regId);
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
-
-        // 权限校验：挂号记录的 userId 或有代理权限
         boolean hasPermission = userId.equals(reg.getUserId());
         if (!hasPermission) {
-            // 检查是否有代理权限（user_patient_relation 表）
             hasPermission = userPatientRelationService.hasAuthorization(userId, reg.getUserId());
         }
         if (!hasPermission) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
+        return reg;
+    }
+
+    /**
+     * 校验挂号状态可取消
+     */
+    private void validateCancelStatus(Registration reg) {
         Integer curStatus = reg.getStatus();
-        // B20: 显式拒绝 status=null，避免号源恢复/订单关闭 SQL 先执行再靠事务回滚兜底
         if (curStatus == null) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "挂号记录状态异常，不可取消");
@@ -139,8 +167,12 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "当前状态不可取消");
         }
+    }
 
-        // 恢复号源：取消成功后 remaining_quota + 1，若原为已满(2)则恢复为正常(1)
+    /**
+     * 恢复号源：remaining_quota + 1，已满则恢复为正常
+     */
+    private void restoreQuota(Registration reg) {
         if (reg.getRegistrationScheduleId() != null) {
             registrationScheduleMapper.update(null,
                     new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<RegistrationSchedule>()
@@ -148,86 +180,93 @@ public class RegistrationCheckInManager {
                             .setSql("remaining_quota = remaining_quota + 1")
                             .setSql("status = IF(status = 2, 1, status)"));
         }
+    }
 
-        // 取消时若有挂号订单则联动处理(关闭或退款)，按 reg.orderId 精确定位
+    /**
+     * 联动处理订单：待支付关闭，已支付退款
+     */
+    private void handleOrderForCancel(Registration reg, Long userId) {
         Order order = reg.getOrderId() == null ? null
                 : ordersMapper.selectById(reg.getOrderId());
-        if (order != null && order.getStatus() != null) {
-            if (order.getStatus() == OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
-                // 待支付:直接关闭
-                Integer fromStatus = order.getStatus();
-                order.setStatus(OrderStatus.CANCELED.getCode());
-                ordersMapper.updateById(order);
-                // S01: 写订单状态变更日志
-                OrderStatusLog orderLog = new OrderStatusLog();
-                orderLog.setOrderId(order.getId());
-                orderLog.setFromStatus(fromStatus);
-                orderLog.setToStatus(OrderStatus.CANCELED.getCode());
-                orderLog.setOperatorId(userId);
-                orderLog.setOperatorRole("user");
-                orderLog.setRemark("取消预约关闭订单");
-                orderStatusLogManager.addOrderStatusLog(orderLog);
-            } else if (order.getStatus() == OrderStatus.PAID.getCode()) {
-                // 已支付:加载原支付记录 → 写退款流水 → 原记录置为已退款
-                PaymentRecord orig = paymentRecordMapper.selectOne(
-                        new LambdaQueryWrapper<PaymentRecord>()
-                                .eq(PaymentRecord::getOrderId, order.getId())
-                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_SUCCESS)
-                                .last("LIMIT 1"));
+        if (order == null || order.getStatus() == null) {
+            return;
+        }
+        if (order.getStatus() == OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
+            closeOrder(order, userId);
+        } else if (order.getStatus() == OrderStatus.PAID.getCode()) {
+            refundOrder(order, userId);
+        }
+    }
 
-                Integer refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
-                // G11: 查已退款总额（仅统计退款记录 realAmount<0，避免混入原支付记录被翻状态后正负抵消）
-                List<PaymentRecord> refundedRecords = paymentRecordMapper.selectList(
-                        new LambdaQueryWrapper<PaymentRecord>()
-                                .eq(PaymentRecord::getOrderId, order.getId())
-                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_REFUNDED)
-                                .lt(PaymentRecord::getRealAmount, 0));
-                int alreadyRefunded = -refundedRecords.stream()
-                        .mapToInt(r -> r.getRealAmount() == null ? 0 : r.getRealAmount())
-                        .sum();
-                // alreadyRefunded 已是正数（退款绝对值之和），剩余可退 = refundAmount - alreadyRefunded
-                int remainingRefund = refundAmount - alreadyRefunded;
-                if (remainingRefund > 0) {
-                    PaymentRecord refund = new PaymentRecord();
-                    refund.setId(IdUtil.getSnowflakeNextId());
-                    refund.setOrderId(order.getId());
-                    refund.setSn(System.currentTimeMillis());
-                    refund.setTotalAmount(-remainingRefund);
-                    refund.setRealAmount(-remainingRefund);
-                    refund.setPaymentMethodId(orig != null && orig.getPaymentMethodId() != null
-                            ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
-                    refund.setStatus(PAYMENT_STATUS_REFUNDED);
-                    refund.setPaymentTime(java.time.LocalDateTime.now());
-                    paymentRecordMapper.insert(refund);
+    /**
+     * 关闭待支付订单
+     */
+    private void closeOrder(Order order, Long userId) {
+        Integer fromStatus = order.getStatus();
+        order.setStatus(OrderStatus.CANCELED.getCode());
+        ordersMapper.updateById(order);
+        OrderStatusLog orderLog = new OrderStatusLog();
+        orderLog.setOrderId(order.getId());
+        orderLog.setFromStatus(fromStatus);
+        orderLog.setToStatus(OrderStatus.CANCELED.getCode());
+        orderLog.setOperatorId(userId);
+        orderLog.setOperatorRole("user");
+        orderLog.setRemark("取消预约关闭订单");
+        orderStatusLogManager.addOrderStatusLog(orderLog);
+    }
 
-                    if (orig != null) {
-                        orig.setStatus(PAYMENT_STATUS_REFUNDED);
-                        paymentRecordMapper.updateById(orig);
-                    }
-                } else {
-                    log.warn("[cancel] orderId={} 已全额退款(剩余可退={})，跳过退款写入",
-                            order.getId(), remainingRefund);
-                }
+    /**
+     * 已支付订单退款：创建退款记录 + 原支付记录置为已退款 + 订单置为已退款
+     */
+    private void refundOrder(Order order, Long userId) {
+        PaymentRecord orig = paymentRecordMapper.selectOne(
+                new LambdaQueryWrapper<PaymentRecord>()
+                        .eq(PaymentRecord::getOrderId, order.getId())
+                        .eq(PaymentRecord::getStatus, PAYMENT_STATUS_SUCCESS)
+                        .last("LIMIT 1"));
 
-                // 订单置为已退款（同步退款完成，跳过 REFUNDING 中间态）
-                Integer fromStatus = order.getStatus();
-                order.setStatus(OrderStatus.REFUNDED.getCode());
-                ordersMapper.updateById(order);
-                // S01: 写订单状态变更日志 PAID → REFUNDED
-                OrderStatusLog orderLog = new OrderStatusLog();
-                orderLog.setOrderId(order.getId());
-                orderLog.setFromStatus(fromStatus);
-                orderLog.setToStatus(OrderStatus.REFUNDED.getCode());
-                orderLog.setOperatorId(userId);
-                orderLog.setOperatorRole("user");
-                orderLog.setRemark("取消预约退款");
-                orderStatusLogManager.addOrderStatusLog(orderLog);
+        Integer refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+        List<PaymentRecord> refundedRecords = paymentRecordMapper.selectList(
+                new LambdaQueryWrapper<PaymentRecord>()
+                        .eq(PaymentRecord::getOrderId, order.getId())
+                        .eq(PaymentRecord::getStatus, PAYMENT_STATUS_REFUNDED)
+                        .lt(PaymentRecord::getRealAmount, 0));
+        int alreadyRefunded = -refundedRecords.stream()
+                .mapToInt(r -> r.getRealAmount() == null ? 0 : r.getRealAmount())
+                .sum();
+        int remainingRefund = refundAmount - alreadyRefunded;
+        if (remainingRefund > 0) {
+            PaymentRecord refund = new PaymentRecord();
+            refund.setId(IdUtil.getSnowflakeNextId());
+            refund.setOrderId(order.getId());
+            refund.setSn(System.currentTimeMillis());
+            refund.setTotalAmount(-remainingRefund);
+            refund.setRealAmount(-remainingRefund);
+            refund.setPaymentMethodId(orig != null && orig.getPaymentMethodId() != null
+                    ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
+            refund.setStatus(PAYMENT_STATUS_REFUNDED);
+            refund.setPaymentTime(java.time.LocalDateTime.now());
+            paymentRecordMapper.insert(refund);
+
+            if (orig != null) {
+                orig.setStatus(PAYMENT_STATUS_REFUNDED);
+                paymentRecordMapper.updateById(orig);
             }
+        } else {
+            log.warn("[cancel] orderId={} 已全额退款(剩余可退={})，跳过退款写入",
+                    order.getId(), remainingRefund);
         }
 
-        statusLogManager.transition(reg,
-                RegistrationStatusEnum.CANCELED.getCode(),
-                userId, "user",
-                reason != null && !reason.isEmpty() ? reason : "用户取消");
+        Integer fromStatus = order.getStatus();
+        order.setStatus(OrderStatus.REFUNDED.getCode());
+        ordersMapper.updateById(order);
+        OrderStatusLog orderLog = new OrderStatusLog();
+        orderLog.setOrderId(order.getId());
+        orderLog.setFromStatus(fromStatus);
+        orderLog.setToStatus(OrderStatus.REFUNDED.getCode());
+        orderLog.setOperatorId(userId);
+        orderLog.setOperatorRole("user");
+        orderLog.setRemark("取消预约退款");
+        orderStatusLogManager.addOrderStatusLog(orderLog);
     }
 }

@@ -251,6 +251,23 @@ class RegistrationCheckInManagerTest {
                 eq(USER_ID), eq("user"), eq("代取消"));
     }
 
+    /**
+     * cancel 无订单ID(orderId=null)：仅恢复号源+迁移状态，不操作订单相关
+     */
+    @Test
+    void cancel_noOrderId_skipsOrderHandling() {
+        Registration reg = buildRegistration(REG_ID, USER_ID, RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), SCHEDULE_ID);
+        // orderId 留 null
+        when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
+
+        registrationCheckInManager.cancel(REG_ID, USER_ID, "无订单取消");
+
+        verify(registrationScheduleMapper).update(eq(null), any());
+        verify(ordersMapper, never()).selectById(anyLong());
+        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+                eq(USER_ID), eq("user"), eq("无订单取消"));
+    }
+
     // ===== 辅助构造方法 =====
 
     private Registration buildRegistration(Long id, Long userId, Integer status, Long scheduleId) {
