@@ -48,8 +48,8 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class AdminAuthManager {
 
-    @Value("${jwt.admin.adminAccessTokenPrefix}")
-    private String adminAccessTokenPrefix;   // 固定管理员登录令牌前缀\
+    @Value("${jwt.accessTokenPrefix}")
+    private String accessTokenPrefix;   // 固定登录令牌前缀
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;   // 固定管理员刷新令牌前缀
     @Value("${jwt.accessSecretKey}")
@@ -97,8 +97,8 @@ public class AdminAuthManager {
         if (refreshSecretKey == null || refreshSecretKey.isBlank()) {
             throw new IllegalStateException("jwt.refreshSecretKey 未配置");
         }
-        if (adminAccessTokenPrefix == null || adminAccessTokenPrefix.isBlank()) {
-            throw new IllegalStateException("jwt.admin.adminAccessTokenPrefix 未配置");
+        if (accessTokenPrefix == null || accessTokenPrefix.isBlank()) {
+            throw new IllegalStateException("jwt.accessTokenPrefix 未配置");
         }
         if (adminRefreshTokenPrefix == null || adminRefreshTokenPrefix.isBlank()) {
             throw new IllegalStateException("jwt.admin.adminRefreshTokenPrefix 未配置");
@@ -169,11 +169,11 @@ public class AdminAuthManager {
             log.info("[admin-login] 密码已升级为 BCrypt, accountId={}", roleAccount.getId());
         }
 
-        // accessJWT 和 refreshJwt 写入 redis 中（admin前缀用于所有角色，统一管理）
+        // accessJWT 和 refreshJwt 写入 redis 中（统一前缀用于所有角色，统一管理）
         Long currentTimeMillis = System.currentTimeMillis();
         String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeMillis);
         String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeMillis);
-        redisUtil.setEx(adminAccessTokenPrefix + roleAccount.getId(), accessJwt, 30, TimeUnit.MINUTES);
+        redisUtil.setEx(accessTokenPrefix + roleAccount.getId(), accessJwt, 30, TimeUnit.MINUTES);
         redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
         // 统一通过响应头返回access token，前端从Authorization头提取

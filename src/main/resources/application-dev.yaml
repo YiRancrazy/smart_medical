@@ -22,8 +22,8 @@ pagehelper:
 jwt:
   accessSecretKey: ${JWT_ACCESS_SECRET_KEY:dev-jwt-access-secret-placeholder}
   refreshSecretKey: ${JWT_REFRESH_SECRET_KEY:dev-jwt-refresh-secret-placeholder}
+  accessTokenPrefix: admin-access-token
   admin:
-    adminAccessTokenPrefix: admin-access-token
     adminRefreshTokenPrefix: admin-refresh-token
 # springdoc-openapi项目配置
 springdoc:

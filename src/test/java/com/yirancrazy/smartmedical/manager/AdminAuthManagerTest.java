@@ -70,7 +70,7 @@ class AdminAuthManagerTest {
         manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService, redisUtil, roleTypeLoaderManage);
         ReflectionTestUtils.setField(manager, "accessSecretKey", "test-access-secret-key");
         ReflectionTestUtils.setField(manager, "refreshSecretKey", "test-refresh-secret-key");
-        ReflectionTestUtils.setField(manager, "adminAccessTokenPrefix", "admin-access:");
+        ReflectionTestUtils.setField(manager, "accessTokenPrefix", "admin-access:");
         ReflectionTestUtils.setField(manager, "adminRefreshTokenPrefix", "admin-refresh:");
         manager.validateJwtConfig();
     }
@@ -96,7 +96,7 @@ class AdminAuthManagerTest {
 
     @Test
     void validateJwtConfig_blankAccessPrefix_throws() {
-        ReflectionTestUtils.setField(manager, "adminAccessTokenPrefix", "");
+        ReflectionTestUtils.setField(manager, "accessTokenPrefix", "");
         assertThrows(IllegalStateException.class, manager::validateJwtConfig);
     }
 

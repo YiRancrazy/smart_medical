@@ -53,7 +53,7 @@ class JwtAuthenticationFilterTest {
     void setUp() throws Exception {
         filter = new JwtAuthenticationFilter(redisUtil);
         ReflectionTestUtils.setField(filter, "accessSecretKey", accessSecretKey);
-        ReflectionTestUtils.setField(filter, "adminAccessTokenPrefix", "admin-access-token");
+        ReflectionTestUtils.setField(filter, "accessTokenPrefix", "admin-access-token");
         SecurityContextHolder.clearContext();
         lenient().when(response.getWriter()).thenReturn(writer);
     }

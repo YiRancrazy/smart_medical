@@ -59,7 +59,7 @@ class DepartmentManagerTest {
      */
     @Test
     void insertDepartment_emptyName_returnsFail() {
-        AdminDepartmentRequest req = buildRequest("", "1001", "1");
+        AdminDepartmentRequest req = buildRequest("", "1001", 1L);
         Result<Long> result = departmentManager.insertDepartment(req);
         assertEquals(500, result.getCode());
         assertEquals("科室名称不能为空", result.getMessage());
@@ -70,7 +70,7 @@ class DepartmentManagerTest {
      */
     @Test
     void insertDepartment_nullSn_returnsFail() {
-        AdminDepartmentRequest req = buildRequest("内科", null, "1");
+        AdminDepartmentRequest req = buildRequest("内科", null, 1L);
         Result<Long> result = departmentManager.insertDepartment(req);
         assertEquals(500, result.getCode());
         assertEquals("科室编号不能为空", result.getMessage());
@@ -92,7 +92,7 @@ class DepartmentManagerTest {
      */
     @Test
     void insertDepartment_happyPath_returnsId() {
-        AdminDepartmentRequest req = buildRequest("内科", "1001", "5001");
+        AdminDepartmentRequest req = buildRequest("内科", "1001", 5001L);
         req.setType("1");
         req.setPhone("13800000000");
         req.setStatus("1");
@@ -166,7 +166,7 @@ class DepartmentManagerTest {
 
     // ===== 辅助构造 =====
 
-    private AdminDepartmentRequest buildRequest(String name, String sn, String managerId) {
+    private AdminDepartmentRequest buildRequest(String name, String sn, Long managerId) {
         AdminDepartmentRequest req = new AdminDepartmentRequest();
         req.setName(name);
         req.setSn(sn);

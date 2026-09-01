@@ -46,8 +46,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Value("${jwt.accessSecretKey}")
     private String accessSecretKey;
 
-    @Value("${jwt.admin.adminAccessTokenPrefix:admin-access-token}")
-    private String adminAccessTokenPrefix;
+    @Value("${jwt.accessTokenPrefix:admin-access-token}")
+    private String accessTokenPrefix;
 
     private final RedisUtil redisUtil;
 
@@ -126,13 +126,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 校验 Redis 中 token 仍存在（支持 logout 撤销）：login 写入 adminAccessTokenPrefix+accountId，
+            // 校验 Redis 中 token 仍存在（支持 logout 撤销）：login 写入 accessTokenPrefix+accountId，
             // logout 删除同一 key，Filter 必须比对否则登出后旧 token 在 exp 前仍有效
             // BUG-B10: Redis 不可达时降级为仅校验签名和过期时间，避免全站 500
             Object cached;
             boolean redisAvailable;
             try {
-                cached = redisUtil.get(adminAccessTokenPrefix + accountId);
+                cached = redisUtil.get(accessTokenPrefix + accountId);
                 redisAvailable = true;
             } catch (Exception e) {
                 log.warn("[jwt] Redis 校验失败，降级为仅校验签名和过期时间: {}", e.getMessage());
@@ -219,8 +219,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @return token key
      */
     private String resolveTokenKey(String uri, String userId) {
-        // 登录时所有角色都写入 adminAccessTokenPrefix + userId，filter 一致读取
-        return adminAccessTokenPrefix + userId;
+        // 登录时所有角色都写入 accessTokenPrefix + userId，filter 一致读取
+        return accessTokenPrefix + userId;
     }
 
     /**

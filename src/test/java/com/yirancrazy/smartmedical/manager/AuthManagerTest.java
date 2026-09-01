@@ -53,7 +53,7 @@ class AuthManagerTest {
         AuthManager m = new AuthManager(accountService, userService, redisUtil, patientCardService, patientService);
         ReflectionTestUtils.setField(m, "accessSecretKey", "test-access-secret");
         ReflectionTestUtils.setField(m, "refreshSecretKey", "test-refresh-secret");
-        ReflectionTestUtils.setField(m, "adminAccessTokenPrefix", "access_token_");
+        ReflectionTestUtils.setField(m, "accessTokenPrefix", "access_token_");
         ReflectionTestUtils.setField(m, "adminRefreshTokenPrefix", "refresh_token_");
         return m;
     }

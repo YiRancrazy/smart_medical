@@ -49,8 +49,8 @@ public class AuthManager {
     private String accessSecretKey;
     @Value("${jwt.refreshSecretKey}")                      // 刷新 jwt 加密密钥
     private String refreshSecretKey;
-    @Value("${jwt.admin.adminAccessTokenPrefix}")
-    private String adminAccessTokenPrefix;                 // 管理员 jwt 访问加密密钥
+    @Value("${jwt.accessTokenPrefix}")
+    private String accessTokenPrefix;                 // jwt 访问令牌前缀
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;                // 管理员 jwt 刷新加密密钥
     @Value("${cookie.secure:false}")
@@ -124,8 +124,8 @@ public class AuthManager {
             // 生成JWT访问令牌
             Long currentTimeSeconds = System.currentTimeMillis() / 1000;
             String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
-            // 存储JWT访问令牌（admin前缀用于所有角色，统一管理）
-            redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 30, TimeUnit.MINUTES);
+            // 存储JWT访问令牌（统一前缀用于所有角色，统一管理）
+            redisUtil.setEx(accessTokenPrefix + account.getId().toString(), accessJwt, 30, TimeUnit.MINUTES);
 
             // 生成JWT 刷新令牌（包含role信息，刷新时直接解析）
             String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
@@ -201,7 +201,7 @@ public class AuthManager {
      * @return 登出结果
      */
     public Result<String> logout(Long accountId) {
-        redisUtil.delete(adminAccessTokenPrefix + accountId);
+        redisUtil.delete(accessTokenPrefix + accountId);
         redisUtil.delete(adminRefreshTokenPrefix + accountId);
         return Result.success("登出成功");
     }
@@ -243,7 +243,7 @@ public class AuthManager {
                 if (account.getRoleId() == null || !account.getRoleId().equals(roleId)) {
                     // 角色已变更，旧 refresh token 不再可信，清除并要求重新登录
                     redisUtil.delete(adminRefreshTokenPrefix + accountId);
-                    redisUtil.delete(adminAccessTokenPrefix + accountId);
+                    redisUtil.delete(accessTokenPrefix + accountId);
                     return Result.fail("账号角色已变更，请重新登录");
                 }
             } catch (NumberFormatException e) {
@@ -273,7 +273,7 @@ public class AuthManager {
             String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeSeconds);
 
             // 覆盖旧 access（旧 token 立即失效）
-            redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 30, TimeUnit.MINUTES);
+            redisUtil.setEx(accessTokenPrefix + accountId, newAccessJwt, 30, TimeUnit.MINUTES);
 
             response.setHeader("Authorization", "Bearer " + newAccessJwt);
             return Result.success(newAccessJwt);
