@@ -191,10 +191,17 @@ public class DoctorManager {
 
     public Result<List<AdminDoctorSimpleResponse>> listDoctorsSimpleResponseByDoctorName(String name){
         List<Doctor> doctorList = doctorService.listDoctorsSimpleResponseByDoctorName(name);
+        List<Long> departmentIds = doctorList.stream()
+                .map(Doctor::getDepartmentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Department> departmentMap = departmentService.listDepartmentsByIds(departmentIds).stream()
+                .collect(Collectors.toMap(Department::getId, d -> d));
         List<AdminDoctorSimpleResponse> result = doctorList
                 .stream()
                 .map(item -> {
-                    Department dept = item.getDepartmentId() == null ? null : departmentService.getDepartmentById(item.getDepartmentId());
+                    Department dept = departmentMap.get(item.getDepartmentId());
                     return new AdminDoctorSimpleResponse(
                         String.valueOf(item.getId()),
                         item.getName(),

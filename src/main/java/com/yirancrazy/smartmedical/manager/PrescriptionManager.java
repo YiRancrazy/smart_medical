@@ -59,7 +59,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -137,18 +136,19 @@ public class PrescriptionManager {
 
         // 2. 校验所有药品 + 库存 + 累计金额
         int totalAmount = 0;
-        // G12: drug 查询缓存，校验阶段查过的药品在创建明细阶段复用，避免重复查 DB
-        Map<Long, Drug> drugCache = new HashMap<>();
+        // 批量查药品和库存，消除 N+1
+        List<Long> drugIds = req.getItems().stream().map(PrescriptionItemRequest::getDrugId).distinct().collect(Collectors.toList());
+        Map<Long, Drug> drugCache = drugService.listDrugsByIds(drugIds).stream()
+                .collect(Collectors.toMap(Drug::getId, d -> d));
+        Map<Long, DrugInventory> inventoryCache = drugInventoryMapper.selectList(
+                new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
+                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
         for (PrescriptionItemRequest item : req.getItems()) {
-            Drug drug = drugService.getDrugById(item.getDrugId());
+            Drug drug = drugCache.get(item.getDrugId());
             if (drug == null) {
                 throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + item.getDrugId());
             }
-            drugCache.put(item.getDrugId(), drug);
-            DrugInventory inv = drugInventoryMapper.selectOne(
-                    new LambdaQueryWrapper<DrugInventory>()
-                            .eq(DrugInventory::getDrugId, item.getDrugId())
-                            .last("LIMIT 1"));
+            DrugInventory inv = inventoryCache.get(item.getDrugId());
             if (inv == null || inv.getAvailableQuantity() < item.getQuantity()) {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
                         "drugName=" + drug.getCommonName()
@@ -220,7 +220,6 @@ public class PrescriptionManager {
 
         // 6. 逐条:处方明细 + 订单明细 + 锁定库存 + 流水
         for (PrescriptionItemRequest item : req.getItems()) {
-            // G12: 从校验阶段缓存复用 drug，避免重复查 DB
             Drug drug = drugCache.get(item.getDrugId());
 
             PrescriptionItem rxItem = new PrescriptionItem();
@@ -242,10 +241,7 @@ public class PrescriptionManager {
             orderItemService.insertOrderItem(orderItem);
 
             // 锁定库存：locked += q, available -= q，原子扣减防止并发超卖
-            DrugInventory inv = drugInventoryMapper.selectOne(
-                    new LambdaQueryWrapper<DrugInventory>()
-                            .eq(DrugInventory::getDrugId, item.getDrugId())
-                            .last("LIMIT 1"));
+            DrugInventory inv = inventoryCache.get(item.getDrugId());
             if (inv == null) {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
                         "药品库存不存在：drugId=" + item.getDrugId());
@@ -356,11 +352,13 @@ public class PrescriptionManager {
         List<PrescriptionItem> items = prescriptionItemService.list(
                 new LambdaQueryWrapper<PrescriptionItem>()
                         .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        // 批量查库存，消除 N+1
+        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
+        Map<Long, DrugInventory> inventoryMap = drugInventoryMapper.selectList(
+                new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
+                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
         for (PrescriptionItem item : items) {
-            DrugInventory inv = drugInventoryMapper.selectOne(
-                    new LambdaQueryWrapper<DrugInventory>()
-                            .eq(DrugInventory::getDrugId, item.getDrugId())
-                            .last("LIMIT 1"));
+            DrugInventory inv = inventoryMap.get(item.getDrugId());
             if (inv == null) {
                 continue;
             }
@@ -520,9 +518,7 @@ public class PrescriptionManager {
                 .map(PrescriptionItem::getDrugId)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<Long, Drug> drugMap = drugIds.stream()
-                .map(drugService::getDrugById)
-                .filter(d -> d != null)
+        Map<Long, Drug> drugMap = drugService.listDrugsByIds(drugIds).stream()
                 .collect(Collectors.toMap(Drug::getId, d -> d));
 
         DoctorPrescriptionDetailVO vo = new DoctorPrescriptionDetailVO();
@@ -639,9 +635,7 @@ public class PrescriptionManager {
                 .map(PrescriptionItem::getDrugId)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<Long, Drug> drugMap = drugIds.stream()
-                .map(drugService::getDrugById)
-                .filter(d -> d != null)
+        Map<Long, Drug> drugMap = drugService.listDrugsByIds(drugIds).stream()
                 .collect(Collectors.toMap(Drug::getId, d -> d));
 
         PrescriptionDetailVO vo = new PrescriptionDetailVO();
@@ -873,9 +867,7 @@ public class PrescriptionManager {
                 .map(PrescriptionItem::getDrugId)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<Long, Drug> drugMap = drugIds.stream()
-                .map(drugService::getDrugById)
-                .filter(d -> d != null)
+        Map<Long, Drug> drugMap = drugService.listDrugsByIds(drugIds).stream()
                 .collect(Collectors.toMap(Drug::getId, d -> d));
 
         vo.setItems(items.stream().map(item -> {

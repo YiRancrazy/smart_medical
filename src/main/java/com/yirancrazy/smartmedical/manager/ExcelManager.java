@@ -25,10 +25,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Excel 导入管理器
@@ -117,7 +115,18 @@ public class ExcelManager {
         }
 
         // 去重：跳过文件内重复及数据库已存在的同医生/日期/开始时段模板
+        // 批量查已有模板，消除 N+1：按 (doctorId, date) 分组一次性查询
         Set<String> seen = new HashSet<>();
+        Map<String, List<RegistrationScheduleTemplate>> existingMap = new HashMap<>();
+        for (RegistrationScheduleTemplate template : templates) {
+            String groupKey = template.getDoctorId() + "@" + template.getRegistrationDate();
+            if (!existingMap.containsKey(groupKey)) {
+                List<RegistrationScheduleTemplate> existing = registrationScheduleTemplateService
+                        .getRegistrationScheduleTemplateByDoctorIdAndDate(
+                                template.getDoctorId(), template.getRegistrationDate());
+                existingMap.put(groupKey, existing == null ? Collections.emptyList() : existing);
+            }
+        }
         List<RegistrationScheduleTemplate> toInsert = new ArrayList<>();
         for (RegistrationScheduleTemplate template : templates) {
             String key = template.getDoctorId() + "#" + template.getRegistrationDate() + "#" + template.getStartTime();
@@ -126,10 +135,8 @@ public class ExcelManager {
                         template.getDoctorId(), template.getRegistrationDate(), template.getStartTime());
                 continue;
             }
-            List<RegistrationScheduleTemplate> existing = registrationScheduleTemplateService
-                    .getRegistrationScheduleTemplateByDoctorIdAndDate(
-                            template.getDoctorId(), template.getRegistrationDate());
-            boolean dup = existing != null && existing.stream()
+            String groupKey = template.getDoctorId() + "@" + template.getRegistrationDate();
+            boolean dup = existingMap.getOrDefault(groupKey, Collections.emptyList()).stream()
                     .anyMatch(e -> template.getStartTime() != null
                             && template.getStartTime().equals(e.getStartTime()));
             if (dup) {

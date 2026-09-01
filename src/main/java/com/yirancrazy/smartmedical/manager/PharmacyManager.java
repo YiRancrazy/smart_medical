@@ -37,8 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 药师业务编排
@@ -87,6 +87,24 @@ public class PharmacyManager {
                         .eq(Prescription::getStatus, PrescriptionStatus.PAID.getCode())
                         .orderByAsc(Prescription::getCreateTime));
         PageInfo<Prescription> pageInfo = new PageInfo<>(list);
+        // 批量加载病历和挂号，消除 N+1
+        List<Long> medicalRecordIds = list.stream()
+                .map(Prescription::getMedicalRecordId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, MedicalRecord> medicalRecordMap = medicalRecordIds.isEmpty() ? Collections.emptyMap() :
+                medicalRecordService.listByIds(medicalRecordIds).stream()
+                        .collect(Collectors.toMap(MedicalRecord::getId, r -> r));
+        List<Long> registrationIds = medicalRecordMap.values().stream()
+                .map(MedicalRecord::getRegistrationId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Registration> registrationMap = registrationIds.isEmpty() ? Collections.emptyMap() :
+                registrationService.listRegistrationsByIds(registrationIds).stream()
+                        .collect(Collectors.toMap(Registration::getId, r -> r));
+
         List<PendingPrescriptionVO> vos = new ArrayList<>();
         for (Prescription rx : list) {
             PendingPrescriptionVO vo = new PendingPrescriptionVO();
@@ -95,9 +113,9 @@ public class PharmacyManager {
             vo.setTotalAmount(rx.getTotalAmount());
             vo.setCreatedAt(rx.getCreateTime());
             if (rx.getMedicalRecordId() != null) {
-                MedicalRecord rec = medicalRecordService.getById(rx.getMedicalRecordId());
+                MedicalRecord rec = medicalRecordMap.get(rx.getMedicalRecordId());
                 if (rec != null && rec.getRegistrationId() != null) {
-                    Registration reg = registrationService.getRegistrationById(rec.getRegistrationId());
+                    Registration reg = registrationMap.get(rec.getRegistrationId());
                     if (reg != null) {
                         vo.setPatientId(reg.getUserId());
                         vo.setRegistrationSn(reg.getId());
@@ -136,9 +154,14 @@ public class PharmacyManager {
         vo.setPrescriptionId(prescriptionId);
         List<DispenseVO.DispenseItem> voItems = new ArrayList<>();
 
+        // 批量查药品信息，消除 N+1
+        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
+        Map<Long, Drug> drugMap = drugService.listDrugsByIds(drugIds).stream()
+                .collect(Collectors.toMap(Drug::getId, d -> d));
+
         // 对每个药品:FOR UPDATE 行锁 + 扣减 + 流水
         for (PrescriptionItem item : items) {
-            Drug drug = drugService.getDrugById(item.getDrugId());
+            Drug drug = drugMap.get(item.getDrugId());
 
             // 行锁(关键:必须用自定义 selectForUpdate 方法,锁该 drugId 对应库存行)
             DrugInventory inv = drugInventoryService.selectForUpdate(item.getDrugId());

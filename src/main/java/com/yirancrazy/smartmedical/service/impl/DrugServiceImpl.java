@@ -85,4 +85,12 @@ public class DrugServiceImpl implements DrugService {
                 .like(Drug::getTradeName, keyword)
                 .last("LIMIT 20"));
     }
+
+    @Override
+    public List<Drug> listDrugsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return drugMapper.selectBatchIds(ids);
+    }
 }

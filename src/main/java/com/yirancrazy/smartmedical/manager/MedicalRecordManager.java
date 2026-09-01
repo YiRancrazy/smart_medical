@@ -156,70 +156,73 @@ public class MedicalRecordManager {
 
     /**
      * 批量将病历实体转换为用户端列表 VO，补充科室/医生/就诊日期/处方ID
-     * ponytail: 逐条查询 N+1，单用户病历列表 < 100，可接受；若量大可改为批量 IN
+     * 批量查询消除 N+1
      * @param records 病历列表
      * @return 列表 VO 列表
      */
     public List<MedicalRecordListVO> toListVOs(List<MedicalRecord> records) {
-        List<MedicalRecordListVO> result = new ArrayList<>(records.size());
-        for (MedicalRecord record : records) {
+        if (records.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> patientIds = records.stream().map(MedicalRecord::getPatientId).distinct().collect(Collectors.toList());
+        List<Long> doctorIds = records.stream().map(MedicalRecord::getDoctorId).distinct().collect(Collectors.toList());
+        List<Long> registrationIds = records.stream().map(MedicalRecord::getRegistrationId).distinct().collect(Collectors.toList());
+        List<Long> recordIds = records.stream().map(MedicalRecord::getId).distinct().collect(Collectors.toList());
+
+        Map<Long, User> userMap = userService.listUsersByUserIds(patientIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, Doctor> doctorMap = doctorService.listDoctorsByIds(doctorIds).stream()
+                .collect(Collectors.toMap(Doctor::getId, d -> d));
+        List<Long> departmentIds = doctorMap.values().stream().map(Doctor::getDepartmentId).distinct().collect(Collectors.toList());
+        Map<Long, Department> departmentMap = departmentService.listDepartmentsByIds(departmentIds).stream()
+                .collect(Collectors.toMap(Department::getId, d -> d));
+        Map<Long, Registration> registrationMap = registrationService.listRegistrationsByIds(registrationIds).stream()
+                .collect(Collectors.toMap(Registration::getId, r -> r));
+        List<Long> scheduleIds = registrationMap.values().stream()
+                .map(Registration::getRegistrationScheduleId).distinct().collect(Collectors.toList());
+        Map<Long, RegistrationSchedule> scheduleMap = registrationScheduleService.listRegistrationSchedulesByIds(scheduleIds).stream()
+                .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s));
+        Map<Long, Prescription> prescriptionMap = prescriptionService.list(
+                new LambdaQueryWrapper<Prescription>().in(Prescription::getMedicalRecordId, recordIds))
+                .stream().collect(Collectors.toMap(Prescription::getMedicalRecordId, p -> p, (p1, p2) -> p1));
+
+        return records.stream().map(record -> {
             MedicalRecordListVO vo = new MedicalRecordListVO();
             vo.setId(record.getId());
             vo.setRegistrationId(record.getRegistrationId());
             vo.setDiagnosis(record.getDiagnosis());
             vo.setCreatedAt(record.getCreateTime());
-            fillPatientName(vo, record.getPatientId());
-            fillDoctorAndDepartment(vo, record.getDoctorId());
-            fillVisitDateAndPrescription(vo, record);
-            result.add(vo);
-        }
-        return result;
-    }
 
-    private void fillPatientName(MedicalRecordListVO vo, Long patientId) {
-        if (patientId == null) {
-            return;
-        }
-        User user = userService.getUserById(patientId);
-        if (user != null) {
-            vo.setPatientName(user.getNickname());
-        }
-    }
+            User user = userMap.get(record.getPatientId());
+            if (user != null) {
+                vo.setPatientName(user.getNickname());
+            }
 
-    private void fillDoctorAndDepartment(MedicalRecordListVO vo, Long doctorId) {
-        if (doctorId == null) {
-            return;
-        }
-        Doctor doctor = doctorService.getDoctorById(doctorId);
-        if (doctor != null) {
-            vo.setDoctorName(doctor.getName());
-            if (doctor.getDepartmentId() != null) {
-                Department dept = departmentService.getDepartmentById(doctor.getDepartmentId());
+            Doctor doctor = doctorMap.get(record.getDoctorId());
+            if (doctor != null) {
+                vo.setDoctorName(doctor.getName());
+                Department dept = departmentMap.get(doctor.getDepartmentId());
                 if (dept != null) {
                     vo.setDepartmentName(dept.getName());
                 }
             }
-        }
-    }
 
-    private void fillVisitDateAndPrescription(MedicalRecordListVO vo, MedicalRecord record) {
-        if (record.getRegistrationId() != null) {
-            Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
-            if (reg != null && reg.getRegistrationScheduleId() != null) {
-                RegistrationSchedule schedule = registrationScheduleService
-                        .getRegistrationScheduleById(reg.getRegistrationScheduleId());
+            Registration reg = registrationMap.get(record.getRegistrationId());
+            if (reg != null) {
+                RegistrationSchedule schedule = scheduleMap.get(reg.getRegistrationScheduleId());
                 if (schedule != null) {
                     vo.setVisitDate(schedule.getStartTime());
                 }
             }
-        }
-        Prescription prescription = prescriptionService.getOne(
-                new LambdaQueryWrapper<Prescription>()
-                        .eq(Prescription::getMedicalRecordId, record.getId())
-                        .last("LIMIT 1"));
-        if (prescription != null) {
-            vo.setPrescriptionId(prescription.getId());
-        }
+
+            Prescription prescription = prescriptionMap.get(record.getId());
+            if (prescription != null) {
+                vo.setPrescriptionId(prescription.getId());
+            }
+
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     /**

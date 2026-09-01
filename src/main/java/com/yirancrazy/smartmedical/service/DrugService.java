@@ -62,4 +62,11 @@ public interface DrugService {
      * @return 药品列表
      */
     List<Drug> listDrugsByKeyword(String keyword);
+
+    /**
+     * 根据ID列表批量查询药品
+     * @param ids 药品ID列表
+     * @return 药品列表
+     */
+    List<Drug> listDrugsByIds(List<Long> ids);
 }
