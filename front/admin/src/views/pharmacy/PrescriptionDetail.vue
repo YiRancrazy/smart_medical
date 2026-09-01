@@ -40,7 +40,7 @@
       <template v-if="dispenseResult">
         <a-descriptions :column="1" bordered size="small" class="result-desc">
           <a-descriptions-item label="处方ID">{{ dispenseResult.prescriptionId }}</a-descriptions-item>
-          <a-descriptions-item label="处方状态">{{ dispenseResult.prescriptionStatus }}</a-descriptions-item>
+          <a-descriptions-item label="处方状态">{{ prescriptionLabelMap[dispenseResult.prescriptionStatus] ?? dispenseResult.prescriptionStatus }}</a-descriptions-item>
           <a-descriptions-item label="发药时间">{{ formatDate(dispenseResult.dispensedAt) }}</a-descriptions-item>
         </a-descriptions>
         <a-table
@@ -62,6 +62,7 @@ import PageContainer from '@/components/common/PageContainer.vue'
 import GlassCard from '@/components/common/GlassCard.vue'
 import { getPrescription, dispense } from '@/api/pharmacy/prescription'
 import type { DispenseVO } from '@/api/pharmacy/prescription'
+import { prescriptionLabelMap } from '@/components/business/statusConfig'
 import { message } from 'ant-design-vue'
 import Modal from 'ant-design-vue/es/modal'
 
@@ -112,8 +113,8 @@ async function handleSearch() {
     const res = await getPrescription(prescriptionId.value)
     prescriptionDetail.value = res.data || null
     searched.value = true
-  } catch (error) {
-    message.error('查询处方详情失败')
+  } catch (error: any) {
+    message.error(error.message || '查询处方详情失败')
     prescriptionDetail.value = null
     searched.value = true
   } finally {
@@ -128,6 +129,9 @@ function formatDate(val: string) {
 
 function formatValue(key: string, val: any) {
   if (val === null || val === undefined) return '-'
+  if (key === 'status' || key === 'prescriptionStatus') {
+    return prescriptionLabelMap[Number(val)] || String(val)
+  }
   if (key === 'totalAmount' && typeof val === 'number') return (val / 100).toFixed(2) + '元'
   // ISO 8601 日期格式判断（YYYY-MM-DDTHH:mm:ss）
   if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(val)) return formatDate(val)
@@ -149,8 +153,8 @@ function handleDispense() {
         dispenseResult.value = res.data
         dispenseResultVisible.value = true
         handleSearch()
-      } catch (error) {
-        message.error('发药失败')
+      } catch (error: any) {
+        message.error(error.message || '发药失败')
       }
     }
   })

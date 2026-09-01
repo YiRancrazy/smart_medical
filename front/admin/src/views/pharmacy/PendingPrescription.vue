@@ -95,9 +95,9 @@ async function loadData() {
   loading.value = true
   try {
     const res = await getPendingList()
-    tableData.value = res.data || []
-  } catch (error) {
-    message.error('加载待发药列表失败')
+    tableData.value = res.data?.list || []
+  } catch (error: any) {
+    message.error(error.message || '加载待发药列表失败')
   } finally {
     loading.value = false
   }
@@ -121,8 +121,9 @@ function handleDispense(record: PendingPrescriptionVO) {
         dispenseResult.value = res.data
         dispenseResultVisible.value = true
         loadData()
-      } catch (error) {
-        message.error('发药失败')
+      } catch (error: any) {
+        message.error(error.message || '发药失败')
+        loadData()
       }
     }
   })
