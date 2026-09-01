@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.AdminManager;
 import com.yirancrazy.smartmedical.pojo.Admin;
+import com.yirancrazy.smartmedical.pojo.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,14 +26,14 @@ public class UserAdminControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加管理员", description = "添加新管理员")
-    public int addAdmin(@RequestBody Admin admin) {
-        return adminManager.addAdmin(admin);
+    public Result<Integer> addAdmin(@RequestBody Admin admin) {
+        return Result.success(adminManager.addAdmin(admin));
     }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取管理员", description = "根据管理员ID获取管理员信息")
     @Parameter(name = "id", description = "管理员ID", required = true)
-    public Admin getAdminById(@PathVariable String id) {
-        return adminManager.getAdminById(Long.parseLong(id));
+    public Result<Admin> getAdminById(@PathVariable String id) {
+        return Result.success(adminManager.getAdminById(Long.parseLong(id)));
     }
 }

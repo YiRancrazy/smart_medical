@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.OrderItemManager;
 import com.yirancrazy.smartmedical.pojo.OrderItem;
+import com.yirancrazy.smartmedical.pojo.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,14 +26,14 @@ public class UserOrderItemControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加订单明细", description = "添加新订单明细")
-    public int addOrderItem(@RequestBody OrderItem orderItem) {
-        return orderItemManager.addOrderItem(orderItem);
+    public Result<Integer> addOrderItem(@RequestBody OrderItem orderItem) {
+        return Result.success(orderItemManager.addOrderItem(orderItem));
     }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取订单明细", description = "根据订单明细ID获取订单明细信息")
     @Parameter(name = "id", description = "订单明细ID", required = true)
-    public OrderItem getOrderItemById(@PathVariable String id) {
-        return orderItemManager.getOrderItemById(Long.parseLong(id));
+    public Result<OrderItem> getOrderItemById(@PathVariable String id) {
+        return Result.success(orderItemManager.getOrderItemById(Long.parseLong(id)));
     }
 }

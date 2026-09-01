@@ -26,8 +26,8 @@ public class UserMedicineControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加药品", description = "添加新药品")
-    public int addMedicine(@RequestBody Medicine medicine) {
-        return medicineManager.addMedicine(medicine);
+    public Result<Integer> addMedicine(@RequestBody Medicine medicine) {
+        return Result.success(medicineManager.addMedicine(medicine));
     }
 
     @GetMapping("/{id:\\d+}")

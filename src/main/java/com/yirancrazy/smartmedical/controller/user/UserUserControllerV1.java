@@ -27,22 +27,22 @@ public class UserUserControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加用户", description = "添加新用户")
-    public int addUser(@RequestBody User user) {
-        return userManager.addUser(user);
+    public Result<Integer> addUser(@RequestBody User user) {
+        return Result.success(userManager.addUser(user));
     }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取用户", description = "根据用户ID获取用户信息")
     @Parameter(name = "id", description = "用户ID", required = true)
-    public User getUserById(@PathVariable String id) {
-        return userManager.getUserById(Long.parseLong(id));
+    public Result<User> getUserById(@PathVariable String id) {
+        return Result.success(userManager.getUserById(Long.parseLong(id)));
     }
 
     @DeleteMapping("/{id:\\d+}")
     @Operation(summary = "根据ID删除用户", description = "根据用户ID删除用户")
     @Parameter(name = "id", description = "用户ID", required = true)
-    public int deleteUserById(@PathVariable String id) {
-        return userManager.deleteUserById(Long.parseLong(id));
+    public Result<Integer> deleteUserById(@PathVariable String id) {
+        return Result.success(userManager.deleteUserById(Long.parseLong(id)));
     }
 
     @GetMapping("/baseinfo")

@@ -26,8 +26,8 @@ public class UserShiftControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加班次", description = "添加新班次")
-    public int addShift(@RequestBody Shift shift) {
-        return shiftManager.addShift(shift);
+    public Result<Integer> addShift(@RequestBody Shift shift) {
+        return Result.success(shiftManager.addShift(shift));
     }
 
     @GetMapping("/{id:\\d+}")

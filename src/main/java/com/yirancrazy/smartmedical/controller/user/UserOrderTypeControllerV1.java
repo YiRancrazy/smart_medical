@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.OrderTypeManager;
 import com.yirancrazy.smartmedical.pojo.OrderType;
+import com.yirancrazy.smartmedical.pojo.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,14 +26,14 @@ public class UserOrderTypeControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加订单类型", description = "添加新订单类型")
-    public int addOrderType(@RequestBody OrderType orderType) {
-        return orderTypeManager.addOrderType(orderType);
+    public Result<Integer> addOrderType(@RequestBody OrderType orderType) {
+        return Result.success(orderTypeManager.addOrderType(orderType));
     }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取订单类型", description = "根据订单类型ID获取订单类型信息")
     @Parameter(name = "id", description = "订单类型ID", required = true)
-    public OrderType getOrderTypeById(@PathVariable String id) {
-        return orderTypeManager.getOrderTypeById(Long.parseLong(id));
+    public Result<OrderType> getOrderTypeById(@PathVariable String id) {
+        return Result.success(orderTypeManager.getOrderTypeById(Long.parseLong(id)));
     }
 }
