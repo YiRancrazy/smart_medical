@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import org.springframework.transaction.annotation.Transactional;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
@@ -190,6 +191,7 @@ public class AccountManager {
      * @param request 更新请求体
      * @return 更新结果
      */
+    @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateAccount(Long accountId, AccountUpdateRequest request) {
         Account account = accountService.getAccountById(accountId);
         if (account == null) {
@@ -215,6 +217,7 @@ public class AccountManager {
      * @param accountId 账户 ID
      * @return 删除结果
      */
+    @Transactional(rollbackFor = Exception.class)
     public Result<Void> deleteAccount(Long accountId) {
         Account account = accountService.getAccountById(accountId);
         if (account == null) {
