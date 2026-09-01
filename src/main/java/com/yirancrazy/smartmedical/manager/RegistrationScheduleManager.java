@@ -149,9 +149,9 @@ public class RegistrationScheduleManager {
         return Result.success(registrationConfirmTimeList);
     }
 
-    public Result<Integer> getRegistrationPriceByRegistrationScheduleId(String registrationScheduleId) {
+    public Result<Integer> getRegistrationPriceByRegistrationScheduleId(Long registrationScheduleId) {
         RegistrationSchedule registrationSchedule = registrationScheduleService
-                .getRegistrationScheduleById(Long.valueOf(registrationScheduleId));
+                .getRegistrationScheduleById(registrationScheduleId);
         if (registrationSchedule == null) {
             return Result.fail("挂号排班不存在");
         }

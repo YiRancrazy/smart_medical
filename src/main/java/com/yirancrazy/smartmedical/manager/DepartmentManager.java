@@ -57,11 +57,11 @@ public class DepartmentManager {
         if (sn == null) {
             return Result.fail("科室编号不能为空");
         }
-        Long managerId = Convert.toLong(item.getManagerId(), null);
+        Long managerId = item.getManagerId();
         if (managerId == null) {
             return Result.fail("科室负责人不能为空");
         }
-        Long parentDepartmentId = Convert.toLong(item.getParentDepartmentId(), 0L);
+        Long parentDepartmentId = item.getParentDepartmentId() == null ? 0L : item.getParentDepartmentId();
 
         Department department = new Department();
         department.setId(IdUtil.getSnowflakeNextId());
@@ -104,8 +104,8 @@ public class DepartmentManager {
         department.setSn(Convert.toLong(item.getSn(), null));
         department.setName(item.getName());
         department.setType(item.getType());
-        department.setParentDepartmentId(Convert.toLong(item.getParentDepartmentId(), 0L));
-        department.setManager(Convert.toLong(item.getManagerId(), null));
+        department.setParentDepartmentId(item.getParentDepartmentId() == null ? 0L : item.getParentDepartmentId());
+        department.setManager(item.getManagerId());
         department.setPhone(item.getPhone());
         department.setAddress(item.getAddress());
         department.setStatus(Convert.toInt(item.getStatus(), 1));

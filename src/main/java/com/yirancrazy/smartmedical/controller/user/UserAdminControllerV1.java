@@ -33,7 +33,7 @@ public class UserAdminControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取管理员", description = "根据管理员ID获取管理员信息")
     @Parameter(name = "id", description = "管理员ID", required = true)
-    public Result<Admin> getAdminById(@PathVariable String id) {
-        return Result.success(adminManager.getAdminById(Long.parseLong(id)));
+    public Result<Admin> getAdminById(@PathVariable Long id) {
+        return Result.success(adminManager.getAdminById(id));
     }
 }

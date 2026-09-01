@@ -40,8 +40,8 @@ public class UserDepartmentControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取科室", description = "根据科室ID获取科室信息")
     @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Department> getDepartmentById(@PathVariable String id) {
-        return departmentManager.getDepartmentById(Long.parseLong(id));
+    public Result<Department> getDepartmentById(@PathVariable Long id) {
+        return departmentManager.getDepartmentById(id);
     }
 
     /**
@@ -172,7 +172,7 @@ public class UserDepartmentControllerV1 {
     @GetMapping("/child/baseInfo/list/parentId")
     @Operation(summary = "根据一级科室获取二级科室基本信息", description = "根据一级科室ID获取所有二级科室基本信息列表")
     @Parameter(name = "parentId", description = "一级科室ID", required = true)
-    public Result<List<ChildDepartmentBaseInfo>> listAllDepartmentBaseInfoByParentDepartmentId(@RequestParam("parentId") String parentId) {
-        return departmentManager.listAllDepartmentBaseInfoByParentDepartmentId(Long.parseLong(parentId));
+    public Result<List<ChildDepartmentBaseInfo>> listAllDepartmentBaseInfoByParentDepartmentId(@RequestParam("parentId") Long parentId) {
+        return departmentManager.listAllDepartmentBaseInfoByParentDepartmentId(parentId);
     }
 }

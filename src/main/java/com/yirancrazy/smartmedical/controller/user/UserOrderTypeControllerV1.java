@@ -33,7 +33,7 @@ public class UserOrderTypeControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取订单类型", description = "根据订单类型ID获取订单类型信息")
     @Parameter(name = "id", description = "订单类型ID", required = true)
-    public Result<OrderType> getOrderTypeById(@PathVariable String id) {
-        return Result.success(orderTypeManager.getOrderTypeById(Long.parseLong(id)));
+    public Result<OrderType> getOrderTypeById(@PathVariable Long id) {
+        return Result.success(orderTypeManager.getOrderTypeById(id));
     }
 }

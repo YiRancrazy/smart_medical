@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminDepartmentRequest {
-    private String id;                        // 科室ID
+    private Long id;                        // 科室ID
 
     @NotBlank(message = "科室编号不能为空")
     private String sn;                        // 科室编号
@@ -19,8 +19,8 @@ public class AdminDepartmentRequest {
     private String name;                      // 科室名称
     private String type;                      // 科室类型
     @JsonAlias("patentDepartmentId")
-    private String parentDepartmentId;        // 上级科室ID
-    private String managerId;                 // 科室管理员ID
+    private Long parentDepartmentId;        // 上级科室ID
+    private Long managerId;                 // 科室管理员ID
     private String phone;                     // 科室电话
     private String address;                   // 科室地址
     private String status;                    // 科室状态

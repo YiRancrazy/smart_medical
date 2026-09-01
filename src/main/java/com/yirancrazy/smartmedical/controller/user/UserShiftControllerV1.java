@@ -33,7 +33,7 @@ public class UserShiftControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取班次", description = "根据班次ID获取班次信息")
     @Parameter(name = "id", description = "班次ID", required = true)
-    public Result<Shift> getShiftById(@PathVariable String id) {
-        return Result.success(shiftManager.getShiftById(Long.parseLong(id)));
+    public Result<Shift> getShiftById(@PathVariable Long id) {
+        return Result.success(shiftManager.getShiftById(id));
     }
 }

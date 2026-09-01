@@ -41,9 +41,9 @@ public class UserChatControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取聊天记录", description = "根据聊天记录ID获取聊天记录")
     @Parameter(name = "id", description = "聊天记录ID", required = true)
-    public Result<Chat> getChatById(@PathVariable String id,
+    public Result<Chat> getChatById(@PathVariable Long id,
                                     @RequestAttribute("currentUserId") Long userId) {
-        Chat chat = chatManager.getChatById(Long.parseLong(id));
+        Chat chat = chatManager.getChatById(id);
         if (chat == null) {
             return Result.fail("聊天记录不存在");
         }

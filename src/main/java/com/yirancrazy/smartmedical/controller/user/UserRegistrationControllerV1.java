@@ -35,9 +35,9 @@ public class UserRegistrationControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息（U14: 返回包含医生/科室/排班的展示VO）")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
-    public Result<AppointmentResponseSimple> getRegistrationById(@PathVariable String id,
+    public Result<AppointmentResponseSimple> getRegistrationById(@PathVariable Long id,
                                                                  @RequestAttribute("currentUserId") Long userId) {
-        return registrationManager.getRegistrationById(Long.parseLong(id), userId);
+        return registrationManager.getRegistrationById(id, userId);
     }
 
     /**
@@ -50,17 +50,17 @@ public class UserRegistrationControllerV1 {
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
     public Result<String> insertRegistration(@Valid @RequestBody InsertRegistrationRequest request,
                                              @RequestAttribute("currentUserId") Long userId) {
-        // 参数校验：防止 null 或空字符串导致 Long.valueOf 异常
-        if (request.getRegistrationScheduleId() == null || request.getRegistrationScheduleId().isEmpty()) {
+        // 参数校验
+        if (request.getRegistrationScheduleId() == null) {
             return Result.fail("排班ID不能为空");
         }
-        if (request.getPatientCardId() == null || request.getPatientCardId().isEmpty()) {
+        if (request.getPatientCardId() == null) {
             return Result.fail("就诊卡ID不能为空");
         }
         return registrationManager.addRegistration(
-                Long.valueOf(request.getRegistrationScheduleId()),
+                request.getRegistrationScheduleId(),
                 userId,
-                Long.valueOf(request.getPatientCardId()));
+                request.getPatientCardId());
     }
 
     /**

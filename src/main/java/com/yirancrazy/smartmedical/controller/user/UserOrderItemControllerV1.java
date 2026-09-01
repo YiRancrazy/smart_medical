@@ -33,7 +33,7 @@ public class UserOrderItemControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取订单明细", description = "根据订单明细ID获取订单明细信息")
     @Parameter(name = "id", description = "订单明细ID", required = true)
-    public Result<OrderItem> getOrderItemById(@PathVariable String id) {
-        return Result.success(orderItemManager.getOrderItemById(Long.parseLong(id)));
+    public Result<OrderItem> getOrderItemById(@PathVariable Long id) {
+        return Result.success(orderItemManager.getOrderItemById(id));
     }
 }

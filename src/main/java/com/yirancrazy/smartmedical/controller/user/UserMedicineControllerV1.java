@@ -33,7 +33,7 @@ public class UserMedicineControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取药品", description = "根据药品ID获取药品信息")
     @Parameter(name = "id", description = "药品ID", required = true)
-    public Result<Medicine> getMedicineById(@PathVariable String id) {
-        return Result.success(medicineManager.getMedicineById(Long.parseLong(id)));
+    public Result<Medicine> getMedicineById(@PathVariable Long id) {
+        return Result.success(medicineManager.getMedicineById(id));
     }
 }

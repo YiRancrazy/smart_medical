@@ -38,16 +38,15 @@ public class UserDoctorControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取医生", description = "根据医生ID获取医生信息")
     @Parameter(name = "id", description = "医生ID", required = true)
-    public Result<DoctorVo
-            > getDoctorById(@PathVariable String id) {
-        return doctorManager.getDoctorById(Long.parseLong(id));
+    public Result<DoctorVo> getDoctorById(@PathVariable Long id) {
+        return doctorManager.getDoctorById(id);
     }
 
     @GetMapping("/registration/baseInfo")
     @Operation(summary = "根据科室ID获取科室下医生挂号的基本信息", description = "根据科室ID获取科室下医生挂号的基本信息")
     @Parameter(name = "departmentId", description = "科室ID", required = true)
-    public Result<List<RegistrationDoctorBaseInfo>> getRegistrationDoctorBaseInfoByDepartmentId(@RequestParam("departmentId") String departmentId){
-        return doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(Long.parseLong(departmentId));
+    public Result<List<RegistrationDoctorBaseInfo>> getRegistrationDoctorBaseInfoByDepartmentId(@RequestParam("departmentId") Long departmentId){
+        return doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(departmentId);
     }
 
 
@@ -70,7 +69,7 @@ public class UserDoctorControllerV1 {
     @GetMapping("/registration/confirm")
     @Operation(summary = "获取挂号确认信息", description = "根据医生ID获取挂号确认信息")
     @Parameter(name = "doctorId", description = "医生ID", required = true)
-    public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(@RequestParam("doctorId") String doctorId){
-        return doctorManager.getRegistrationDoctorConfirmInfo(Long.parseLong(doctorId));
+    public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(@RequestParam("doctorId") Long doctorId){
+        return doctorManager.getRegistrationDoctorConfirmInfo(doctorId);
     }
 }

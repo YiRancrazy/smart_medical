@@ -34,22 +34,22 @@ public class UserUserControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取用户", description = "根据用户ID获取用户信息")
     @Parameter(name = "id", description = "用户ID", required = true)
-    public Result<User> getUserById(@PathVariable String id) {
-        return Result.success(userManager.getUserById(Long.parseLong(id)));
+    public Result<User> getUserById(@PathVariable Long id) {
+        return Result.success(userManager.getUserById(id));
     }
 
     @DeleteMapping("/{id:\\d+}")
     @Operation(summary = "根据ID删除用户", description = "根据用户ID删除用户")
     @Parameter(name = "id", description = "用户ID", required = true)
-    public Result<Integer> deleteUserById(@PathVariable String id) {
-        return Result.success(userManager.deleteUserById(Long.parseLong(id)));
+    public Result<Integer> deleteUserById(@PathVariable Long id) {
+        return Result.success(userManager.deleteUserById(id));
     }
 
     @GetMapping("/baseinfo")
     @Operation(summary = "根据账号ID获取用户基本信息", description = "根据账号ID获取用户基本信息")
     @Parameter(name = "uid", description = "账号ID", required = true)
-    public Result<UserBaseInfo> getUserBaseInfoByAccountId(@RequestParam("userId") String userId) {
-        return userManager.getUserBaseInfoByUserId(Long.valueOf(userId));
+    public Result<UserBaseInfo> getUserBaseInfoByAccountId(@RequestParam("userId") Long userId) {
+        return userManager.getUserBaseInfoByUserId(userId);
     }
 
     

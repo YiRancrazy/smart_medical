@@ -71,8 +71,8 @@ public class UserRegistrationScheduleControllerV1 {
 
     @GetMapping("/doctor/recent")
     @Operation(summary = "获取最近七天该医生的排班信息", description = "获取最近七天该医生的排班信息")
-    public Result<List<RegistrationDateAndRemainQuotaVo>> getDoctorRegistrationDateByDoctorId(@RequestParam("doctorId") String doctorId){
-        return registrationScheduleManager.listRegistrationsByDoctorIdAndMaxAdvanceDays(Long.parseLong(doctorId));
+    public Result<List<RegistrationDateAndRemainQuotaVo>> getDoctorRegistrationDateByDoctorId(@RequestParam("doctorId") Long doctorId){
+        return registrationScheduleManager.listRegistrationsByDoctorIdAndMaxAdvanceDays(doctorId);
     }
 
     /**
@@ -83,8 +83,8 @@ public class UserRegistrationScheduleControllerV1 {
      */
     @GetMapping("/time")
     @Operation(summary = "获取该医生在指定日期的排班信息", description = "获取该医生在指定日期的排班信息")
-    public Result<List<RegistrationConfirmTime>> getRegistrationScheduleByDoctorIdAndDate(@RequestParam("doctorId") String doctorId, @RequestParam("date") LocalDate date){
-        return registrationScheduleManager.getRegistrationScheduleByDoctorIdAndDate(Long.parseLong(doctorId), date);
+    public Result<List<RegistrationConfirmTime>> getRegistrationScheduleByDoctorIdAndDate(@RequestParam("doctorId") Long doctorId, @RequestParam("date") LocalDate date){
+        return registrationScheduleManager.getRegistrationScheduleByDoctorIdAndDate(doctorId, date);
     }
 
     /**
@@ -94,7 +94,7 @@ public class UserRegistrationScheduleControllerV1 {
      */
     @GetMapping("/price")
     @Operation(summary = "获取挂号价格", description = "获取挂号价格")
-    public Result<Integer> getRegistrationPriceByRegistrationScheduleId(@RequestParam("registrationScheduleId") String registrationScheduleId){
+    public Result<Integer> getRegistrationPriceByRegistrationScheduleId(@RequestParam("registrationScheduleId") Long registrationScheduleId){
         return  registrationScheduleManager.getRegistrationPriceByRegistrationScheduleId(registrationScheduleId);
     }
 }
