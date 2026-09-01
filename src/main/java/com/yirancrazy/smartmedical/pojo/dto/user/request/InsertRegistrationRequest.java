@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.pojo.dto.user.request;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,7 +17,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class InsertRegistrationRequest {
     private String paymentMethodId;               // 支付方式id
+
+    @NotBlank(message = "排班ID不能为空")
     private String registrationScheduleId;        // 排班id
+
     private String userId;                           // 用户id
+
+    @NotBlank(message = "就诊卡ID不能为空")
     private String patientCardId;                 // 患者卡id
 }

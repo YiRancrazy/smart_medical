@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemV
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,7 +41,7 @@ public class AdminPrescriptionControllerV1 {
      */
     @Operation(summary = "管理员端 - 处方历史分页列表")
     @PostMapping("/page")
-    public Result<PageInfo<PrescriptionPageItemVO>> page(@RequestBody PrescriptionQueryRequest request) {
+    public Result<PageInfo<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
         return Result.success(prescriptionManager.pagePrescriptions(request, null));
     }
 

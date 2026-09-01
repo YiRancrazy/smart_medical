@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UserPatientRelationRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +27,7 @@ public class UserPatientRelationControllerV1 {
     @Operation(summary = "添加就诊人", description = "添加就诊人")
     @PostMapping
     public Result<Integer> insertUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
-                                                     @RequestBody UserPatientRelationRequest request) {
+                                                     @Valid @RequestBody UserPatientRelationRequest request) {
         return userPatientRelationManager.insertUserPatientRelation(currentUserId, request.getName(), request.getIdCard(),
                 request.getPhone(), request.getRelation(), request.getRemark(), request.getDefaulted());
     }
@@ -35,7 +36,7 @@ public class UserPatientRelationControllerV1 {
     @PutMapping("/{id}")
     public Result<Integer> updateUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
                                                      @PathVariable Long id,
-                                                     @RequestBody UserPatientRelationRequest request) {
+                                                     @Valid @RequestBody UserPatientRelationRequest request) {
         return userPatientRelationManager.updateUserPatientRelationById(currentUserId, id,
                 request.getName(), request.getPhone(), request.getIdCard(),
                 request.getRelation(), request.getRemark(), request.getDefaulted());

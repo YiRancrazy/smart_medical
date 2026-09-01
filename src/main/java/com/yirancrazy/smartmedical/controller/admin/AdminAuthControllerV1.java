@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,7 +38,7 @@ public class AdminAuthControllerV1 {
      */
     @PostMapping("/login")
     @Operation(summary = "管理员手机号密码登录")
-    public Result<String> login(@RequestBody AdminLoginByPhoneAndPasswordRequest loginRequest,HttpServletRequest request,HttpServletResponse response) {
+    public Result<String> login(@Valid @RequestBody AdminLoginByPhoneAndPasswordRequest loginRequest,HttpServletRequest request,HttpServletResponse response) {
         return authManager.loginByPhoneAndPassword(loginRequest.getPhone(),
                 loginRequest.getPassword(),
                 loginRequest.getRemember(),

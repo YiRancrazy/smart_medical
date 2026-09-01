@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.pojo.vo.ParentDepartmentBaseInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,7 +53,7 @@ public class UserDepartmentControllerV1 {
     @PutMapping("/{id:\\d+}")
     @Operation(summary = "更新科室", description = "更新科室信息")
     @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Integer> updateDepartment(@PathVariable Long id, @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
+    public Result<Integer> updateDepartment(@PathVariable Long id, @Valid @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
         return departmentManager.updateDepartment(id, adminDepartmentRequest);
     }
 

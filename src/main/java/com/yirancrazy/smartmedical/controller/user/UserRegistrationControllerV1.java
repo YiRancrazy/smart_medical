@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,7 +48,7 @@ public class UserRegistrationControllerV1 {
     // U03: @PostMapping("/") 在 PathPatternParser 下映射为 /registration/，前端 POST /registration 可能 404，改为无参匹配类级路径
     @PostMapping
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
-    public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request,
+    public Result<String> insertRegistration(@Valid @RequestBody InsertRegistrationRequest request,
                                              @RequestAttribute("currentUserId") Long userId) {
         // 参数校验：防止 null 或空字符串导致 Long.valueOf 异常
         if (request.getRegistrationScheduleId() == null || request.getRegistrationScheduleId().isEmpty()) {

@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItem
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,7 +41,7 @@ public class AdminMedicalRecordControllerV1 {
      */
     @Operation(summary = "管理员端 - 病历历史分页列表")
     @PostMapping("/page")
-    public Result<PageInfo<MedicalRecordPageItemVO>> page(@RequestBody MedicalRecordQueryRequest request) {
+    public Result<PageInfo<MedicalRecordPageItemVO>> page(@Valid @RequestBody MedicalRecordQueryRequest request) {
         return Result.success(medicalRecordManager.pageMedicalRecords(request, null));
     }
 

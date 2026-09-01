@@ -11,6 +11,7 @@ import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionLi
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -83,7 +84,7 @@ public class DoctorPrescriptionControllerV1 {
     @Operation(summary = "医生端 - 历史处方分页列表")
     @PostMapping("/history/page")
     public Result<PageInfo<PrescriptionPageItemVO>> historyPage(
-            @RequestBody PrescriptionQueryRequest request,
+            @Valid @RequestBody PrescriptionQueryRequest request,
             @RequestAttribute("currentDoctorId") Long doctorId) {
         return Result.success(prescriptionManager.pagePrescriptions(request, doctorId));
     }

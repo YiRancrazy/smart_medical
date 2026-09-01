@@ -8,6 +8,7 @@ import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,7 +42,7 @@ public class AdminAccountControllerV1 {
     @PutMapping("/{accountId}")
     @Operation(summary = "管理员端 - 更新账户（角色/启用状态/手机号）", description = "F20: 管理员编辑账户信息")
     public Result<Void> updateAccount(@PathVariable Long accountId,
-                                      @RequestBody AccountUpdateRequest request) {
+                                      @Valid @RequestBody AccountUpdateRequest request) {
         return accountManager.updateAccount(accountId, request);
     }
 

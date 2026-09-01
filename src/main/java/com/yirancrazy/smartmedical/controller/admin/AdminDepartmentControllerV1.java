@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,7 +38,7 @@ public class AdminDepartmentControllerV1 {
      */
     @PostMapping("/")
     @Operation(summary = "添加科室", description = "添加新科室")
-    public Result<Long> insertDepartment(@RequestBody AdminDepartmentRequest adminDepartmentRequest) {
+    public Result<Long> insertDepartment(@Valid @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
         return departmentManager.insertDepartment(adminDepartmentRequest);
     }
 
@@ -145,7 +146,7 @@ public class AdminDepartmentControllerV1 {
     @PutMapping("/{id:\\d+}")
     @Operation(summary = "管理员端 - 更新科室")
     @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Integer> updateDepartment(@PathVariable Long id, @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
+    public Result<Integer> updateDepartment(@PathVariable Long id, @Valid @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
         return departmentManager.updateDepartment(id, adminDepartmentRequest);
     }
 

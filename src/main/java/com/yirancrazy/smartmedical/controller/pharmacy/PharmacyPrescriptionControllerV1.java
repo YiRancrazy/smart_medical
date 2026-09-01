@@ -13,6 +13,7 @@ import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptio
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,7 +43,7 @@ public class PharmacyPrescriptionControllerV1 {
     /** 药师端 - 历史处方分页列表 */
     @Operation(summary = "药师端 - 历史处方分页列表")
     @PostMapping("/page")
-    public Result<PageInfo<PrescriptionPageItemVO>> page(@RequestBody PrescriptionQueryRequest request) {
+    public Result<PageInfo<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
         return Result.success(prescriptionManager.pagePrescriptions(request, null));
     }
 

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,7 +34,7 @@ public class UserAuthControllerV1 {
      */
     @PostMapping("/login")
     @Operation(summary = "用户登录", description = "用户登录接口")
-    public Result<LoginVo> login(@RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest, HttpServletResponse response) {
+    public Result<LoginVo> login(@Valid @RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest, HttpServletResponse response) {
         return authManager.login(phoneAndPasswordLoginRequest.getPhone(), phoneAndPasswordLoginRequest.getPassword(),response);
     }
 
@@ -45,7 +46,7 @@ public class UserAuthControllerV1 {
      */
     @PostMapping("/register")
     @Operation(summary = "用户注册", description = "用户注册接口")
-    public Result<String> register(@RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest) {
+    public Result<String> register(@Valid @RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest) {
         return authManager.register(phoneAndPasswordLoginRequest.getPhone(), phoneAndPasswordLoginRequest.getPassword());
     }
 

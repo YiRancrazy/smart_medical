@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.pojo.dto.user.request.SendTextMessageRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,7 +31,7 @@ public class UserChatControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加聊天记录", description = "添加新聊天记录")
-    public Result<Integer> addChat(@RequestBody Chat chat,
+    public Result<Integer> addChat(@Valid @RequestBody Chat chat,
                                    @RequestAttribute("currentUserId") Long userId) {
         // 强制以当前登录用户为发送者，防止身份伪造
         chat.setSendId(userId);
@@ -73,7 +74,7 @@ public class UserChatControllerV1 {
     @PostMapping("/send/text")
     @Operation(summary = "发送文字消息", description = "用户端 - 发送文字消息给医生")
     public Result<Chat> sendTextMessage(
-            @RequestBody SendTextMessageRequest request,
+            @Valid @RequestBody SendTextMessageRequest request,
             @RequestAttribute("currentUserId") Long userId) {
         Chat chat = chatManager.sendTextMessage(userId, request.getDoctorId(), request.getContent());
         return Result.success(chat);
@@ -101,7 +102,7 @@ public class UserChatControllerV1 {
     @PostMapping("/send/image")
     @Operation(summary = "发送图片消息", description = "用户端 - 发送图片消息给医生")
     public Result<Chat> sendImageMessage(
-            @RequestBody SendImageMessageRequest request,
+            @Valid @RequestBody SendImageMessageRequest request,
             @RequestAttribute("currentUserId") Long userId) {
         try {
             Chat chat = chatManager.sendImageMessage(userId, request.getDoctorId(), request.getImageUrl());

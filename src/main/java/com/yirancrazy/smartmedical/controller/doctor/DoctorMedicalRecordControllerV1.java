@@ -12,6 +12,7 @@ import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailV
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,7 +58,7 @@ public class DoctorMedicalRecordControllerV1 {
      */
     @Operation(summary = "医生端 - 保存病历草稿")
     @PostMapping("/draft")
-    public Result<Void> saveDraft(@RequestBody DraftMedicalRecordRequest req,
+    public Result<Void> saveDraft(@Valid @RequestBody DraftMedicalRecordRequest req,
                                   @RequestAttribute("currentDoctorId") Long doctorId) {
         medicalRecordManager.draft(req, doctorId);
         return Result.success(null);
@@ -71,7 +72,7 @@ public class DoctorMedicalRecordControllerV1 {
      */
     @Operation(summary = "医生端 - 提交病历+开处方")
     @PostMapping("/submit")
-    public Result<PrescriptionSubmitVO> submit(@RequestBody SubmitPrescriptionRequest req,
+    public Result<PrescriptionSubmitVO> submit(@Valid @RequestBody SubmitPrescriptionRequest req,
                                                @RequestAttribute("currentDoctorId") Long doctorId) {
         return Result.success(prescriptionManager.submit(req.getRegistrationId(), req, doctorId));
     }
@@ -85,7 +86,7 @@ public class DoctorMedicalRecordControllerV1 {
     @Operation(summary = "医生端 - 历史病历分页列表")
     @PostMapping("/history/page")
     public Result<PageInfo<MedicalRecordPageItemVO>> historyPage(
-            @RequestBody MedicalRecordQueryRequest request,
+            @Valid @RequestBody MedicalRecordQueryRequest request,
             @RequestAttribute("currentDoctorId") Long doctorId) {
         return Result.success(medicalRecordManager.pageMedicalRecords(request, doctorId));
     }

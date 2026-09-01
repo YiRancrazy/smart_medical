@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.pojo.dto.doctor.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -15,6 +16,7 @@ import lombok.Data;
 @Schema(description = "病历草稿请求")
 public class DraftMedicalRecordRequest {
 
+    @NotNull(message = "挂号记录ID不能为空")
     @Schema(description = "挂号记录ID")
     private Long registrationId;
 
