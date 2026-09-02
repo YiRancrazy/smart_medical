@@ -60,7 +60,7 @@ async function loadData() {
   loading.value = true
   try {
     const res = await getLowStockList()
-    tableData.value = res.data?.list || []
+    tableData.value = res.data || []
   } catch (error) {
     message.error('加载库存预警列表失败')
   } finally {

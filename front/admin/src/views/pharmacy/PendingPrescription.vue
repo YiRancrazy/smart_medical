@@ -95,7 +95,7 @@ async function loadData() {
   loading.value = true
   try {
     const res = await getPendingList()
-    tableData.value = res.data?.list || []
+    tableData.value = res.data || []
   } catch (error: any) {
     message.error(error.message || '加载待发药列表失败')
   } finally {
