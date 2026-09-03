@@ -2,9 +2,9 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE}
       timeout: 2000ms
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -15,7 +15,7 @@ spring:
 # CORS 允许的来源域名，多个用逗号分隔（如 https://admin.hospital.com,https://user.hospital.com）
 # 生产环境必须配置，禁止使用通配符；可通过 CORS_ALLOWED_ORIGINS 环境变量覆盖
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
 pagehelper:
   reasonable: true
@@ -25,8 +25,8 @@ pagehelper:
 
 # 配置JWT相关属性（密钥来自环境变量，禁止入库）
 jwt:
-  accessSecretKey: ${JWT_ACCESS_SECRET_KEY:dev-jwt-access-secret-placeholder}
-  refreshSecretKey: ${JWT_REFRESH_SECRET_KEY:dev-jwt-refresh-secret-placeholder}
+  accessSecretKey: ${JWT_ACCESS_SECRET_KEY}
+  refreshSecretKey: ${JWT_REFRESH_SECRET_KEY}
   accessTokenPrefix: admin-access-token
   admin:
     adminRefreshTokenPrefix: admin-refresh-token
@@ -34,8 +34,8 @@ jwt:
 minio:
   endpoint: http://localdev:9000
   bucket-name: imagehost
-  access-key: ${MINIO_ACCESS_KEY:dev-minio-access-placeholder}
-  secret-key: ${MINIO_SECRET_KEY:dev-minio-secret-placeholder}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
   img-size: 10                           # 图片大小限制，单位：m
   file-size: 10                          # 文件大小限制，单位：m
   file-host: http://localdev:9000
