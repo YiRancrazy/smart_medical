@@ -3,7 +3,4 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.yirancrazy.smartmedical.mapper.PatientCardMapper">
-<!--    <select id="getDefaultPatientBaseInfoByUserId" resultType="com.yirancrazy.smartmedical.pojo.PatientCard">-->
-<!--        SELECT * FROM patient_card p, user_and_patient_card u WHERE u.user_id = #{userId} and p.user_id = u.patient_card_id and u.is_default = 1;-->
-<!--    </select>-->
 </mapper>
