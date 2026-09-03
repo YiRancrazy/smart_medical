@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.crypto.CryptoException;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
@@ -24,6 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -230,7 +232,7 @@ public class AuthManager {
             try {
                 Object roleObj = payload.getClaim("role");
                 roleId = roleObj != null ? Long.parseLong(String.valueOf(roleObj)) : 4L;
-            } catch (Exception e) {
+            } catch (NumberFormatException e) {
                 roleId = 4L; // 默认user
             }
 
@@ -255,7 +257,7 @@ public class AuthManager {
             try {
                 Object userIdObj = payload.getClaim("userId");
                 userId = userIdObj != null ? Long.parseLong(String.valueOf(userIdObj)) : Long.parseLong(accountId);
-            } catch (Exception e) {
+            } catch (NumberFormatException e) {
                 userId = Long.parseLong(accountId);
             }
 
@@ -277,7 +279,7 @@ public class AuthManager {
 
             response.setHeader("Authorization", "Bearer " + newAccessJwt);
             return Result.success(newAccessJwt);
-        } catch (Exception e) {
+        } catch (CryptoException | DataAccessException | IllegalArgumentException e) {
             log.error("[refresh] 刷新token异常", e);
             return Result.fail("刷新token失败");
         }
