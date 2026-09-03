@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.pojo.dto.admin.request;
 
+import jakarta.validation.constraints.Min;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -28,8 +29,10 @@ public class PrescriptionQueryRequest {
     private LocalDate endDate;
 
     /** 页码，默认 1 */
+    @Min(value = 1, message = "页码不能小于 1")
     private Integer pageNum = 1;
 
     /** 每页条数，默认 10 */
+    @Min(value = 1, message = "每页条数不能小于 1")
     private Integer pageSize = 10;
 }
