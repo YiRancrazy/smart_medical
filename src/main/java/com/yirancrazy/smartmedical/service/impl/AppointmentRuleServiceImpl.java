@@ -6,7 +6,7 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.AppointmentRuleMapper;
 import com.yirancrazy.smartmedical.pojo.AppointmentRule;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,10 +19,10 @@ import java.util.List;
  */
 
 @Service
+@RequiredArgsConstructor
 public class AppointmentRuleServiceImpl implements AppointmentRuleService {
 
-    @Autowired
-    private AppointmentRuleMapper appointmentRuleMapper;
+    private final AppointmentRuleMapper appointmentRuleMapper;
 
     /**
      * 插入预约规则

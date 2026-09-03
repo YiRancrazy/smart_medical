@@ -6,7 +6,7 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.AppointmentBlacklistMapper;
 import com.yirancrazy.smartmedical.pojo.AppointmentBlacklist;
 import com.yirancrazy.smartmedical.service.AppointmentBlacklistService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,10 +19,10 @@ import java.util.List;
  */
 
 @Service
+@RequiredArgsConstructor
 public class AppointmentBlacklistServiceImpl implements AppointmentBlacklistService {
 
-    @Autowired
-    private AppointmentBlacklistMapper appointmentBlacklistMapper;
+    private final AppointmentBlacklistMapper appointmentBlacklistMapper;
 
     /**
      * 插入预约黑名单

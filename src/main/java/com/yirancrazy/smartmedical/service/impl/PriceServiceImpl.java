@@ -6,7 +6,7 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.PriceMapper;
 import com.yirancrazy.smartmedical.pojo.Price;
 import com.yirancrazy.smartmedical.service.PriceService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,10 +19,10 @@ import java.util.List;
  */
 
 @Service
+@RequiredArgsConstructor
 public class PriceServiceImpl implements PriceService {
 
-    @Autowired
-    private PriceMapper priceMapper;
+    private final PriceMapper priceMapper;
 
     /**
      * {@inheritDoc}
