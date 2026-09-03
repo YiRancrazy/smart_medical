@@ -47,7 +47,8 @@ public class AppointmentBlacklist {
     private LocalDate endDate;
 
     @Schema(description = "是否生效")
-    private Boolean isActive;
+    @TableField(value = "is_active")
+    private Boolean active;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
