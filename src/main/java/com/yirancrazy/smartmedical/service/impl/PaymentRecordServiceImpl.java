@@ -3,7 +3,6 @@ package com.yirancrazy.smartmedical.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
-//import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordResponseSimple;
 import com.yirancrazy.smartmedical.service.PaymentRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

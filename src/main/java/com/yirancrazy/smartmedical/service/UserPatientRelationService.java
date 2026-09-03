@@ -62,6 +62,4 @@ public interface UserPatientRelationService {
      * @return 是否有代理权限
      */
     boolean hasAuthorization(Long userId, Long patientUserId);
-
-//    UserPatientRelation getDefaultUserPatientRelationByUserId(Long userId);
 }

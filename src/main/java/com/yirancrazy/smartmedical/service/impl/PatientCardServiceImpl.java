@@ -95,27 +95,6 @@ public class PatientCardServiceImpl implements PatientCardService {
     public int deleteBatch(List<Long> ids) {
         return patientCardMapper.deleteBatchIds(ids);
     }
-/// TODO 2026-02-28 12:02:19 临时注释, 七日后失效即可删除
-    
-    //    /**
-//     * 根据用户ID获取就诊卡信息
-//     * @param userId 用户ID
-//     * @return 就诊卡信息
-//     */
-//    @Override
-//    public PatientCard getPatientCardByUserId(Long userId) {
-//        return patientCardMapper.selectOne(new QueryWrapper<PatientCard>().eq("user_id",userId));
-//    }
-
-//    /**
-//     * 获取默认就诊人基本信息
-//     * @param userId 账号ID
-//     * @return
-//     */
-//    @Override
-//    public PatientCard getDefaultPatientBaseInfoByUserId(Long userId) {
-//        return patientCardMapper.getDefaultPatientBaseInfoByUserId(userId);
-//    }
 
     /**
      * 根据用户ID获取所有就诊卡信息

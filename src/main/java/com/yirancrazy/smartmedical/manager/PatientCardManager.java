@@ -211,11 +211,6 @@ public class PatientCardManager {
         List<PatientCardSimpleResponse> result = new ArrayList<>();
         for (Patient patient : patients) {
             PatientCardSimpleResponse item = new PatientCardSimpleResponse();
-//            User currentUser = users
-//                    .stream()
-//                    .filter(user -> user.getId().equals(patient.getUserId()))
-//                    .findFirst()
-//                    .orElse(null);
             User patientUser = patientUsers
                     .stream()
                     .filter(user -> user.getId().equals(patient.getUserId()))

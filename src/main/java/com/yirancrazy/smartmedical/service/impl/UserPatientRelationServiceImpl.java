@@ -102,11 +102,4 @@ public class UserPatientRelationServiceImpl implements UserPatientRelationServic
                 .eq("patient_user_id", patientUserId)
                 .eq("is_authorized", 1)) > 0;
     }
-
-//    @Override
-//    public UserPatientRelation getDefaultUserPatientRelationByUserId(Long userId) {
-//        return userPatientRelationMapper.selectOne(new QueryWrapper<UserPatientRelation>()
-//                .eq("user_id", userId)
-//                .eq("is_default", 1));
-//    }
 }

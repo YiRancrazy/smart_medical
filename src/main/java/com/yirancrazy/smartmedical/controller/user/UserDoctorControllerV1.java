@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.DoctorManager;
-import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.DoctorVo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
@@ -29,12 +28,6 @@ public class UserDoctorControllerV1 {
 
     private final DoctorManager doctorManager;
 
-//    @PostMapping("/add")
-//    @Operation(summary = "添加医生", description = "添加新医生")
-//    public int addDoctor(@RequestBody Doctor doctor) {
-//        return doctorManager.addDoctor(doctor);
-//    }
-//
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取医生", description = "根据医生ID获取医生信息")
     @Parameter(name = "id", description = "医生ID", required = true)

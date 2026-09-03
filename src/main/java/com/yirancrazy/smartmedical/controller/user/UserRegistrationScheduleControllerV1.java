@@ -1,12 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.RegistrationScheduleManager;
-import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmTime;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationDateAndRemainQuotaVo;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,44 +28,6 @@ import java.util.List;
 public class UserRegistrationScheduleControllerV1 {
 
     private final RegistrationScheduleManager registrationScheduleManager;
-
-//    @PostMapping("/add")
-//    @Operation(summary = "添加排班", description = "添加新排班")
-//    public Result<Integer> addRegistrationSchedule(@RequestBody RegistrationSchedule registrationSchedule) {
-//        return registrationScheduleManager.addRegistrationSchedule(registrationSchedule);
-//    }
-//
-//    @GetMapping("/{id}")
-//    @Operation(summary = "根据ID获取排班", description = "根据排班ID获取排班信息")
-//    @Parameter(name = "id", description = "排班ID", required = true)
-//    public Result<RegistrationSchedule> getRegistrationScheduleById(@PathVariable String id) {
-//        return registrationScheduleManager.getRegistrationScheduleById(id);
-//    }
-//
-//    @PutMapping("/update")
-//    @Operation(summary = "更新排班", description = "更新排班信息")
-//    public Result<Integer> updateRegistrationSchedule(@RequestBody RegistrationSchedule registrationSchedule) {
-//        return registrationScheduleManager.updateRegistrationSchedule(registrationSchedule);
-//    }
-//
-//    @DeleteMapping("/delete/{id}")
-//    @Operation(summary = "删除排班", description = "根据ID删除排班")
-//    @Parameter(name = "id", description = "排班ID", required = true)
-//    public Result<Integer> deleteRegistrationScheduleById(@PathVariable String id) {
-//        return registrationScheduleManager.deleteRegistrationScheduleById(id);
-//    }
-//
-//    @GetMapping("/list")
-//    @Operation(summary = "获取所有排班", description = "获取所有排班列表")
-//    public Result<List<RegistrationSchedule>> getAllRegistrationSchedules() {
-//        return registrationScheduleManager.getAllRegistrationSchedules();
-//    }
-//
-//    @PostMapping("/deleteBatch")
-//    @Operation(summary = "批量删除排班", description = "批量删除排班")
-//    public Result<Integer> deleteBatch(@RequestBody List<String> ids) {
-//        return registrationScheduleManager.deleteBatch(ids);
-//    }
 
     @GetMapping("/doctor/recent")
     @Operation(summary = "获取最近七天该医生的排班信息", description = "获取最近七天该医生的排班信息")
