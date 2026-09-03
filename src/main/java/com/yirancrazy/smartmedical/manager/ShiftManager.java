@@ -7,6 +7,7 @@ import com.yirancrazy.smartmedical.pojo.Shift;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.ShiftSimpleResponse;
 import com.yirancrazy.smartmedical.service.ShiftService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ import java.util.List;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class ShiftManager {

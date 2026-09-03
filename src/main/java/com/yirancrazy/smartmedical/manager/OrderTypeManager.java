@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.OrderType;
 import com.yirancrazy.smartmedical.service.OrderTypeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class OrderTypeManager {

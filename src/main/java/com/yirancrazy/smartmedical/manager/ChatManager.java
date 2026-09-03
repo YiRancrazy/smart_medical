@@ -8,6 +8,7 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.ChatService;
 import com.yirancrazy.smartmedical.utils.MinIOUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class ChatManager {

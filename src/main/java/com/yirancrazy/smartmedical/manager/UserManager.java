@@ -11,6 +11,7 @@ import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class UserManager {
@@ -86,7 +88,7 @@ public class UserManager {
      */
     public Result<UserBaseInfo> getUserBaseInfoByUserId(Long userId) {
         UserBaseInfo userBaseInfo = userService.getUserBaseInfoByUserId(userId);
-        System.out.println(userBaseInfo);
+        log.info("获取用户基础信息: {}", userBaseInfo);
         return Result.success(userBaseInfo);
     }
 }
