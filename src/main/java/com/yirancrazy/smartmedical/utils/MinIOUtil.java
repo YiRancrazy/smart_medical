@@ -467,7 +467,6 @@ public class MinIOUtil {
             Iterable<Result<Item>> results = minioClient.listObjects(listObjectsArgs);
 
             for (Result<Item> result : results) {
-                System.out.println(size);
                 size += result.get().size();
             }
         } catch (ErrorResponseException | InsufficientDataException | InternalException |

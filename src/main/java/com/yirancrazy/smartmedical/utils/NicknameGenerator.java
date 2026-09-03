@@ -225,25 +225,4 @@ public class NicknameGenerator {
         RANDOM_ALPHANUMERIC, // 随机字母数字
         RANDOM              // 完全随机
     }
-    
-    // 测试方法
-    public static void main(String[] args) {
-        System.out.println("=== 随机昵称生成测试 ===");
-        System.out.println("中文昵称: " + generateChineseNickname());
-        System.out.println("英文昵称: " + generateEnglishNickname());
-        System.out.println("英文昵称(点分隔): " + generateEnglishNicknameWithDot());
-        System.out.println("动物主题: " + generateAnimalNickname());
-        System.out.println("自然主题: " + generateNatureNickname());
-        System.out.println("带数字昵称: " + generateNicknameWithNumbers());
-        System.out.println("简洁英文: " + generateSimpleEnglishNickname());
-        System.out.println("随机字母: " + generateRandomAlphabeticNickname(10));
-        System.out.println("随机字母数字: " + generateRandomAlphanumericNickname(10));
-        System.out.println("完全随机: " + generateRandomNickname());
-        
-        System.out.println("\n=== 批量生成测试 ===");
-        String[] batch = generateBatchNicknames(5, NicknameType.CHINESE);
-        for (int i = 0; i < batch.length; i++) {
-            System.out.println("昵称 " + (i + 1) + ": " + batch[i]);
-        }
-    }
 }
