@@ -14,5 +14,10 @@ import java.util.List;
 
 
 public class RoleConstant {
+    /** 系统管理员角色 ID */
+    public static final long ROLE_ADMIN_ID = 1L;
+    /** 医生角色 ID */
+    public static final long ROLE_DOCTOR_ID = 2L;
+
     public static final List<Role> ROLE_LIST = new ArrayList<>();
 }

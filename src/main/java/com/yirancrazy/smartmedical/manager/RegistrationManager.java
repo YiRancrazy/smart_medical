@@ -6,6 +6,7 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.*;
@@ -127,7 +128,7 @@ public class RegistrationManager {
         order.setId(IdUtil.getSnowflakeNextId());
         order.setSn(IdUtil.getSnowflakeNextId());
         order.setUserId(patient.getUserId());
-        order.setOrderTypeId(1L);
+        order.setOrderTypeId(OrderTypeConstant.REGISTRATION);
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(price);
         order.setOrderCreateTime(LocalDateTime.now());

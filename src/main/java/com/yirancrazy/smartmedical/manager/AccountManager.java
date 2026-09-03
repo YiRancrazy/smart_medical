@@ -18,6 +18,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.yirancrazy.smartmedical.constant.DepartmentConstant.DEPARTMENT_LIST;
+import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_ADMIN_ID;
+import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_DOCTOR_ID;
 import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 
 /**
@@ -93,10 +95,10 @@ public class AccountManager {
         if (roleId == null) {
             // 未指定 roleId 时按账号实际 roleId 分别拉取
             List<Long> adminUserIds = accounts.stream()
-                    .filter(a -> a.getRoleId() != null && a.getRoleId() == 1L)
+                    .filter(a -> a.getRoleId() != null && a.getRoleId() == ROLE_ADMIN_ID)
                     .map(Account::getUserId).toList();
             List<Long> doctorUserIds = accounts.stream()
-                    .filter(a -> a.getRoleId() != null && a.getRoleId() == 2L)
+                    .filter(a -> a.getRoleId() != null && a.getRoleId() == ROLE_DOCTOR_ID)
                     .map(Account::getUserId).toList();
             if (!adminUserIds.isEmpty()) {
                 adminList = adminService.listAdminsByIds(adminUserIds);
@@ -104,9 +106,9 @@ public class AccountManager {
             if (!doctorUserIds.isEmpty()) {
                 doctorList = doctorService.listDoctorsByIds(doctorUserIds);
             }
-        } else if (roleId == 1L) {
+        } else if (roleId == ROLE_ADMIN_ID) {
             adminList = adminService.listAdminsByIds(accounts.stream().map(Account::getUserId).toList());
-        } else if (roleId == 2L) {
+        } else if (roleId == ROLE_DOCTOR_ID) {
             doctorList = doctorService.listDoctorsByIds(accounts.stream().map(Account::getUserId).toList());
         }
 
@@ -128,8 +130,8 @@ public class AccountManager {
         response.setUpdateTime(account.getUpdateTime());
 
         Long accRole = account.getRoleId();
-        boolean isAdmin = Objects.equals(roleId, 1L) || (roleId == null && accRole != null && accRole == 1L);
-        boolean isDoctor = Objects.equals(roleId, 2L) || (roleId == null && accRole != null && accRole == 2L);
+        boolean isAdmin = Objects.equals(roleId, ROLE_ADMIN_ID) || (roleId == null && accRole != null && accRole == ROLE_ADMIN_ID);
+        boolean isDoctor = Objects.equals(roleId, ROLE_DOCTOR_ID) || (roleId == null && accRole != null && accRole == ROLE_DOCTOR_ID);
 
         if (isAdmin) {
             Admin admin = adminList.stream()

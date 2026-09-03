@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
+import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -76,10 +78,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PrescriptionManager {
 
-    /** 订单类型:药品订单(DDL order_type.id=2) */
-    private static final long ORDER_TYPE_DRUG = 2L;
-    /** 项目类型:药品(DDL production_type.id=1) */
-    private static final long PRODUCTION_TYPE_DRUG = 1L;
     /** 库存异动类型:锁定 */
     private static final int TXN_LOCK = 4;
     /** 库存异动类型:解锁 */
@@ -265,7 +263,7 @@ public class PrescriptionManager {
         Order order = new Order();
         order.setId(IdUtil.getSnowflakeNextId());
         order.setUserId(reg.getUserId());
-        order.setOrderTypeId(ORDER_TYPE_DRUG);
+        order.setOrderTypeId(OrderTypeConstant.DRUG);
         order.setSn(IdUtil.getSnowflakeNextId());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(totalAmount);
@@ -299,7 +297,7 @@ public class PrescriptionManager {
             orderItem.setId(IdUtil.getSnowflakeNextId());
             orderItem.setOrderId(order.getId());
             orderItem.setProductionId(item.getDrugId());
-            orderItem.setProductionTypeId(PRODUCTION_TYPE_DRUG);
+            orderItem.setProductionTypeId(ProductionTypeConstant.DRUG);
             orderItem.setQuantity(item.getQuantity());
             orderItem.setProductionName(drug.getCommonName());
             orderItemService.insertOrderItem(orderItem);

@@ -4,6 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.PayMethodConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -35,8 +36,6 @@ import java.util.stream.Collectors;
 @Manager
 @RequiredArgsConstructor
 public class PaymentRecordManager {
-    /** 默认支付方式:4 现金 */
-    private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
     /** 支付记录状态:2 成功 */
     private static final int PAYMENT_STATUS_SUCCESS = 2;
 
@@ -230,7 +229,7 @@ public class PaymentRecordManager {
         record.setOrderId(orderId);
         record.setTotalAmount(order.getTotalAmount());
         record.setRealAmount(realAmount != null ? realAmount : order.getTotalAmount());
-        record.setPaymentMethodId(paymentMethodId != null ? paymentMethodId : DEFAULT_PAYMENT_METHOD_ID);
+        record.setPaymentMethodId(paymentMethodId != null ? paymentMethodId : PayMethodConstant.CASH);
         record.setStatus(PAYMENT_STATUS_SUCCESS);
         record.setTransactionSn(transactionSn);
         record.setPaymentTime(LocalDateTime.now());
