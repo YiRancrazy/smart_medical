@@ -36,14 +36,15 @@ public class CaptchaVerifyFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     /**
-     * 需先通过滑块校验的接口（四端登录 + 用户注册）
+     * 需先通过滑块校验的接口（四端登录 + 用户注册 + 忘记密码）
      */
     private static final List<String> GUARDED_PATHS = List.of(
             "/api/admin/v1/auth/login",
             "/api/user/v1/auth/login",
+            "/api/user/v1/auth/register",
+            "/api/user/v1/auth/forgot-password",
             "/api/doctor/v1/auth/login",
-            "/api/pharmacy/v1/auth/login",
-            "/api/user/v1/auth/register"
+            "/api/pharmacy/v1/auth/login"
     );
 
     private final CaptchaSupport captchaSupport;

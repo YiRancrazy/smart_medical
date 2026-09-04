@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.ChangePasswordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.PhoneAndPasswordLoginRequest;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,6 +68,30 @@ public class UserAuthControllerV1 {
     public Result<String> refresh(@CookieValue(value = "Refresh-token", required = false) String refreshToken,
                                    HttpServletResponse response) {
         return authManager.refresh(refreshToken, response);
+    }
+
+    /**
+     * 用户忘记密码重置（未登录，需先通过滑块验证）
+     * @param phoneAndPasswordLoginRequest 手机号和新密码
+     * @return 重置结果
+     */
+    @PostMapping("/forgot-password")
+    @Operation(summary = "用户端 - 忘记密码", description = "未登录重置密码，需先通过滑块验证")
+    public Result<String> forgotPassword(@Valid @RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest) {
+        return authManager.forgotPassword(phoneAndPasswordLoginRequest.getPhone(), phoneAndPasswordLoginRequest.getPassword());
+    }
+
+    /**
+     * 用户登录态修改密码
+     * @param changePasswordRequest 原密码和新密码
+     * @param accountId 当前登录账号ID
+     * @return 修改结果
+     */
+    @PostMapping("/change-password")
+    @Operation(summary = "用户端 - 修改密码", description = "登录态修改登录密码")
+    public Result<String> changePassword(@Valid @RequestBody ChangePasswordRequest changePasswordRequest,
+                                         @RequestAttribute("currentAccountId") Long accountId) {
+        return authManager.changePassword(accountId, changePasswordRequest.getOldPassword(), changePasswordRequest.getNewPassword());
     }
 
 }

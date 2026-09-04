@@ -209,6 +209,66 @@ public class AuthManager {
     }
 
     /**
+     * 用户忘记密码重置（未登录，由 CaptchaVerifyFilter 守卫先过滑块）
+     * @param phone 用户手机号
+     * @param newPassword 新密码
+     * @return 重置结果
+     */
+    public Result<String> forgotPassword(String phone, String newPassword) {
+        checkLoginRate(phone);
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            return Result.fail("密码长度至少 6 位");
+        }
+        Account account = accountService.getAccountByPhone(phone)
+                .stream()
+                .filter(a -> USER_ROLE.equals(a.getRoleId()))
+                .findFirst()
+                .orElse(null);
+        if (account == null) {
+            return Result.info(10001, "账号不存在", null);
+        }
+        // 直接以 BCrypt 覆盖，消除历史弱密码
+        account.setPassword(PasswordUtil.encode(newPassword));
+        accountService.updateAccountById(account);
+        // 清理该账号所有 token，强制旧会话失效、重新登录
+        redisUtil.delete(accessTokenPrefix + account.getId());
+        redisUtil.delete(adminRefreshTokenPrefix + account.getId());
+        log.info("[forgot-password] 密码已重置, accountId={}", account.getId());
+        return Result.success("重置成功");
+    }
+
+    /**
+     * 用户登录态修改密码，校验原密码后更新
+     * @param accountId 账号ID
+     * @param oldPassword 原密码
+     * @param newPassword 新密码
+     * @return 修改结果
+     */
+    public Result<String> changePassword(Long accountId, String oldPassword, String newPassword) {
+        Account account = accountService.getAccountById(accountId);
+        if (account == null) {
+            return Result.info(10001, "账号不存在", null);
+        }
+        if (!PasswordUtil.verify(oldPassword, account.getPassword())) {
+            log.warn("[change-password] 原密码错误, accountId={}", accountId);
+            return Result.info(10002, "原密码不正确", null);
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            return Result.fail("新密码长度至少 6 位");
+        }
+        account.setPassword(PasswordUtil.encode(newPassword));
+        accountService.updateAccountById(account);
+        // 强制重新登录：清除 Redis 中该账号的全部 token
+        redisUtil.delete(accessTokenPrefix + accountId);
+        redisUtil.delete(adminRefreshTokenPrefix + accountId);
+        log.info("[change-password] 密码已修改, accountId={}", accountId);
+        return Result.success("密码修改成功");
+    }
+
+    /**
      * 刷新 access token（消费 Refresh-token Cookie）
      * @param refreshToken Cookie 中的 refresh JWT
      * @param response 用于写入新 Authorization header

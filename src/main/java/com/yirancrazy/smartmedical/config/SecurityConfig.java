@@ -51,6 +51,7 @@ public class SecurityConfig {
             "/api/admin/v1/auth/refresh",
             "/api/user/v1/auth/login",
             "/api/user/v1/auth/register",
+            "/api/user/v1/auth/forgot-password",
             "/api/user/v1/auth/refresh",
             "/api/doctor/v1/auth/login",
             "/api/doctor/v1/auth/refresh",
