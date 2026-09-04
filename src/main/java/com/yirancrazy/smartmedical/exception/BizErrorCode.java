@@ -34,7 +34,11 @@ public enum BizErrorCode {
     CONCURRENT_OPERATION(7001, "操作冲突，请刷新后重试"),
     LOGIN_RATE_LIMITED(8001, "登录尝试过于频繁，请5分钟后再试"),
     PATIENT_DATA_INVALID(9001, "就诊人数据异常"),
-    OPERATION_NOT_SUPPORTED(9002, "当前环境不支持此操作");
+    OPERATION_NOT_SUPPORTED(9002, "当前环境不支持此操作"),
+    SMS_CODE_SEND_TOO_FREQUENT(8002, "验证码发送过于频繁，请稍后再试"),
+    SMS_CODE_SEND_FAILED(8003, "验证码发送失败，请稍后再试"),
+    SMS_CODE_EXPIRED(8004, "验证码已过期，请重新获取"),
+    SMS_CODE_WRONG(8005, "验证码错误");
 
     private final int code;
     private final String defaultMessage;

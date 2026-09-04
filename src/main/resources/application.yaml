@@ -19,3 +19,12 @@ aj:
     req-get-lock-limit: 5              # get 超限触发锁定
     req-get-lock-seconds: 120          # 锁定时长
     req-verify-minute-limit: 60
+
+# 短信验证码（Spug push）配置
+# template-code 是短信模板编码（调用凭证），必须走环境变量 SMS_TEMPLATE_CODE；
+# 未配置（空）时进入 mock 模式：不发真实短信，验证码打印到后端日志，便于本地联调。
+sms:
+  base-url: https://push.spug.cc/sms/
+  template-code: ${SMS_TEMPLATE_CODE:}
+  code-expire-minutes: 5    # 验证码有效期（分钟）
+  resend-seconds: 60        # 重发冷却（秒）
