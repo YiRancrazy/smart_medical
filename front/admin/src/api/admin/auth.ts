@@ -1,6 +1,7 @@
 import axios from 'axios'
 import request from '../index'
 import type { Result } from '../types'
+import { getDeviceId } from '@/utils/captcha'
 
 function isValidJwt(token: string): boolean {
   return typeof token === 'string' && token.split('.').length === 3
@@ -38,7 +39,8 @@ const baseURL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').r
 export async function loginByRole(role: number, data: LoginParams): Promise<Result<string>> {
   const prefix = role === 1 ? 'admin' : role === 2 ? 'doctor' : 'pharmacy'
   const response = await axios.post(`${baseURL}/api/${prefix}/v1/auth/login`, data, {
-    withCredentials: true
+    withCredentials: true,
+    headers: { 'X-Device-Id': getDeviceId() }
   })
 
   const resData = response.data as Result<string>

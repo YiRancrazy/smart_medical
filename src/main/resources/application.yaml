@@ -6,3 +6,16 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+# 行为验证码（AJ-Captcha）配置
+aj:
+  captcha:
+    type: blockPuzzle        # 滑块拼图为主；如需文字兜底可切 text
+    cache-type: local        # 答案存本地内存（starter 1.4.0 的 jar 内仅有 MemImpl，识别 redis 会因缺实现而空指针）
+    water-mark: SmartMedical # 底部水印
+    req-frequency-limit-enable: true
+    req-get-minute-limit: 100          # 每分钟 get 上限
+    req-check-minute-limit: 60         # 每分钟 check 上限
+    req-get-lock-limit: 5              # get 超限触发锁定
+    req-get-lock-seconds: 120          # 锁定时长
+    req-verify-minute-limit: 60

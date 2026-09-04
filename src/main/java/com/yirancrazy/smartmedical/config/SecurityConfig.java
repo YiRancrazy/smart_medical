@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yirancrazy.smartmedical.filter.CaptchaVerifyFilter;
 import com.yirancrazy.smartmedical.filter.JwtAuthenticationFilter;
 import com.yirancrazy.smartmedical.pojo.Result;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CaptchaVerifyFilter captchaVerifyFilter;
 
     /**
      * CROSS-04: 统一白名单，供 JwtAuthenticationFilter 与 SecurityFilterChain 共用
@@ -54,6 +56,7 @@ public class SecurityConfig {
             "/api/doctor/v1/auth/refresh",
             "/api/pharmacy/v1/auth/login",
             "/api/pharmacy/v1/auth/refresh",
+            "/api/captcha/**",
             "/doc.html",
             "/swagger-ui.html",
             "/swagger-ui/**",
@@ -89,6 +92,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(captchaVerifyFilter, JwtAuthenticationFilter.class)
                 .exceptionHandling(exception -> {
                     ObjectMapper mapper = new ObjectMapper();
                     exception.authenticationEntryPoint((request, response, authException) -> {

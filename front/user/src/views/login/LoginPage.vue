@@ -20,11 +20,12 @@
           :rules="[{ required: true, message: '请输入密码' }]"
         />
         <div class="login-actions">
-          <van-button round block type="primary" native-type="submit" :loading="loading">
+          <CaptchaSlider :key="capKey" @verified="captchaVerified = true" style="margin-bottom: 16px" />
+          <van-button round block type="primary" native-type="submit" :loading="loading" :disabled="!captchaVerified">
             {{ isRegister ? '注册' : '登录' }}
           </van-button>
         </div>
-        <div class="switch-mode" @click="isRegister = !isRegister">
+        <div class="switch-mode" @click="toggleMode">
           {{ isRegister ? '已有账号？去登录' : '没有账号？去注册' }}
         </div>
       </van-form>
@@ -37,12 +38,22 @@ import { reactive, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { showToast } from 'vant'
 import GlassCard from '@/components/GlassCard.vue'
+import CaptchaSlider from '@/components/CaptchaSlider.vue'
 import { isPhone } from '@/utils/validator'
 
 const userStore = useUserStore()
 const loading = ref(false)
 const isRegister = ref(false)
+const captchaVerified = ref(false)
+// 切换登录/注册时重建滑块组件以强制重新验证
+const capKey = ref(0)
 const form = reactive({ phone: '', password: '' })
+
+function toggleMode() {
+  isRegister.value = !isRegister.value
+  captchaVerified.value = false
+  capKey.value++
+}
 
 async function handleSubmit() {
   loading.value = true

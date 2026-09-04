@@ -3,7 +3,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:dev-mysql-password-placeholder}
-    url: jdbc:mysql://localdev:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8
+    url: jdbc:mysql://192.168.88.128:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8
   data:
     redis:
       host: ${REDIS_HOST:localdev}

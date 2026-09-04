@@ -21,7 +21,10 @@
           <a-checkbox v-model:checked="form.remember">记住登录</a-checkbox>
         </a-form-item>
         <a-form-item>
-          <a-button type="primary" html-type="submit" size="large" block :loading="loading">
+          <CaptchaSlider @verified="captchaVerified = true" />
+        </a-form-item>
+        <a-form-item>
+          <a-button type="primary" html-type="submit" size="large" block :loading="loading" :disabled="!captchaVerified">
             登录
           </a-button>
         </a-form-item>
@@ -34,10 +37,12 @@
 import { reactive, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import GlassCard from '@/components/common/GlassCard.vue'
+import CaptchaSlider from '@/components/common/CaptchaSlider.vue'
 import { message } from 'ant-design-vue'
 
 const authStore = useAuthStore()
 const loading = ref(false)
+const captchaVerified = ref(false)
 const form = reactive({ phone: '', password: '', remember: false, role: '1' })
 
 async function handleLogin() {

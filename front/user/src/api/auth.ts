@@ -1,6 +1,7 @@
 import axios from 'axios'
 import request from './index'
 import type { ApiResult, LoginVo } from './types'
+import { getDeviceId } from '@/utils/captcha'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -14,7 +15,8 @@ function isValidJwt(token: string): boolean {
 export const authApi = {
   login: async (data: { phone: string; password: string }): Promise<ApiResult<LoginVo>> => {
     const response = await axios.post(`${baseURL}/api/user/v1/auth/login`, data, {
-      withCredentials: true // 允许读取响应头和发送Cookie
+      withCredentials: true, // 允许读取响应头和发送Cookie
+      headers: { 'X-Device-Id': getDeviceId() }
     })
 
     const resData = response.data as ApiResult<LoginVo>
@@ -41,7 +43,9 @@ export const authApi = {
     return resData
   },
   register: (data: { phone: string; password: string }) =>
-    request.post<any, ApiResult<string>>('/api/user/v1/auth/register', data),
+    request.post<any, ApiResult<string>>('/api/user/v1/auth/register', data, {
+      headers: { 'X-Device-Id': getDeviceId() }
+    }),
   // U18: logout 用裸 axios 跳过业务码拦截器，避免后端 500 时弹"操作失败"与登出成功矛盾
   logout: async (): Promise<ApiResult<string>> => {
     const token = localStorage.getItem('user_access_token')
