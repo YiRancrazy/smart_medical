@@ -8,6 +8,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/login/LoginPage.vue'),
     meta: { requiresAuth: false, title: '登录' }
   },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/login/ForgotPasswordPage.vue'),
+    meta: { requiresAuth: false, title: '忘记密码' }
+  },
 
   // ── TabBar 主目的地（首页/挂号/就诊人/我的）─────
   // 仅这 4 个页面展示底部 TabBar，其余聚焦流程页不展示
@@ -128,6 +134,14 @@ const routes: RouteRecordRaw[] = [
     name: 'OutpatientFee',
     component: () => import('@/views/profile/OutpatientFeePage.vue'),
     meta: { requiresAuth: true, title: '门诊费用' }
+  },
+
+  // ── 修改密码（无 TabBar，登录态）────────────────
+  {
+    path: '/change-password',
+    name: 'ChangePassword',
+    component: () => import('@/views/profile/ChangePasswordPage.vue'),
+    meta: { requiresAuth: true, title: '修改密码' }
   },
 
   // ── 404 兜底 ────────────────────────────────────

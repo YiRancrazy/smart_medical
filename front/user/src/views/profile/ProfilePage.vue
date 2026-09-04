@@ -16,6 +16,7 @@
       <van-cell title="我的处方" is-link to="/prescription" icon="bill-o" />
       <van-cell title="门诊费用" is-link to="/outpatient-fee" icon="balance-list-o" />
       <van-cell title="就诊人管理" is-link to="/patient" icon="friends-o" />
+      <van-cell title="修改密码" is-link to="/change-password" icon="setting-o" />
     </glass-card>
 
     <van-button round block type="danger" plain class="logout-btn" @click="handleLogout">退出登录</van-button>

@@ -46,6 +46,14 @@ export const authApi = {
     request.post<any, ApiResult<string>>('/api/user/v1/auth/register', data, {
       headers: { 'X-Device-Id': getDeviceId() }
     }),
+  // 忘记密码（未登录，需先过滑块；走 request 以复用 Result 错误提示）
+  forgotPassword: (data: { phone: string; password: string }) =>
+    request.post<any, ApiResult<string>>('/api/user/v1/auth/forgot-password', data, {
+      headers: { 'X-Device-Id': getDeviceId() }
+    }),
+  // 登录态修改密码
+  changePassword: (data: { oldPassword: string; newPassword: string }) =>
+    request.post<any, ApiResult<string>>('/api/user/v1/auth/change-password', data),
   // U18: logout 用裸 axios 跳过业务码拦截器，避免后端 500 时弹"操作失败"与登出成功矛盾
   logout: async (): Promise<ApiResult<string>> => {
     const token = localStorage.getItem('user_access_token')

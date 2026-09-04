@@ -30,6 +30,7 @@
         <div class="switch-mode" @click="toggleMode">
           {{ isRegister ? '已有账号？去登录' : '没有账号？去注册' }}
         </div>
+        <div class="forgot-link" v-if="!isRegister" @click="$router.push('/forgot-password')">忘记密码？</div>
       </van-form>
     </glass-card>
   </div>
@@ -103,6 +104,14 @@ async function handleSubmit() {
   text-align: center;
   color: $color-primary;
   font-size: 14px;
+  cursor: pointer;
+}
+
+.forgot-link {
+  margin-top: 12px;
+  text-align: center;
+  color: $color-text-secondary;
+  font-size: 13px;
   cursor: pointer;
 }
 </style>
