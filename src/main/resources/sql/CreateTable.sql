@@ -70,7 +70,8 @@ CREATE TABLE `admin`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_department_id`(`department_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '管理员信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -170,7 +171,8 @@ CREATE TABLE `chat`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '逻辑删除标记（0-正常，1-删除）',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_send_receive_id`(`send_id` ASC, `receive_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '聊天消息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -271,7 +273,8 @@ CREATE TABLE `department`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '记录更新时间',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '删除（1是0否）',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_parent_department_id`(`parent_department_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '科室信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -312,7 +315,8 @@ CREATE TABLE `doctor`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `doctor_degree_id_fk`(`degree_id` ASC) USING BTREE,
   INDEX `doctor_department_id_fk`(`department_id` ASC) USING BTREE,
-  INDEX `doctor_doctor_position_id_fk`(`doctor_position_id` ASC) USING BTREE
+  INDEX `doctor_doctor_position_id_fk`(`doctor_position_id` ASC) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '医生信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -571,7 +575,8 @@ CREATE TABLE `order`  (
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `order_order_type_id_fk`(`order_type_id` ASC) USING BTREE,
-  INDEX `order_user_id_fk`(`user_id` ASC) USING BTREE
+  INDEX `order_user_id_fk`(`user_id` ASC) USING BTREE,
+  INDEX `idx_sn`(`sn` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '订单主表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -854,7 +859,8 @@ CREATE TABLE `registration_schedule`  (
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `registration_schedule_doctor_id_fk`(`doctor_id` ASC) USING BTREE,
-  INDEX `registration_schedule_registration_schedule_template_id_fk`(`registration_schedule_template_id` ASC) USING BTREE
+  INDEX `registration_schedule_registration_schedule_template_id_fk`(`registration_schedule_template_id` ASC) USING BTREE,
+  INDEX `idx_start_time`(`start_time` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '分配到每个小时的挂号' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -955,7 +961,8 @@ CREATE TABLE `user`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_id_card`(`id_card` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '患者/用户信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
