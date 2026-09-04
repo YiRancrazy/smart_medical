@@ -12,19 +12,24 @@ export const useUserStore = defineStore('user', () => {
 
   const isLoggedIn = computed(() => !!token.value)
 
-  async function login(phone: string, password: string) {
-    const res = await authApi.login({ phone, password })
-    const data = res.data
+  /**
+   * 写入登录态（登录/注册自动登录共用）
+   */
+  function applyLoginData(data: any) {
     if (!data || !data.token) {
       throw new Error('登录失败：未获取到token')
     }
-
     token.value = data.token
     uid.value = String(data.uid)
     userInfo.value = { phone: data.phone, name: data.userName }
     setToken(data.token)
     setUid(String(data.uid))
     setUserInfo(userInfo.value)
+  }
+
+  async function login(phone: string, password: string) {
+    const res = await authApi.login({ phone, password })
+    applyLoginData(res.data)
 
     // U05: 优先回跳原目标页，无 redirect 才落首页
     const redirect = typeof router.currentRoute.value.query.redirect === 'string'
@@ -33,9 +38,10 @@ export const useUserStore = defineStore('user', () => {
     await router.replace(redirect || '/')
   }
 
-  async function register(phone: string, password: string) {
-    await authApi.register({ phone, password })
-    await login(phone, password)
+  async function register(phone: string, code: string) {
+    const res = await authApi.register({ phone, code })
+    applyLoginData(res.data)
+    await router.replace('/')
   }
 
   function logout() {

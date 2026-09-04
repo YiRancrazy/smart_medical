@@ -42,10 +42,45 @@ export const authApi = {
 
     return resData
   },
-  register: (data: { phone: string; password: string }) =>
-    request.post<any, ApiResult<string>>('/api/user/v1/auth/register', data, {
+  /**
+   * 发送注册短信验证码（需先通过滑块验证）
+   */
+  sendSmsCode: (phone: string) =>
+    request.post<any, ApiResult<string>>('/api/user/v1/auth/sms-code', { phone }, {
       headers: { 'X-Device-Id': getDeviceId() }
     }),
+  /**
+   * 短信验证码注册（注册成功自动登录，token 从响应头提取）
+   */
+  register: async (data: { phone: string; code: string }): Promise<ApiResult<LoginVo>> => {
+    const response = await axios.post(`${baseURL}/api/user/v1/auth/register`, data, {
+      withCredentials: true, // 允许读取响应头和发送Cookie
+      headers: { 'X-Device-Id': getDeviceId() }
+    })
+
+    const resData = response.data as ApiResult<LoginVo>
+
+    // 优先从响应头提取token（统一方案），兼容响应体中的token字段
+    const headerToken = response.headers.authorization?.replace('Bearer ', '')
+    const bodyToken = resData.data?.token
+
+    const token = headerToken || bodyToken
+
+    if (!token) {
+      throw new Error('注册失败：未获取到token')
+    }
+
+    if (!isValidJwt(token)) {
+      throw new Error(`注册失败：服务器返回的token格式异常`)
+    }
+
+    // 确保token注入到响应数据中
+    if (resData.data) {
+      resData.data.token = token
+    }
+
+    return resData
+  },
   // 忘记密码（未登录，需先过滑块；走 request 以复用 Result 错误提示）
   forgotPassword: (data: { phone: string; password: string }) =>
     request.post<any, ApiResult<string>>('/api/user/v1/auth/forgot-password', data, {
