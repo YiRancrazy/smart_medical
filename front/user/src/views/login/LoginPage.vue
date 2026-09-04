@@ -45,10 +45,7 @@
           :rules="[{ required: true, message: '请输入密码' }]"
         />
         <div class="login-actions">
-          <div class="login-captcha">
-            <CaptchaSlider :key="capKey" @verified="captchaVerified = true" />
-          </div>
-          <van-button round block type="primary" native-type="submit" :loading="loading" :disabled="!captchaVerified">
+          <van-button round block type="primary" native-type="submit" :loading="loading">
             {{ isRegister ? '注册' : '登录' }}
           </van-button>
         </div>
@@ -66,16 +63,12 @@ import { reactive, ref, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { showToast } from 'vant'
 import GlassCard from '@/components/GlassCard.vue'
-import CaptchaSlider from '@/components/CaptchaSlider.vue'
 import { isPhone } from '@/utils/validator'
 import { authApi } from '@/api/auth'
 
 const userStore = useUserStore()
 const loading = ref(false)
 const isRegister = ref(false)
-const captchaVerified = ref(false)
-// 切换登录/注册时重建滑块组件以强制重新验证
-const capKey = ref(0)
 const form = reactive({ phone: '', password: '', code: '' })
 
 // 验证码重发倒计时（60s）
@@ -89,8 +82,6 @@ onUnmounted(() => {
 
 function toggleMode() {
   isRegister.value = !isRegister.value
-  captchaVerified.value = false
-  capKey.value++
 }
 
 function startCountdown() {
@@ -106,10 +97,6 @@ function startCountdown() {
 }
 
 async function handleSendCode() {
-  if (!captchaVerified.value) {
-    showToast('请先完成滑块验证')
-    return
-  }
   if (!isPhone(form.phone)) {
     showToast('请输入正确的手机号')
     return
@@ -162,10 +149,6 @@ async function handleSubmit() {
 
 .login-actions {
   margin-top: 32px;
-}
-
-.login-captcha {
-  margin-bottom: 24px;
 }
 
 .switch-mode {

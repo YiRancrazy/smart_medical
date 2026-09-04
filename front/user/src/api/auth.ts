@@ -1,7 +1,6 @@
 import axios from 'axios'
 import request from './index'
 import type { ApiResult, LoginVo } from './types'
-import { getDeviceId } from '@/utils/captcha'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -15,8 +14,7 @@ function isValidJwt(token: string): boolean {
 export const authApi = {
   login: async (data: { phone: string; password: string }): Promise<ApiResult<LoginVo>> => {
     const response = await axios.post(`${baseURL}/api/user/v1/auth/login`, data, {
-      withCredentials: true, // 允许读取响应头和发送Cookie
-      headers: { 'X-Device-Id': getDeviceId() }
+      withCredentials: true // 允许读取响应头和发送Cookie
     })
 
     const resData = response.data as ApiResult<LoginVo>
@@ -43,19 +41,16 @@ export const authApi = {
     return resData
   },
   /**
-   * 发送注册短信验证码（需先通过滑块验证）
+   * 发送注册短信验证码
    */
   sendSmsCode: (phone: string) =>
-    request.post<any, ApiResult<string>>('/api/user/v1/auth/sms-code', { phone }, {
-      headers: { 'X-Device-Id': getDeviceId() }
-    }),
+    request.post<any, ApiResult<string>>('/api/user/v1/auth/sms-code', { phone }),
   /**
    * 短信验证码注册（注册成功自动登录，token 从响应头提取）
    */
   register: async (data: { phone: string; code: string }): Promise<ApiResult<LoginVo>> => {
     const response = await axios.post(`${baseURL}/api/user/v1/auth/register`, data, {
-      withCredentials: true, // 允许读取响应头和发送Cookie
-      headers: { 'X-Device-Id': getDeviceId() }
+      withCredentials: true // 允许读取响应头和发送Cookie
     })
 
     const resData = response.data as ApiResult<LoginVo>
@@ -81,11 +76,9 @@ export const authApi = {
 
     return resData
   },
-  // 忘记密码（未登录，需先过滑块；走 request 以复用 Result 错误提示）
+  // 忘记密码（未登录，走 request 以复用 Result 错误提示）
   forgotPassword: (data: { phone: string; password: string }) =>
-    request.post<any, ApiResult<string>>('/api/user/v1/auth/forgot-password', data, {
-      headers: { 'X-Device-Id': getDeviceId() }
-    }),
+    request.post<any, ApiResult<string>>('/api/user/v1/auth/forgot-password', data),
   // 登录态修改密码
   changePassword: (data: { oldPassword: string; newPassword: string }) =>
     request.post<any, ApiResult<string>>('/api/user/v1/auth/change-password', data),

@@ -20,8 +20,7 @@
           :rules="[{ required: true, message: '请输入新密码' }]"
         />
         <div class="forgot-actions">
-          <CaptchaSlider @verified="captchaVerified = true" style="margin-bottom: 16px" />
-          <van-button round block type="primary" native-type="submit" :loading="loading" :disabled="!captchaVerified">
+          <van-button round block type="primary" native-type="submit" :loading="loading">
             重置密码
           </van-button>
         </div>
@@ -35,13 +34,11 @@
 import { reactive, ref } from 'vue'
 import { showSuccessToast, showToast } from 'vant'
 import { useRouter } from 'vue-router'
-import CaptchaSlider from '@/components/CaptchaSlider.vue'
 import { isPhone } from '@/utils/validator'
 import { authApi } from '@/api/auth'
 
 const router = useRouter()
 const loading = ref(false)
-const captchaVerified = ref(false)
 const form = reactive({ phone: '', password: '' })
 
 async function handleSubmit() {
