@@ -20,7 +20,9 @@
           :rules="[{ required: true, message: '请输入密码' }]"
         />
         <div class="login-actions">
-          <CaptchaSlider :key="capKey" @verified="captchaVerified = true" style="margin-bottom: 16px" />
+          <div class="login-captcha">
+            <CaptchaSlider :key="capKey" @verified="captchaVerified = true" />
+          </div>
           <van-button round block type="primary" native-type="submit" :loading="loading" :disabled="!captchaVerified">
             {{ isRegister ? '注册' : '登录' }}
           </van-button>
@@ -90,6 +92,10 @@ async function handleSubmit() {
 
 .login-actions {
   margin-top: 32px;
+}
+
+.login-captcha {
+  margin-bottom: 24px;
 }
 
 .switch-mode {
