@@ -4,6 +4,8 @@ import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.ChangePasswordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.PhoneAndPasswordLoginRequest;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.SmsCodeRequest;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.SmsRegisterRequest;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,14 +43,26 @@ public class UserAuthControllerV1 {
 
 
     /**
-     * 用户注册
-     * @param phoneAndPasswordLoginRequest 手机号和密码
-     * @return 注册成功
+     * 发送注册短信验证码（需先通过滑块验证，防短信轰炸）
+     * @param smsCodeRequest 手机号
+     * @return 发送结果
+     */
+    @PostMapping("/sms-code")
+    @Operation(summary = "用户端 - 发送注册验证码", description = "向手机号发送注册短信验证码，60秒内不可重复发送")
+    public Result<String> sendSmsCode(@Valid @RequestBody SmsCodeRequest smsCodeRequest) {
+        return authManager.sendSmsCode(smsCodeRequest.getPhone());
+    }
+
+    /**
+     * 用户注册（手机号 + 短信验证码，注册成功自动登录）
+     * @param smsRegisterRequest 手机号和验证码
+     * @param response 用于签发 token
+     * @return 注册结果（自动登录返回 LoginVo）
      */
     @PostMapping("/register")
-    @Operation(summary = "用户注册", description = "用户注册接口")
-    public Result<String> register(@Valid @RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest) {
-        return authManager.register(phoneAndPasswordLoginRequest.getPhone(), phoneAndPasswordLoginRequest.getPassword());
+    @Operation(summary = "用户注册", description = "手机号+短信验证码注册，注册成功后自动登录")
+    public Result<LoginVo> register(@Valid @RequestBody SmsRegisterRequest smsRegisterRequest, HttpServletResponse response) {
+        return authManager.register(smsRegisterRequest.getPhone(), smsRegisterRequest.getCode(), response);
     }
 
 

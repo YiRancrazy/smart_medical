@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.crypto.CryptoException;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWT;
@@ -15,6 +16,7 @@ import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
+import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.NicknameGenerator;
 import com.yirancrazy.smartmedical.utils.PasswordUtil;
@@ -62,6 +64,7 @@ public class AuthManager {
     private final RedisUtil redisUtil;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
+    private final SmsService smsService;
     private final Long USER_ROLE = 4L;
     /** S22: 登录限流窗口 5 分钟 */
     private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
@@ -123,54 +126,44 @@ public class AuthManager {
             // 获取用户信息
             User user = userService.getUserById(account.getUserId());
 
-            // 生成JWT访问令牌
-            Long currentTimeSeconds = System.currentTimeMillis() / 1000;
-            String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
-            // 存储JWT访问令牌（统一前缀用于所有角色，统一管理）
-            redisUtil.setEx(accessTokenPrefix + account.getId().toString(), accessJwt, 30, TimeUnit.MINUTES);
-
-            // 生成JWT 刷新令牌（包含role信息，刷新时直接解析）
-            String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
-
-            // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
-            redisUtil.setEx(adminRefreshTokenPrefix+account.getId().toString(),refreshJwt,30, TimeUnit.DAYS);
-
-            LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), user.getNickname());
-
-            // 统一通过响应头返回access token，前端从Authorization头提取
-            response.setHeader("Authorization", "Bearer " + accessJwt);
-
-            // 设置 Refresh-token Cookie，带回jwt 刷新token
-            Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-            cookie.setMaxAge(30 * 24 * 60 * 60);
-            cookie.setPath("/api");
-            cookie.setHttpOnly(true);
-            cookie.setSecure(cookieSecure);
-            // SameSite=None 必须配合 Secure=true（HTTPS），开发环境（HTTP）不设置让浏览器用默认 Lax
-            if (cookieSecure) {
-                cookie.setAttribute("SameSite", "None");
-            }
-            response.addCookie(cookie);
-
-            return Result.success(loginVo);
+            return Result.success(issueTokens(account, user, response));
     }
 
     /**
-     * 用户注册
+     * 发送注册短信验证码（未登录，由 CaptchaVerifyFilter 守卫先过滑块，防短信轰炸）
      * @param phone 用户手机号
-     * @param password 用户密码
-     * @return 注册结果
+     * @return 发送结果
      */
-    @Transactional
-    public Result<String> register(String phone, String password) {
-        // S20: 手机号格式校验
+    public Result<String> sendSmsCode(String phone) {
         if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
             return Result.fail("手机号格式不正确");
         }
-        if (password == null || password.length() < 6) {
-            return Result.fail("密码长度至少 6 位");
+        List<Account> existing = accountService.getAccountByPhone(phone);
+        if (existing != null && !existing.isEmpty()) {
+            return Result.info(10001, "账号已存在", null);
         }
-        // S20: 缓存查询结果避免重复调用
+        // 冷却/发送失败由 SmsService 抛 BizException，GlobalExceptionHandler 统一转 Result
+        smsService.sendCode(phone);
+        return Result.success("验证码已发送");
+    }
+
+    /**
+     * 用户注册（手机号 + 短信验证码，注册成功自动登录）
+     * @param phone 用户手机号
+     * @param code 短信验证码
+     * @param response HttpServletResponse 响应对象（用于签发 token）
+     * @return 注册结果（自动登录返回 LoginVo）
+     */
+    @Transactional
+    public Result<LoginVo> register(String phone, String code, HttpServletResponse response) {
+        // 手机号格式校验
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        // 校验验证码（过期/错误抛 BizException）
+        smsService.verifyCode(phone, code);
+
+        // 缓存查询结果避免重复调用
         List<Account> existing = accountService.getAccountByPhone(phone);
         if (existing != null && !existing.isEmpty()) {
             return Result.info(10001,"账号已存在", null);
@@ -189,12 +182,13 @@ public class AuthManager {
         account.setUserId(user.getId());
         account.setRoleId(USER_ROLE);
         account.setPhone(phone);
-        account.setPassword(PasswordUtil.encode(password));
+        // 注册不设密码：写入不可猜的随机 BCrypt 占位，之后可通过「忘记密码」流程设置登录密码
+        account.setPassword(PasswordUtil.encode(RandomUtil.randomString(16)));
         accountService.insertAccount(account);
 
         registerInit(user.getId());
 
-        return Result.success("注册成功");
+        return Result.success(issueTokens(account, user, response));
     }
 
     /**
@@ -343,6 +337,42 @@ public class AuthManager {
             log.error("[refresh] 刷新token异常", e);
             return Result.fail("刷新token失败");
         }
+    }
+
+    /**
+     * 签发访问/刷新 token 并写入响应头与 Cookie，返回登录信息（登录、注册自动登录共用）
+     * @param account 账号
+     * @param user 用户
+     * @param response 响应对象
+     * @return 登录信息
+     */
+    private LoginVo issueTokens(Account account, User user, HttpServletResponse response) {
+        Long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
+        // 存储JWT访问令牌（统一前缀用于所有角色，统一管理）
+        redisUtil.setEx(accessTokenPrefix + account.getId(), accessJwt, 30, TimeUnit.MINUTES);
+
+        String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
+        // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
+        redisUtil.setEx(adminRefreshTokenPrefix + account.getId(), refreshJwt, 30, TimeUnit.DAYS);
+
+        LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), user.getNickname());
+
+        // 统一通过响应头返回access token，前端从Authorization头提取
+        response.setHeader("Authorization", "Bearer " + accessJwt);
+
+        // 设置 Refresh-token Cookie，带回jwt 刷新token
+        Cookie cookie = new Cookie("Refresh-token", refreshJwt);
+        cookie.setMaxAge(30 * 24 * 60 * 60);
+        cookie.setPath("/api");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(cookieSecure);
+        // SameSite=None 必须配合 Secure=true（HTTPS），开发环境（HTTP）不设置让浏览器用默认 Lax
+        if (cookieSecure) {
+            cookie.setAttribute("SameSite", "None");
+        }
+        response.addCookie(cookie);
+        return loginVo;
     }
 
     /**
