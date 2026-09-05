@@ -133,8 +133,8 @@ async function onSubmit() {
       await patientStore.loadPatients()
     }
     router.back()
-  } catch {
-    showToast(isEdit.value ? '保存失败' : '添加失败')
+  } catch (e: any) {
+    showToast(e?.message || (isEdit.value ? '保存失败' : '添加失败'))
   } finally {
     submitting.value = false
   }
