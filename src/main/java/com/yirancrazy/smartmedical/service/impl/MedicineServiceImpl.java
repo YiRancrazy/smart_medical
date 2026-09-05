@@ -57,6 +57,6 @@ public class MedicineServiceImpl implements MedicineService {
 
     @Override
     public int deleteBatch(List<Long> ids) {
-        return medicineMapper.deleteBatchIds(ids);
+        return medicineMapper.deleteByIds(ids);
     }
 }

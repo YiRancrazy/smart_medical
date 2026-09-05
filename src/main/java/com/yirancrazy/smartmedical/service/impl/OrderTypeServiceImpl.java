@@ -57,6 +57,6 @@ public class OrderTypeServiceImpl implements OrderTypeService {
 
     @Override
     public int deleteBatch(List<Long> ids) {
-        return orderTypeMapper.deleteBatchIds(ids);
+        return orderTypeMapper.deleteByIds(ids);
     }
 }

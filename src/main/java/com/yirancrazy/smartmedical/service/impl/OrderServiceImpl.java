@@ -103,7 +103,7 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public int deleteBatch(List<Long> ids) {
-        return ordersMapper.deleteBatchIds(ids);
+        return ordersMapper.deleteByIds(ids);
     }
 
     /**

@@ -57,6 +57,6 @@ public class OrderStatusLogServiceImpl implements OrderStatusLogService {
 
     @Override
     public int deleteBatch(List<Long> ids) {
-        return orderStatusLogMapper.deleteBatchIds(ids);
+        return orderStatusLogMapper.deleteByIds(ids);
     }
 }

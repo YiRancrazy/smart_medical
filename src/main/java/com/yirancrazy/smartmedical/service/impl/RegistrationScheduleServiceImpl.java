@@ -83,7 +83,7 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return registrationScheduleMapper.deleteBatchIds(ids);
+        return registrationScheduleMapper.deleteByIds(ids);
     }
 
     /**

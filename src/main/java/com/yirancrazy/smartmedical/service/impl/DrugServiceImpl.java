@@ -91,6 +91,6 @@ public class DrugServiceImpl implements DrugService {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        return drugMapper.selectBatchIds(ids);
+        return drugMapper.selectByIds(ids);
     }
 }

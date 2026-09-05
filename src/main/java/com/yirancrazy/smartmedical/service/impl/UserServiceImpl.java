@@ -81,7 +81,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return userMapper.deleteBatchIds(ids);
+        return userMapper.deleteByIds(ids);
     }
 
     /**

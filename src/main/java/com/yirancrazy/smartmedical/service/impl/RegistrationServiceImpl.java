@@ -83,7 +83,7 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return registrationMapper.deleteBatchIds(ids);
+        return registrationMapper.deleteByIds(ids);
     }
 
     /**

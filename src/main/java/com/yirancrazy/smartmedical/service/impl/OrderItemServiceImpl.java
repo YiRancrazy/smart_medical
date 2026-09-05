@@ -57,7 +57,7 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     @Override
     public int deleteBatch(List<Long> ids) {
-        return orderItemMapper.deleteBatchIds(ids);
+        return orderItemMapper.deleteByIds(ids);
     }
 
     @Override

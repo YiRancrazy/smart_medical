@@ -78,7 +78,7 @@ public class PatientServiceImpl implements PatientService {
      */
     @Override
     public List<Patient> getPatientsByIds(List<Long> ids) {
-        return patientMapper.selectBatchIds(ids);
+        return patientMapper.selectByIds(ids);
     }
 
     /**

@@ -104,7 +104,7 @@ public class DoctorServiceImpl implements DoctorService {
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return doctorMapper.deleteBatchIds(ids);
+        return doctorMapper.deleteByIds(ids);
     }
 
     /**

@@ -93,7 +93,7 @@ public class PatientCardServiceImpl implements PatientCardService {
      */
     @Override
     public int deleteBatch(List<Long> ids) {
-        return patientCardMapper.deleteBatchIds(ids);
+        return patientCardMapper.deleteByIds(ids);
     }
 
     /**
