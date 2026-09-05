@@ -12,7 +12,6 @@ import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleResponse;
 import com.yirancrazy.smartmedical.service.*;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -21,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -40,7 +38,6 @@ public class PaymentRecordManager {
     private static final int PAYMENT_STATUS_SUCCESS = 2;
 
     private final PaymentRecordService paymentRecordService;
-    private final RedisUtil redisUtil;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final OrderService orderService;
@@ -138,10 +135,8 @@ public class PaymentRecordManager {
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> paySuccess(Long orderId, Long currentUserId, Integer paymentMethodId,
                                    Long transactionSn, Integer realAmount) {
-        // 0. 第三方交易流水号去重
-        if (dedupTransaction(transactionSn)) {
-            return Result.success(null);
-        }
+        // 幂等由三层 DB 兜底：uk_transaction_sn 唯一索引 + 订单状态守卫 + 挂号/处方状态幂等；
+        // 不设 Redis 前置标记——若 DB 事务回滚而 Redis 已置位，会静默跳过重试导致数据丢失（B3）
 
         // 1. 校验订单 + 金额
         Order order = validateOrder(orderId, currentUserId, realAmount);
@@ -164,26 +159,6 @@ public class PaymentRecordManager {
     }
 
     // ========== paySuccess() 子方法 ==========
-
-    /**
-     * 第三方交易流水号去重：Redis SETNX + DB UNIQUE 兜底
-     * @return true 表示已处理过，调用方应直接返回
-     */
-    private boolean dedupTransaction(Long transactionSn) {
-        if (transactionSn == null) {
-            return false;
-        }
-        try {
-            Boolean first = redisUtil.setIfAbsent("payment:txn:" + transactionSn, "1", 24, TimeUnit.HOURS);
-            if (Boolean.FALSE.equals(first)) {
-                log.warn("[payment-success] transactionSn={} 重复回调，幂等跳过", transactionSn);
-                return true;
-            }
-        } catch (Exception e) {
-            log.warn("[payment-success] Redis SETNX 失败，依赖 DB 兜底: {}", e.getMessage());
-        }
-        return false;
-    }
 
     /**
      * 校验订单存在性、归属和金额；已支付幂等返回 null
