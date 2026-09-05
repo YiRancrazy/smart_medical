@@ -176,11 +176,17 @@ async function handleSubmit() {
     showToast('请选择就诊人')
     return
   }
+  // M19: 排班在 sessionStorage 中被清空后直接返回，避免非空断言异常
+  if (!regStore.selectedSchedule) {
+    showToast('排班信息已失效，请重新选择')
+    router.replace('/registration/doctor')
+    return
+  }
   submitting.value = true
   try {
     const res = await submitRegistration({
       paymentMethodId: defaultPaymentMethodId.value,
-      registrationScheduleId: regStore.selectedSchedule!.registrationScheduleId,
+      registrationScheduleId: regStore.selectedSchedule.registrationScheduleId,
       userId: userStore.uid || '',
       patientCardId: selectedPatientId.value
     })
@@ -192,8 +198,8 @@ async function handleSubmit() {
       regStore.setSelectedSchedule(null)
       router.replace(`/registration/payment?orderId=${res.data}&amount=${amount}`)
     }
-  } catch (err: any) {
-    showToast(err?.message || '预约失败，请重试')
+  } catch {
+    // M20: 业务错误已在拦截器统一提示，避免二次 toast
   } finally {
     submitting.value = false
   }

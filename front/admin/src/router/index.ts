@@ -8,6 +8,9 @@ const router = createRouter({
   routes: publicRoutes
 })
 
+// L5: 已动态注册的顶层路由名，用于登出/换角色时 removeRoute 清理
+const dynamicRouteNames: (string | symbol)[] = []
+
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
@@ -38,8 +41,14 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (!authStore.routesLoaded) {
+    // L5: 重登/换角色前先移除上次动态注册的顶层路由，避免重复 addRoute
+    dynamicRouteNames.forEach((name) => router.removeRoute(name))
+    dynamicRouteNames.length = 0
     const routes = getRoleRoutes(authStore.roleId)
-    routes.forEach((r) => router.addRoute(r))
+    routes.forEach((r) => {
+      router.addRoute(r)
+      if (r.name) dynamicRouteNames.push(r.name)
+    })
     authStore.routesLoaded = true
     return next({ ...to, replace: true })
   }

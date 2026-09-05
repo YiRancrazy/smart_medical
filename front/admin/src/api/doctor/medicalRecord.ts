@@ -50,6 +50,10 @@ export interface PrescriptionItemRequest {
   drugSelectValue?: number | undefined
   drugOptions?: { label: string; value: number }[]
   drugLoading?: boolean
+  /** M21: 稳定唯一 key，避免增删行时 v-for 复用导致输入状态错乱 */
+  _uid?: number
+  /** M21: 每行的药品搜索防抖定时器，避免多行共用单一 timer 相互清除 */
+  timer?: ReturnType<typeof setTimeout> | null
 }
 
 export interface SubmitPrescriptionRequest extends DraftMedicalRecordRequest {

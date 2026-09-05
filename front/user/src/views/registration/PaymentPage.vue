@@ -127,7 +127,7 @@ async function handlePay() {
     const backPath = route.query.type === 'drug' ? '/outpatient-fee' : '/registration'
     router.replace(backPath)
   } catch {
-    showToast('支付失败，请重试')
+    // M20: 业务错误已在拦截器统一提示，避免二次 toast
   } finally {
     paying.value = false
   }

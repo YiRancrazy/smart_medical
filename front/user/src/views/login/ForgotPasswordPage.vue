@@ -94,8 +94,8 @@ async function handleSendCode() {
     await authApi.sendSmsCode(form.phone, 'forgot')
     showToast('验证码已发送')
     startCountdown()
-  } catch (e) {
-    showToast((e as Error)?.message || '验证码发送失败')
+  } catch {
+    // M20: 业务错误已在拦截器统一提示，避免二次 toast
   } finally {
     sending.value = false
   }
@@ -107,8 +107,8 @@ async function handleSubmit() {
     await authApi.forgotPassword({ phone: form.phone, code: form.code, password: form.password })
     showSuccessToast('密码已重置，请重新登录')
     router.replace('/login')
-  } catch (e) {
-    showToast((e as Error)?.message || '重置失败')
+  } catch {
+    // M20: 业务错误已在拦截器统一提示，避免二次 toast
   } finally {
     loading.value = false
   }

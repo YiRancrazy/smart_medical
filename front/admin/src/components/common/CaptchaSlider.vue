@@ -78,6 +78,9 @@ const jigW = ref(0)
 let scale = 1
 let maxOffset = 0
 
+// L5: 缺口 y 坐标（anji 后端 blockPuzzle 参考值，与模板高度=背景高度相关）
+const GRID_Y = 5
+
 let token = ''
 let secretKey = ''
 let active = false
@@ -170,9 +173,10 @@ async function verify() {
   checking.value = true
   try {
     // x = 缺口块左边缘在背景图中的自然像素坐标（=拖动距离*scale）；
-    // y 固定为 5（anji 后端对 blockPuzzle 的参考值，与模板高度=背景高度相关）
+    // L5: y 固定为 5（anji 后端对 blockPuzzle 的参考值，与模板高度=背景高度相关），
+    //     抽成命名常量，调整时只需改一处
     const x = Math.round(offset.value * scale)
-    await checkCaptcha(token, x, 5, secretKey)
+    await checkCaptcha(token, x, GRID_Y, secretKey)
     verified.value = true
     emit('verified')
   } catch {

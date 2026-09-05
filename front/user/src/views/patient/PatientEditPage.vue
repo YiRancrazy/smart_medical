@@ -41,7 +41,11 @@ const userStore = useUserStore()
 const patientStore = usePatientStore()
 const submitting = ref(false)
 const showRelationPicker = ref(false)
-const relationId = ref<string | null>(route.query.id as string || null)
+// L5: vue-router 的 query.id 可能为 string[],规范化取首个字符串值
+const rawId = route.query.id
+const relationId = ref<string | null>(
+  Array.isArray(rawId) ? (rawId[0] || null) : (typeof rawId === 'string' ? rawId : null)
+)
 const isEdit = computed(() => !!relationId.value)
 const pageTitle = computed(() => (isEdit.value ? '编辑就诊人' : '添加就诊人'))
 

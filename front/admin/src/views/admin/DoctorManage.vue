@@ -261,7 +261,7 @@ async function handleEditOk() {
     editVisible.value = false
     loadData()
   } catch {
-    message.error('修改失败')
+    // M20: 业务错误已在拦截器统一提示，避免二次 toast
   }
 }
 

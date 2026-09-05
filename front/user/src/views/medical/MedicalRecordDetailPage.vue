@@ -40,9 +40,16 @@ import { showToast } from 'vant'
 const route = useRoute()
 const loading = ref(true)
 const record = ref<MedicalRecord | null>(null)
-const id = String(route.params.id)
+// L5: 路由参数可能缺失，避免以 "undefined" 字符串发起请求
+const id = typeof route.params.id === 'string' ? route.params.id : ''
+const idMissing = !id
 
 onMounted(async () => {
+  if (idMissing) {
+    showToast('缺少病历ID，无法加载')
+    loading.value = false
+    return
+  }
   try {
     const res = await getMedicalRecordDetail(id)
     record.value = res.data || null

@@ -24,7 +24,7 @@
 
           <!-- 处方药品 -->
           <a-divider>处方药品</a-divider>
-          <div v-for="(item, index) in prescriptionItems" :key="index" class="prescription-item">
+          <div v-for="(item, index) in prescriptionItems" :key="item._uid" class="prescription-item">
             <a-row :gutter="12">
               <a-col :span="9">
                 <a-form-item label="药品">
@@ -190,12 +190,14 @@ async function loadRecord() {
 
 function addItem() {
   prescriptionItems.value.push({
+    _uid: ++uidSeq,
     drugId: undefined as unknown as number,
     quantity: 1,
     usageMethod: '',
     drugSelectValue: undefined,
     drugOptions: [],
-    drugLoading: false
+    drugLoading: false,
+    timer: null
   })
 }
 
@@ -203,14 +205,15 @@ function removeItem(index: number) {
   prescriptionItems.value.splice(index, 1)
 }
 
-let drugSearchTimer: ReturnType<typeof setTimeout> | null = null
+let uidSeq = 0
 async function handleDrugSearch(index: number, keyword: string) {
   const item = prescriptionItems.value[index]
   item.drugLoading = true
-  if (drugSearchTimer) {
-    clearTimeout(drugSearchTimer)
+  // M21: 每行独立定时器，避免一行搜索清除另一行的防抖导致其 loading 永久为 true
+  if (item.timer) {
+    clearTimeout(item.timer)
   }
-  drugSearchTimer = setTimeout(async () => {
+  item.timer = setTimeout(async () => {
     try {
       const res = await searchDrugs(keyword)
       const drugs = res.data || []
@@ -220,13 +223,16 @@ async function handleDrugSearch(index: number, keyword: string) {
       }))
     } finally {
       item.drugLoading = false
+      item.timer = null
     }
   }, 300)
 }
 
-// F24: 卸载时清理药品搜索定时器，避免更新已卸载组件
+// F24: 卸载时清理各行药品搜索定时器，避免更新已卸载组件
 onUnmounted(() => {
-  if (drugSearchTimer) clearTimeout(drugSearchTimer)
+  prescriptionItems.value.forEach((item) => {
+    if (item.timer) clearTimeout(item.timer)
+  })
 })
 
 function handleDrugSelected(index: number, val: number) {
@@ -293,7 +299,7 @@ async function handleSubmit() {
       resultVisible.value = true
     }
   } catch {
-    message.error('提交失败')
+    // M20: 业务错误已在拦截器统一提示，避免二次 toast
   } finally {
     submitting.value = false
   }

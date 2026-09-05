@@ -20,7 +20,7 @@
           <glass-card title="快捷入口">
             <a-row :gutter="16">
               <a-col v-for="entry in quickEntries" :key="entry.label" :span="8">
-                <div class="quick-entry" @click="$router.push(entry.path)">
+                <div class="quick-entry" @click="$router.push({ name: entry.name })">
                   <div class="quick-icon" :style="{ background: entry.bg }">
                     <component :is="entry.icon" />
                   </div>
@@ -79,10 +79,11 @@ const stats = ref([
 ])
 
 const quickEntries = ref([
-  { label: '医生管理', path: '/admin/doctors', icon: UserOutlined, bg: 'rgba(16, 185, 129, 0.12)' },
-  { label: '排班模板', path: '/admin/schedule-templates', icon: CalendarOutlined, bg: 'rgba(90, 200, 250, 0.12)' },
-  { label: '科室管理', path: '/admin/departments', icon: MedicineBoxTwoTone, bg: 'rgba(245, 158, 11, 0.12)' },
-  { label: '账户管理', path: '/admin/accounts', icon: ReconciliationOutlined, bg: 'rgba(139, 92, 246, 0.12)' }
+  // L5: 用路由 name 导航而非硬编码 path，避免与动态路由路径脱钩
+  { label: '医生管理', name: 'DoctorManage', path: '/admin/doctors', icon: UserOutlined, bg: 'rgba(16, 185, 129, 0.12)' },
+  { label: '排班模板', name: 'ScheduleTemplate', path: '/admin/schedule-templates', icon: CalendarOutlined, bg: 'rgba(90, 200, 250, 0.12)' },
+  { label: '科室管理', name: 'DepartmentManage', path: '/admin/departments', icon: MedicineBoxTwoTone, bg: 'rgba(245, 158, 11, 0.12)' },
+  { label: '账户管理', name: 'AccountManage', path: '/admin/accounts', icon: ReconciliationOutlined, bg: 'rgba(139, 92, 246, 0.12)' }
 ])
 
 const todos = ref([

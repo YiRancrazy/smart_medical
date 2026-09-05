@@ -265,8 +265,8 @@ async function handleStop(record: ScheduleTemplateResponse) {
         await stopSchedule(record.id)
         message.success('停诊成功')
         loadData()
-      } catch (error) {
-        message.error('停诊失败')
+      } catch {
+        // M20: 业务错误已在拦截器统一提示，避免二次 toast
       }
     }
   })
