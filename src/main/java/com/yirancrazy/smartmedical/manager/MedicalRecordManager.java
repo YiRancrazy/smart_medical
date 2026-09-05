@@ -29,6 +29,7 @@ import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +64,7 @@ public class MedicalRecordManager {
     private final DoctorService doctorService;
     private final DepartmentService departmentService;
     private final PrescriptionService prescriptionService;
-    private final PatientManager patientManager;
+    private final UserPatientRelationService userPatientRelationService;
 
     /**
      * 保存病历草稿（status=0）
@@ -297,7 +298,7 @@ public class MedicalRecordManager {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }
         // 复用列表端点的可访问患者集合，确保家属代查场景一致
-        List<Long> accessibleUserIds = patientManager.getAccessiblePatientUserIds(userId, null);
+        List<Long> accessibleUserIds = userPatientRelationService.getAccessiblePatientUserIds(userId, null);
         if (!accessibleUserIds.contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }

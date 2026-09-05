@@ -15,6 +15,7 @@ import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +46,7 @@ class MedicalRecordManagerTest {
     @Mock private DoctorService doctorService;
     @Mock private DepartmentService departmentService;
     @Mock private PrescriptionService prescriptionService;
-    @Mock private PatientManager patientManager;
+    @Mock private UserPatientRelationService userPatientRelationService;
 
     @InjectMocks
     private MedicalRecordManager medicalRecordManager;

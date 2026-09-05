@@ -2,7 +2,9 @@ package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yirancrazy.smartmedical.mapper.UserPatientRelationMapper;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.UserPatientRelation;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import java.util.List;
 public class UserPatientRelationServiceImpl implements UserPatientRelationService {
 
     private final UserPatientRelationMapper userPatientRelationMapper;
+    private final PatientService patientService;
 
     /**
      * 获取用户患者关系id列表
@@ -101,5 +104,32 @@ public class UserPatientRelationServiceImpl implements UserPatientRelationServic
                 .eq("user_id", userId)
                 .eq("patient_user_id", patientUserId)
                 .eq("is_authorized", 1)) > 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
+        List<UserPatientRelation> relations = getUserPatientRelationsByUserId(currentUserId);
+        // 仅保留已授权关系或本人关系，防止越权读取他人病历/处方/挂号
+        List<UserPatientRelation> authorizedRelations = relations.stream()
+                .filter(r -> r.getIsAuthorized() != null && r.getIsAuthorized() == 1
+                        || currentUserId.equals(r.getPatientUserId()))
+                .toList();
+        if (patientCardId != null) {
+            Patient patient = patientService.getPatientByPatientCardId(patientCardId);
+            if (patient == null) {
+                return List.of();
+            }
+            Long targetUserId = patient.getUserId();
+            boolean allowed = authorizedRelations.stream()
+                    .anyMatch(relation -> relation.getPatientUserId().equals(targetUserId));
+            return allowed ? List.of(targetUserId) : List.of();
+        }
+        return authorizedRelations.stream()
+                .map(UserPatientRelation::getPatientUserId)
+                .distinct()
+                .toList();
     }
 }
