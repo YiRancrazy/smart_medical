@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
+import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmTime;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationDateAndRemainQuotaVo;
@@ -137,7 +138,8 @@ public class RegistrationScheduleManager {
         List<RegistrationConfirmTime> registrationConfirmTimeList = new ArrayList<>();
         for (RegistrationSchedule registrationSchedule : registrationSchedulesByDoctorIdAndDate) {
             // 仅展示正常(1)状态的排班
-            if (registrationSchedule.getStatus() == null || registrationSchedule.getStatus() != 1) {
+            if (registrationSchedule.getStatus() == null
+                    || !RegistrationScheduleStatusEnum.NORMAL.getCode().equals(registrationSchedule.getStatus())) {
                 continue;
             }
             RegistrationConfirmTime registrationConfirmTime = new RegistrationConfirmTime();

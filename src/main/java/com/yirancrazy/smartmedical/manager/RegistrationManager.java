@@ -7,7 +7,9 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
+import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
@@ -102,7 +104,8 @@ public class RegistrationManager {
         Registration existRegistration = registrationService
                 .getRegistrationByRegistrationScheduleIdAndUserId(registrationSchedule
                         .getId(), patient.getUserId());
-        log.warn("existRegistration: " + existRegistration);
+        log.warn("已存在挂号注册, registrationScheduleId={}, patientUserId={}",
+                registrationSchedule.getId(), patient.getUserId());
         if(existRegistration != null){
             return Result.fail("该就诊人已挂号此排班");
         }
@@ -115,7 +118,9 @@ public class RegistrationManager {
                         .eq("id", registrationScheduleId)
                         .gt("remaining_quota", 0)
                         .setSql("remaining_quota = remaining_quota - 1")
-                        .setSql("status = IF(remaining_quota - 1 = 0, 2, status)"));
+                        // 扣减后为 0 则置为满号(2)
+                        .setSql("status = IF(remaining_quota - 1 = 0, "
+                                + RegistrationScheduleStatusEnum.FULL.getCode() + ", status)"));
         if (deducted == 0) {
             return Result.fail("该排班已无号源");
         }
@@ -156,7 +161,8 @@ public class RegistrationManager {
         orderItem.setId(IdUtil.getSnowflakeNextId());
         orderItem.setOrderId(order.getId());
         orderItem.setProductionId(registration.getId());
-        orderItem.setProductionTypeId(1L);
+        // 挂号订单项沿用 production_type.id=1（药品）既有映射，命名常量避免裸数字
+        orderItem.setProductionTypeId(ProductionTypeConstant.DRUG);
         orderItem.setQuantity(1);
         orderItemService.insertOrderItem(orderItem);
 
