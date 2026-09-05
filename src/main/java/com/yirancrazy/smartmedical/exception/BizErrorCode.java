@@ -19,6 +19,7 @@ public enum BizErrorCode {
     REGISTRATION_STATUS_INVALID(1002, "当前挂号状态不可操作"),
     REGISTRATION_NOT_OWNED(1003, "无权操作此挂号"),
     SCHEDULE_TEMPLATE_NOT_FOUND(1004, "挂号排班模板不存在"),
+    ACCOUNT_ALREADY_EXISTS(1005, "账号已存在"),
     MEDICAL_RECORD_ALREADY_SUBMITTED(2001, "病历已提交，不可修改"),
     MEDICAL_RECORD_NOT_FOUND(2002, "病历不存在"),
     DRUG_NOT_FOUND(3001, "药品不存在"),

@@ -28,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -223,7 +224,13 @@ public class AuthManager {
         account.setPhone(phone);
         // 注册不设密码：写入不可猜的随机 BCrypt 占位，之后可通过「忘记密码」流程设置登录密码
         account.setPassword(PasswordUtil.encode(RandomUtil.randomString(16)));
-        accountService.insertAccount(account);
+        try {
+            accountService.insertAccount(account);
+        } catch (DuplicateKeyException e) {
+            // 并发同手机号注册时由唯一索引兜底，抛出业务异常触发事务回滚，避免残留孤儿 User
+            log.warn("[register] 手机号重复注册竞态 phone={}, roleId={}", phone, account.getRoleId());
+            throw new BizException(BizErrorCode.ACCOUNT_ALREADY_EXISTS);
+        }
 
         registerInit(user.getId());
 
