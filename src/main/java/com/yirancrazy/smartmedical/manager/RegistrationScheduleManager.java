@@ -71,7 +71,9 @@ public class RegistrationScheduleManager {
         List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService.listRegistrationScheduleTemplatesByDoctorId(doctorId);
 
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
-        LocalDate maxDate = today.plusDays(currentAppointmentRule.getMaxAdvanceDays());
+        // M17: maxAdvanceDays 可能为 null，null 时兜底为 0（仅当天），避免 NPE
+        Integer maxAdvanceDays = currentAppointmentRule.getMaxAdvanceDays();
+        LocalDate maxDate = today.plusDays(maxAdvanceDays == null ? 0 : maxAdvanceDays);
         registrationScheduleTemplateList = registrationScheduleTemplateList.stream()
                 .filter(item -> !item.getRegistrationDate().isBefore(today) &&
                         !item.getRegistrationDate().isAfter(maxDate)).toList();
