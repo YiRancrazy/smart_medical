@@ -1,16 +1,42 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:dev-mysql-password-placeholder}
-    url: jdbc:mysql://192.168.88.128:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=UTF-8
   data:
     redis:
-      host: ${REDIS_HOST:localdev}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:dev-redis-password-placeholder}
-      database: ${REDIS_DATABASE:0}
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE}
       timeout: ${REDIS_TIMEOUT:2000ms}
+
+# CORS 允许的来源域名（dev 默认通配放行，可用 CORS_ALLOWED_ORIGINS 环境变量覆盖）
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+
+# 行为验证码（AJ-Captcha）配置
+aj:
+  captcha:
+    type: blockPuzzle        # 滑块拼图为主；如需文字兜底可切 text
+    cache-type: local        # 答案存本地内存（starter 1.4.0 的 jar 内仅有 MemImpl，识别 redis 会因缺实现而空指针）
+    water-mark: SmartMedical # 底部水印
+    req-frequency-limit-enable: true
+    req-get-minute-limit: 100          # 每分钟 get 上限
+    req-check-minute-limit: 60         # 每分钟 check 上限
+    req-get-lock-limit: 5              # get 超限触发锁定
+    req-get-lock-seconds: 120          # 锁定时长
+    req-verify-minute-limit: 60
+
+# 短信验证码（Spug push）配置
+# template-code 是短信模板编码（调用凭证），必须走环境变量 SMS_TEMPLATE_CODE；
+# 未配置（空）时进入 mock 模式：不发真实短信，验证码打印到后端日志，便于本地联调。
+sms:
+  base-url: ${SMS_BASE_URL:https://push.spug.cc/sms/}
+  template-code: ${SMS_TEMPLATE_CODE:}
+  code-expire-minutes: 5    # 验证码有效期（分钟）
+  resend-seconds: 60        # 重发冷却（秒）
 
 pagehelper:
   reasonable: true
@@ -20,11 +46,12 @@ pagehelper:
 
 # 配置JWT相关属性（密钥来自环境变量，禁止入库）
 jwt:
-  accessSecretKey: ${JWT_ACCESS_SECRET_KEY:dev-jwt-access-secret-placeholder}
-  refreshSecretKey: ${JWT_REFRESH_SECRET_KEY:dev-jwt-refresh-secret-placeholder}
+  accessSecretKey: ${JWT_ACCESS_SECRET_KEY}
+  refreshSecretKey: ${JWT_REFRESH_SECRET_KEY}
   accessTokenPrefix: admin-access-token
   admin:
     adminRefreshTokenPrefix: admin-refresh-token
+
 # springdoc-openapi项目配置
 springdoc:
   swagger-ui:
@@ -37,19 +64,18 @@ springdoc:
     - group: 'default'
       paths-to-match: '/**'
       packages-to-scan: com.yirancrazy.smartmedical.controller
+
 # knife4j的增强配置，不需要增强可以不配
 knife4j:
   enable: true
   setting:
     language: zh_cn
 
-
-
 minio:
-  endpoint: http://localdev:9000
-  bucket-name: imagehost
-  access-key: ${MINIO_ACCESS_KEY:dev-minio-access-placeholder}
-  secret-key: ${MINIO_SECRET_KEY:dev-minio-secret-placeholder}
-  img-size: 10                           # 图片大小限制，单位：m
-  file-size: 10                          # 文件大小限制，单位：m
-  file-host: http://localdev:9000
+  endpoint: http://${MINIO_HOST}:${MINIO_PORT}
+  bucket-name: ${MINIO_BUCKET_NAME}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  img-size: ${MINIO_IMG_SIZE:10}                       # 图片大小限制，单位：m
+  file-size: ${MINIO_FILE_SIZE:10}                     # 文件大小限制，单位：m
+  file-host: http://${MINIO_HOST}:${MINIO_PORT}
