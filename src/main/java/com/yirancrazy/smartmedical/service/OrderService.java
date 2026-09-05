@@ -118,4 +118,11 @@ public interface OrderService {
      * @return 订单列表
      */
     List<Order> listOrdersByIds(List<Long> ids);
+
+    /**
+     * 原子更新订单状态：WAITING_FOR_PAYMENT → PAID（带状态守门，防并发重复支付）
+     * @param orderId 订单ID
+     * @return 影响行数（0 表示订单状态已变更，无需重复支付）
+     */
+    int markOrderPaid(Long orderId);
 }

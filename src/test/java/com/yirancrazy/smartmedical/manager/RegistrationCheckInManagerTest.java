@@ -4,14 +4,14 @@ import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.OrdersMapper;
-import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
-import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderStatusLogService;
+import com.yirancrazy.smartmedical.service.PaymentRecordService;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
@@ -50,14 +50,12 @@ class RegistrationCheckInManagerTest {
 
     @Mock private RegistrationService registrationService;
     @Mock private RegistrationScheduleService registrationScheduleService;
-    @Mock private RegistrationScheduleMapper registrationScheduleMapper;
     @Mock private PatientService patientService;
     @Mock private UserPatientRelationService userPatientRelationService;
-    @Mock private OrdersMapper ordersMapper;
-    @Mock private PaymentRecordMapper paymentRecordMapper;
-    @Mock private RegistrationStatusLogManager statusLogManager;
+    @Mock private OrderService orderService;
+    @Mock private PaymentRecordService paymentRecordService;
     @Mock private RegistrationScheduleTemplateService registrationScheduleTemplateService;
-    @Mock private OrderStatusLogManager orderStatusLogManager;
+    @Mock private OrderStatusLogService orderStatusLogService;
 
     @InjectMocks
     private RegistrationCheckInManager registrationCheckInManager;
@@ -69,7 +67,7 @@ class RegistrationCheckInManagerTest {
     private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Shanghai"));
 
     /**
-     * checkIn happy path：status=SUCCESS + 当天排班 → 调 transition 到 REPORTED
+     * checkIn happy path：status=SUCCESS + 当天排班 → 调 updateStatusWithLog 到 REPORTED
      */
     @Test
     void checkIn_happyPath_transitionsToReported() {
@@ -83,7 +81,7 @@ class RegistrationCheckInManagerTest {
 
         registrationCheckInManager.checkIn(REG_ID, USER_ID);
 
-        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.REPORTED.getCode()),
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.REPORTED.getCode()),
                 eq(USER_ID), eq("user"), eq("用户报到"));
     }
 
@@ -142,7 +140,7 @@ class RegistrationCheckInManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> registrationCheckInManager.checkIn(REG_ID, USER_ID));
         assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
-        verify(statusLogManager, never()).transition(any(), anyInt(), anyLong(), any(), any());
+        verify(registrationService, never()).updateStatusWithLog(any(), anyInt(), anyLong(), any(), any());
     }
 
     /**
@@ -157,7 +155,7 @@ class RegistrationCheckInManagerTest {
                 () -> registrationCheckInManager.cancel(REG_ID, USER_ID, "test"));
         assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
         // 状态异常时不应触号源恢复
-        verify(registrationScheduleMapper, never()).update(any(), any());
+        verify(registrationScheduleService, never()).releaseQuota(anyLong());
     }
 
     /**
@@ -174,7 +172,7 @@ class RegistrationCheckInManagerTest {
     }
 
     /**
-     * cancel 待支付订单(status=0) → 关闭订单 + 写订单日志 + transition 到 CANCELED
+     * cancel 待支付订单(status=0) → 关闭订单 + 写订单日志 + 迁移到 CANCELED
      */
     @Test
     void cancel_waitingPaymentOrder_closesOrder() {
@@ -185,18 +183,18 @@ class RegistrationCheckInManagerTest {
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
 
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
-        when(ordersMapper.selectById(5001L)).thenReturn(order);
+        when(orderService.getOrderById(5001L)).thenReturn(order);
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, "测试取消");
 
         // 验证号源恢复
-        verify(registrationScheduleMapper).update(eq(null), any());
+        verify(registrationScheduleService).releaseQuota(SCHEDULE_ID);
         // 验证订单置为 CANCELED
         assertEquals(OrderStatus.CANCELED.getCode(), order.getStatus());
         // 验证写订单日志
-        verify(orderStatusLogManager).addOrderStatusLog(any());
+        verify(orderStatusLogService).addOrderStatusLog(any());
         // 验证挂号状态迁移
-        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("测试取消"));
     }
 
@@ -219,20 +217,20 @@ class RegistrationCheckInManagerTest {
         origPay.setPaymentMethodId(1);
 
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
-        when(ordersMapper.selectById(5002L)).thenReturn(order);
-        when(paymentRecordMapper.selectOne(any())).thenReturn(origPay);
-        when(paymentRecordMapper.selectList(any())).thenReturn(List.of());
+        when(orderService.getOrderById(5002L)).thenReturn(order);
+        when(paymentRecordService.getSuccessPaymentRecordByOrderId(5002L)).thenReturn(origPay);
+        when(paymentRecordService.listRefundedRecordsByOrderId(5002L)).thenReturn(List.of());
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, null);
 
         // 验证订单置为 REFUNDED
         assertEquals(OrderStatus.REFUNDED.getCode(), order.getStatus());
         // 验证写退款流水
-        verify(paymentRecordMapper).insert(any(PaymentRecord.class));
+        verify(paymentRecordService).insertPaymentRecord(any(PaymentRecord.class));
         // 验证原支付记录置为已退款
         assertEquals(4, origPay.getStatus());
         // 验证挂号状态迁移（reason 为空时用默认文案）
-        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("用户取消"));
     }
 
@@ -247,7 +245,7 @@ class RegistrationCheckInManagerTest {
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, "代取消");
 
-        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("代取消"));
     }
 
@@ -262,9 +260,9 @@ class RegistrationCheckInManagerTest {
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, "无订单取消");
 
-        verify(registrationScheduleMapper).update(eq(null), any());
-        verify(ordersMapper, never()).selectById(anyLong());
-        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationScheduleService).releaseQuota(SCHEDULE_ID);
+        verify(orderService, never()).getOrderById(anyLong());
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("无订单取消"));
     }
 

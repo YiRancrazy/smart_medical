@@ -1,8 +1,10 @@
 package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.service.OrderService;
@@ -179,5 +181,17 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<Order> listOrdersByIds(List<Long> ids) {
         return ordersMapper.selectList(new QueryWrapper<Order>().in("id", ids));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int markOrderPaid(Long orderId) {
+        return ordersMapper.update(null,
+                new UpdateWrapper<Order>()
+                        .eq("id", orderId)
+                        .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                        .set("status", OrderStatus.PAID.getCode()));
     }
 }

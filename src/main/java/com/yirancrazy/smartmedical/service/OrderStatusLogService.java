@@ -62,4 +62,11 @@ public interface OrderStatusLogService {
      * @return 删除结果
      */
     int deleteBatch(List<Long> ids);
+
+    /**
+     * 新增订单状态流水（补雪花 ID 后入库）
+     * @param orderStatusLog 状态流水实体
+     * @return 影响行数
+     */
+    int addOrderStatusLog(OrderStatusLog orderStatusLog);
 }

@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.OrderStatusLogMapper;
@@ -58,5 +59,14 @@ public class OrderStatusLogServiceImpl implements OrderStatusLogService {
     @Override
     public int deleteBatch(List<Long> ids) {
         return orderStatusLogMapper.deleteByIds(ids);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int addOrderStatusLog(OrderStatusLog orderStatusLog) {
+        orderStatusLog.setId(IdUtil.getSnowflakeNextId());
+        return orderStatusLogMapper.insert(orderStatusLog);
     }
 }

@@ -1,15 +1,11 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.OrdersMapper;
-import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
-import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
@@ -17,6 +13,9 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderStatusLogService;
+import com.yirancrazy.smartmedical.service.PaymentRecordService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
@@ -40,8 +39,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RegistrationCheckInManager {
 
-    /** 支付记录状态:成功 */
-    private static final int PAYMENT_STATUS_SUCCESS = 2;
     /** 支付记录状态:已退款 */
     private static final int PAYMENT_STATUS_REFUNDED = 4;
     /** 默认支付方式:4 现金 */
@@ -49,14 +46,12 @@ public class RegistrationCheckInManager {
 
     private final RegistrationService registrationService;
     private final RegistrationScheduleService registrationScheduleService;
-    private final RegistrationScheduleMapper registrationScheduleMapper;
     private final PatientService patientService;
     private final UserPatientRelationService userPatientRelationService;
-    private final OrdersMapper ordersMapper;
-    private final PaymentRecordMapper paymentRecordMapper;
-    private final RegistrationStatusLogManager statusLogManager;
+    private final OrderService orderService;
+    private final PaymentRecordService paymentRecordService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
-    private final OrderStatusLogManager orderStatusLogManager;
+    private final OrderStatusLogService orderStatusLogService;
 
     /**
      * 用户报到（status 0/1 → 5）
@@ -99,7 +94,7 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "仅预约当天可报到");
         }
-        statusLogManager.transition(reg,
+        registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.REPORTED.getCode(),
                 userId, "user", "用户报到");
     }
@@ -126,7 +121,7 @@ public class RegistrationCheckInManager {
         handleOrderForCancel(reg, userId);
 
         // 5. 状态迁移 → 已取消
-        statusLogManager.transition(reg,
+        registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.CANCELED.getCode(),
                 userId, "user",
                 reason != null && !reason.isEmpty() ? reason : "用户取消");
@@ -173,11 +168,7 @@ public class RegistrationCheckInManager {
      */
     private void restoreQuota(Registration reg) {
         if (reg.getRegistrationScheduleId() != null) {
-            registrationScheduleMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<RegistrationSchedule>()
-                            .eq("id", reg.getRegistrationScheduleId())
-                            .setSql("remaining_quota = remaining_quota + 1")
-                            .setSql("status = IF(status = 2, 1, status)"));
+            registrationScheduleService.releaseQuota(reg.getRegistrationScheduleId());
         }
     }
 
@@ -186,7 +177,7 @@ public class RegistrationCheckInManager {
      */
     private void handleOrderForCancel(Registration reg, Long userId) {
         Order order = reg.getOrderId() == null ? null
-                : ordersMapper.selectById(reg.getOrderId());
+                : orderService.getOrderById(reg.getOrderId());
         if (order == null || order.getStatus() == null) {
             return;
         }
@@ -203,7 +194,7 @@ public class RegistrationCheckInManager {
     private void closeOrder(Order order, Long userId) {
         Integer fromStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELED.getCode());
-        ordersMapper.updateById(order);
+        orderService.updateOrderById(order);
         OrderStatusLog orderLog = new OrderStatusLog();
         orderLog.setOrderId(order.getId());
         orderLog.setFromStatus(fromStatus);
@@ -211,25 +202,17 @@ public class RegistrationCheckInManager {
         orderLog.setOperatorId(userId);
         orderLog.setOperatorRole("user");
         orderLog.setRemark("取消预约关闭订单");
-        orderStatusLogManager.addOrderStatusLog(orderLog);
+        orderStatusLogService.addOrderStatusLog(orderLog);
     }
 
     /**
      * 已支付订单退款：创建退款记录 + 原支付记录置为已退款 + 订单置为已退款
      */
     private void refundOrder(Order order, Long userId) {
-        PaymentRecord orig = paymentRecordMapper.selectOne(
-                new LambdaQueryWrapper<PaymentRecord>()
-                        .eq(PaymentRecord::getOrderId, order.getId())
-                        .eq(PaymentRecord::getStatus, PAYMENT_STATUS_SUCCESS)
-                        .last("LIMIT 1"));
+        PaymentRecord orig = paymentRecordService.getSuccessPaymentRecordByOrderId(order.getId());
 
         Integer refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
-        List<PaymentRecord> refundedRecords = paymentRecordMapper.selectList(
-                new LambdaQueryWrapper<PaymentRecord>()
-                        .eq(PaymentRecord::getOrderId, order.getId())
-                        .eq(PaymentRecord::getStatus, PAYMENT_STATUS_REFUNDED)
-                        .lt(PaymentRecord::getRealAmount, 0));
+        List<PaymentRecord> refundedRecords = paymentRecordService.listRefundedRecordsByOrderId(order.getId());
         int alreadyRefunded = -refundedRecords.stream()
                 .mapToInt(r -> r.getRealAmount() == null ? 0 : r.getRealAmount())
                 .sum();
@@ -245,11 +228,11 @@ public class RegistrationCheckInManager {
                     ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
             refund.setStatus(PAYMENT_STATUS_REFUNDED);
             refund.setPaymentTime(java.time.LocalDateTime.now());
-            paymentRecordMapper.insert(refund);
+            paymentRecordService.insertPaymentRecord(refund);
 
             if (orig != null) {
                 orig.setStatus(PAYMENT_STATUS_REFUNDED);
-                paymentRecordMapper.updateById(orig);
+                paymentRecordService.updatePaymentRecordById(orig);
             }
         } else {
             log.warn("[cancel] orderId={} 已全额退款(剩余可退={})，跳过退款写入",
@@ -258,7 +241,7 @@ public class RegistrationCheckInManager {
 
         Integer fromStatus = order.getStatus();
         order.setStatus(OrderStatus.REFUNDED.getCode());
-        ordersMapper.updateById(order);
+        orderService.updateOrderById(order);
         OrderStatusLog orderLog = new OrderStatusLog();
         orderLog.setOrderId(order.getId());
         orderLog.setFromStatus(fromStatus);
@@ -266,6 +249,6 @@ public class RegistrationCheckInManager {
         orderLog.setOperatorId(userId);
         orderLog.setOperatorRole("user");
         orderLog.setRemark("取消预约退款");
-        orderStatusLogManager.addOrderStatusLog(orderLog);
+        orderStatusLogService.addOrderStatusLog(orderLog);
     }
 }
