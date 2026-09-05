@@ -105,4 +105,15 @@ public class AdminServiceImpl implements AdminService {
     public List<Admin> listAdminsByIds(List<Long> ids) {
         return adminMapper.selectList(new LambdaQueryWrapper<Admin>().in(Admin::getId, ids));
     }
+
+    /**
+     * 根据名称模糊查询管理员
+     * @param name 管理员名称（可为空）
+     * @return 管理员列表
+     */
+    @Override
+    public List<Admin> listAdminsByLikeName(String name) {
+        return adminMapper.selectList(new LambdaQueryWrapper<Admin>()
+                .like(name != null && !name.isEmpty(), Admin::getName, name));
+    }
 }

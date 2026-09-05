@@ -6,10 +6,15 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.AccountMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.Admin;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.AdminService;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,6 +29,8 @@ import java.util.List;
 public class AccountServiceImpl implements AccountService {
 
     private final AccountMapper accountMapper;
+    private final AdminService adminService;
+    private final DoctorService doctorService;
 
     /**
      * 添加账户
@@ -138,6 +145,8 @@ public class AccountServiceImpl implements AccountService {
 
     /**
      * 根据用户名、角色ID、是否启用分页查询账户
+     * <p>用户名（admin.name / doctor.name 模糊匹配，account 表无姓名字段，需先解析出 userId 再查账户）</p>
+     * @param username 用户名（模糊查询，可为空）
      * @param roleId   角色ID（精确匹配，可为空）
      * @param enabled  是否启用（精确匹配，可为空）
      * @param pageNum  页码
@@ -146,10 +155,20 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
         LambdaQueryWrapper<Account> wrapper = new LambdaQueryWrapper<>();
         if (username != null && !username.isEmpty()) {
-            wrapper.like(Account::getPhone, username);
+            // 账户表无姓名，先按管理员/医生姓名模糊查询出 userId 集合，再过滤 account
+            List<Long> userIds = new ArrayList<>();
+            userIds.addAll(adminService.listAdminsByLikeName(username).stream().map(Admin::getId).toList());
+            userIds.addAll(doctorService
+                    .listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentId(username, null)
+                    .stream().map(Doctor::getId).toList());
+            if (userIds.isEmpty()) {
+                // 无匹配姓名：清空 PageHelper 上下文，直接返回空页，避免污染同线程后续查询
+                PageHelper.clearPage();
+                return new PageInfo<>(List.of());
+            }
+            wrapper.in(Account::getUserId, userIds);
         }
         if (roleId != null) {
             wrapper.eq(Account::getRoleId, roleId);
@@ -157,6 +176,7 @@ public class AccountServiceImpl implements AccountService {
         if (enabled != null) {
             wrapper.eq(Account::getEnabled, enabled);
         }
+        PageHelper.startPage(pageNum, pageSize);
         return new PageInfo<>(accountMapper.selectList(wrapper));
     }
 

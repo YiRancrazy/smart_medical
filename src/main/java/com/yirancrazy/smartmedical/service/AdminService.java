@@ -69,4 +69,11 @@ public interface AdminService {
      * @return 管理员列表
      */
     List<Admin> listAdminsByIds(List<Long> ids);
+
+    /**
+     * 根据名称模糊查询管理员
+     * @param name 管理员名称（可为空）
+     * @return 管理员列表
+     */
+    List<Admin> listAdminsByLikeName(String name);
 }
