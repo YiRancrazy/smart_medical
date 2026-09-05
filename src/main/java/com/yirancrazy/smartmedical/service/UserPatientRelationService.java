@@ -56,18 +56,19 @@ public interface UserPatientRelationService {
     Integer deleteUserPatientRelationById(Long id);
 
     /**
-     * 检查用户是否有代理权限
+     * 检查当前用户是否已添加该就诊人（存在 user_id → patient_user_id 关系）
+     * <p>已移除"非本人账号需要其他就诊人授权"的门禁：存在关系即为可访问</p>
      * @param userId 用户ID
      * @param patientUserId 患者用户ID
-     * @return 是否有代理权限
+     * @return 是否存在就诊人关系
      */
     boolean hasAuthorization(Long userId, Long patientUserId);
 
     /**
-     * 获取当前账号下可访问的患者 userId 列表
+     * 获取当前账号下可访问的患者 userId 列表（所有已添加就诊人，含本人）
      * @param currentUserId 当前登录用户id
      * @param patientCardId 就诊卡id（为 null 时返回全部关联患者）
-     * @return 患者 userId 列表；patientCardId 不合法或无权限时返回空列表
+     * @return 患者 userId 列表；patientCardId 不合法或无访问关系时返回空列表
      */
     List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId);
 }

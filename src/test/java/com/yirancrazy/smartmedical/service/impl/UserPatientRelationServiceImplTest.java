@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * UserPatientRelationServiceImpl#getAccessiblePatientUserIds 单测
- * 覆盖：B03 授权过滤、patientCardId 过滤、患者不存在、无权限。
+ * 覆盖：所有已添加就诊人（含本人、is_authorized 不再参与判断）、patientCardId 过滤、患者不存在。
  * @Author: YiRanCrazy@gmail.com
  * @Description: 患者可访问范围单测（原 PatientManager 逻辑下沉）
  * @Datetime: 2026-09-05 10:00
@@ -37,28 +37,29 @@ class UserPatientRelationServiceImplTest {
     private static final Long CURRENT_USER_ID = 7L;
 
     /**
-     * patientCardId=null：返回所有已授权 + 本人的 patientUserId（去重）
+     * patientCardId=null：返回所有已添加就诊人的 patientUserId（去重），不再按 is_authorized 过滤
      */
     @Test
-    void getAccessiblePatientUserIds_nullCardId_returnsAllAuthorized() {
-        UserPatientRelation self = buildRelation(7L, 1);
-        UserPatientRelation authorized = buildRelation(8L, 1);
-        UserPatientRelation unauthorized = buildRelation(9L, 0);
+    void getAccessiblePatientUserIds_nullCardId_returnsAllRelations() {
+        UserPatientRelation self = buildRelation(7L, 0);
+        UserPatientRelation otherAuth = buildRelation(8L, 1);
+        UserPatientRelation otherNoAuth = buildRelation(9L, 0);
 
-        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(self, authorized, unauthorized));
+        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(self, otherAuth, otherNoAuth));
 
         List<Long> result = userPatientRelationService.getAccessiblePatientUserIds(CURRENT_USER_ID, null);
 
-        assertEquals(2, result.size());
+        assertEquals(3, result.size());
         assertTrue(result.contains(7L));
         assertTrue(result.contains(8L));
+        assertTrue(result.contains(9L));
     }
 
     /**
-     * isAuthorized=null 的关系被过滤（防御 NPE）
+     * isAuthorized 不再参与判断：即使 isAuthorized=null 的关系也可访问
      */
     @Test
-    void getAccessiblePatientUserIds_nullAuthorization_filteredOut() {
+    void getAccessiblePatientUserIds_nullAuthorization_notFiltered() {
         UserPatientRelation nullAuth = new UserPatientRelation();
         nullAuth.setPatientUserId(10L);
         nullAuth.setIsAuthorized(null);
@@ -67,19 +68,20 @@ class UserPatientRelationServiceImplTest {
 
         List<Long> result = userPatientRelationService.getAccessiblePatientUserIds(CURRENT_USER_ID, null);
 
-        assertTrue(result.isEmpty());
+        assertEquals(1, result.size());
+        assertEquals(10L, result.get(0));
     }
 
     /**
-     * patientCardId 指向已授权患者 → 返回该患者 userId
+     * patientCardId 指向已添加就诊人 → 返回该患者 userId
      */
     @Test
     void getAccessiblePatientUserIds_validCardIdAuthorized_returnsSingle() {
-        UserPatientRelation authorized = buildRelation(8L, 1);
+        UserPatientRelation relation = buildRelation(8L, 0);
         Patient patient = new Patient();
         patient.setUserId(8L);
 
-        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(authorized));
+        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(relation));
         when(patientService.getPatientByPatientCardId(100L)).thenReturn(patient);
 
         List<Long> result = userPatientRelationService.getAccessiblePatientUserIds(CURRENT_USER_ID, 100L);
@@ -89,15 +91,15 @@ class UserPatientRelationServiceImplTest {
     }
 
     /**
-     * patientCardId 指向未授权患者 → 返回空列表
+     * patientCardId 指向未添加的就诊人 → 返回空列表
      */
     @Test
     void getAccessiblePatientUserIds_cardIdUnauthorized_returnsEmpty() {
-        UserPatientRelation authorized = buildRelation(8L, 1);
+        UserPatientRelation relation = buildRelation(8L, 0);
         Patient patient = new Patient();
-        patient.setUserId(9L);  // 9L 不在授权列表
+        patient.setUserId(9L);  // 9L 不在关系列表
 
-        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(authorized));
+        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(relation));
         when(patientService.getPatientByPatientCardId(100L)).thenReturn(patient);
 
         List<Long> result = userPatientRelationService.getAccessiblePatientUserIds(CURRENT_USER_ID, 100L);
@@ -119,13 +121,13 @@ class UserPatientRelationServiceImplTest {
     }
 
     /**
-     * 本人关系（patientUserId == currentUserId）即使 isAuthorized=0 也可访问
+     * 本人关系（patientUserId == currentUserId）始终可访问
      */
     @Test
     void getAccessiblePatientUserIds_selfRelationAlwaysAccessible() {
-        UserPatientRelation selfUnauthorized = buildRelation(CURRENT_USER_ID, 0);
+        UserPatientRelation self = buildRelation(CURRENT_USER_ID, 0);
 
-        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(selfUnauthorized));
+        when(userPatientRelationMapper.selectList(any())).thenReturn(List.of(self));
 
         List<Long> result = userPatientRelationService.getAccessiblePatientUserIds(CURRENT_USER_ID, null);
 

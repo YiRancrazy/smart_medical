@@ -93,17 +93,17 @@ public class UserPatientRelationServiceImpl implements UserPatientRelationServic
     }
 
     /**
-     * 检查用户是否有代理权限
+     * 检查当前用户是否为就诊人添加关系（即已添加该就诊人）
+     * <p>已移除"非本人账号需要其他就诊人授权"的门禁：只要存在 user_id → patient_user_id 关系即视为可访问</p>
      * @param userId 用户ID
      * @param patientUserId 患者用户ID
-     * @return 是否有代理权限
+     * @return 是否存在就诊人关系
      */
     @Override
     public boolean hasAuthorization(Long userId, Long patientUserId) {
         return userPatientRelationMapper.selectCount(new QueryWrapper<UserPatientRelation>()
                 .eq("user_id", userId)
-                .eq("patient_user_id", patientUserId)
-                .eq("is_authorized", 1)) > 0;
+                .eq("patient_user_id", patientUserId)) > 0;
     }
 
     /**
@@ -112,22 +112,18 @@ public class UserPatientRelationServiceImpl implements UserPatientRelationServic
     @Override
     public List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
         List<UserPatientRelation> relations = getUserPatientRelationsByUserId(currentUserId);
-        // 仅保留已授权关系或本人关系，防止越权读取他人病历/处方/挂号
-        List<UserPatientRelation> authorizedRelations = relations.stream()
-                .filter(r -> r.getIsAuthorized() != null && r.getIsAuthorized() == 1
-                        || currentUserId.equals(r.getPatientUserId()))
-                .toList();
+        // 移除 is_authorized 授权门禁：所有已添加就诊人（含本人）均即刻可访问
         if (patientCardId != null) {
             Patient patient = patientService.getPatientByPatientCardId(patientCardId);
             if (patient == null) {
                 return List.of();
             }
             Long targetUserId = patient.getUserId();
-            boolean allowed = authorizedRelations.stream()
+            boolean allowed = relations.stream()
                     .anyMatch(relation -> relation.getPatientUserId().equals(targetUserId));
             return allowed ? List.of(targetUserId) : List.of();
         }
-        return authorizedRelations.stream()
+        return relations.stream()
                 .map(UserPatientRelation::getPatientUserId)
                 .distinct()
                 .toList();
