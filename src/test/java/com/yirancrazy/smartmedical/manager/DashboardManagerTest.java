@@ -1,16 +1,18 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
-import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.DashboardStatsResponse;
+import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
+import com.yirancrazy.smartmedical.service.RegistrationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,9 +30,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DashboardManagerTest {
 
-    @Mock private RegistrationMapper registrationMapper;
+    @Mock private RegistrationService registrationService;
     @Mock private PrescriptionService prescriptionService;
-    @Mock private DrugInventoryMapper drugInventoryMapper;
+    @Mock private DrugInventoryService drugInventoryService;
 
     @InjectMocks
     private DashboardManager dashboardManager;
@@ -40,17 +42,17 @@ class DashboardManagerTest {
      */
     @Test
     void getStats_shouldMapAllCountsToResponse() {
-        // registrationMapper.selectCount 被调 3 次（今日挂号 / 待就诊 / 就诊中），按调用顺序返回
-        when(registrationMapper.selectCount(any(QueryWrapper.class)))
-                .thenReturn(12L)   // 今日挂号
-                .thenReturn(3L)    // 待就诊
-                .thenReturn(1L);   // 就诊中
+        when(registrationService.countTodayRegistrations(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(12L);   // 今日挂号
+        when(registrationService.countByStatuses(any()))
+                .thenReturn(3L);    // 待就诊
+        when(registrationService.countByStatus(any()))
+                .thenReturn(1L);    // 就诊中
         // prescriptionService.count 被调 2 次（待发药 / 新处方待处理）
         when(prescriptionService.count(any(QueryWrapper.class)))
                 .thenReturn(5L)    // 待发药
                 .thenReturn(2L);   // 新处方待处理
-        // drugInventoryMapper.selectCount 被调 1 次（库存预警）
-        when(drugInventoryMapper.selectCount(any(QueryWrapper.class)))
+        when(drugInventoryService.countLowStock())
                 .thenReturn(4L);   // 库存预警
 
         Result<DashboardStatsResponse> result = dashboardManager.getStats();
@@ -73,9 +75,11 @@ class DashboardManagerTest {
      */
     @Test
     void getStats_allZero_shouldReturnZeroResponse() {
-        when(registrationMapper.selectCount(any(QueryWrapper.class))).thenReturn(0L);
+        when(registrationService.countTodayRegistrations(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
+        when(registrationService.countByStatuses(any())).thenReturn(0L);
+        when(registrationService.countByStatus(any())).thenReturn(0L);
         when(prescriptionService.count(any(QueryWrapper.class))).thenReturn(0L);
-        when(drugInventoryMapper.selectCount(any(QueryWrapper.class))).thenReturn(0L);
+        when(drugInventoryService.countLowStock()).thenReturn(0L);
 
         Result<DashboardStatsResponse> result = dashboardManager.getStats();
 
