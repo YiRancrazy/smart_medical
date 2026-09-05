@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: '登录' }
   },
   {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/login/RegisterPage.vue'),
+    meta: { requiresAuth: false, title: '注册' }
+  },
+  {
     path: '/forgot-password',
     name: 'ForgotPassword',
     component: () => import('@/views/login/ForgotPasswordPage.vue'),
@@ -125,6 +131,12 @@ const routes: RouteRecordRaw[] = [
     path: '/consultation',
     name: 'Consultation',
     component: () => import('@/views/consultation/ConsultationPage.vue'),
+    meta: { requiresAuth: true, title: '在线咨询' }
+  },
+  {
+    path: '/chat/:doctorId',
+    name: 'Chat',
+    component: () => import('@/views/consultation/ChatPage.vue'),
     meta: { requiresAuth: true, title: '在线咨询' }
   },
 
