@@ -227,10 +227,10 @@ public class AccountManager {
             account.setPhone(request.getPhone());
         }
         accountService.updateAccountById(account);
-        // 角色或手机号变更时吊销旧 token，防止降权/换号后旧令牌继续有效
-        if (request.getRoleId() != null || request.getPhone() != null) {
+        // 角色/手机号变更或禁用时吊销旧 token，防止降权、换号、禁用后旧令牌继续有效
+        if (request.getRoleId() != null || request.getPhone() != null || Boolean.FALSE.equals(request.getEnabled())) {
             revokeTokens(accountId);
-            log.info("[account-update] 角色/手机号变更，已吊销 token accountId={}", accountId);
+            log.info("[account-update] 角色/手机号变更或禁用，已吊销 token accountId={}", accountId);
         }
         log.info("[account-update] accountId={} -> roleId={}, enabled={}, phone={}",
                 accountId, account.getRoleId(), account.getEnabled(), account.getPhone());

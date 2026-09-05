@@ -345,6 +345,12 @@ public class AuthManager {
                 if (account == null) {
                     return Result.fail("账号不存在");
                 }
+                if (Boolean.FALSE.equals(account.getEnabled())) {
+                    // 禁用账号不可刷新令牌，旧会话立即失效
+                    redisUtil.delete(adminRefreshTokenPrefix + accountId);
+                    redisUtil.delete(accessTokenPrefix + accountId);
+                    return Result.fail("账号已被禁用，请重新登录");
+                }
                 if (account.getRoleId() == null || !account.getRoleId().equals(roleId)) {
                     // 角色已变更，旧 refresh token 不再可信，清除并要求重新登录
                     redisUtil.delete(adminRefreshTokenPrefix + accountId);

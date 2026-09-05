@@ -146,6 +146,10 @@ public class AdminAuthManager {
         if (roleAccount == null) {
             return Result.fail("账号不存在或无权限");
         }
+        if (Boolean.FALSE.equals(roleAccount.getEnabled())) {
+            log.warn("[admin-login] 账号已禁用, phone={}", phone);
+            return Result.fail("账号已被禁用，请联系管理员");
+        }
         if (!PasswordUtil.verify(password, roleAccount.getPassword())) {
             return Result.fail("用户名或密码错误");
         }
