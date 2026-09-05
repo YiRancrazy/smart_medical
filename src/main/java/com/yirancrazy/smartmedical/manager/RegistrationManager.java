@@ -10,14 +10,40 @@ import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
-import com.yirancrazy.smartmedical.pojo.*;
+import com.yirancrazy.smartmedical.pojo.Department;
+import com.yirancrazy.smartmedical.pojo.Doctor;
+import com.yirancrazy.smartmedical.pojo.DoctorPosition;
+import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.OrderItem;
+import com.yirancrazy.smartmedical.pojo.Patient;
+import com.yirancrazy.smartmedical.pojo.PatientCard;
+import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
-import com.yirancrazy.smartmedical.service.*;
+import com.yirancrazy.smartmedical.service.DepartmentService;
+import com.yirancrazy.smartmedical.service.DoctorPositionService;
+import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.OrderItemService;
+import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderTypeService;
+import com.yirancrazy.smartmedical.service.PatientCardService;
+import com.yirancrazy.smartmedical.service.PatientService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
+import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
+import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -110,9 +136,9 @@ public class RegistrationManager {
         Registration existRegistration = registrationService
                 .getRegistrationByRegistrationScheduleIdAndUserId(registrationSchedule
                         .getId(), patient.getUserId());
-        log.warn("已存在挂号注册, registrationScheduleId={}, patientUserId={}",
-                registrationSchedule.getId(), patient.getUserId());
         if(existRegistration != null){
+            log.warn("已存在挂号注册, registrationScheduleId={}, patientUserId={}",
+                    registrationSchedule.getId(), patient.getUserId());
             return Result.fail("该就诊人已挂号此排班");
         }
 
@@ -152,7 +178,12 @@ public class RegistrationManager {
         registration.setRegistrationTime(LocalDateTime.now());
         registration.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
 
-        registrationService.insertRegistration(registration);
+        try {
+            registrationService.insertRegistration(registration);
+        } catch (DuplicateKeyException e) {
+            // P5: uk_reg_schedule_user 唯一索引兜底并发重复挂号，抛业务异常触发事务回滚（号源扣减一并回滚）
+            throw new BizException(BizErrorCode.REGISTRATION_ALREADY_EXISTS);
+        }
         // S03: 写挂号创建日志（from=null, to=WAITING_FOR_PAYMENT）
         registrationStatusLogService.writeLog(
                 registration.getId(),

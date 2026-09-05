@@ -833,6 +833,7 @@ CREATE TABLE `registration`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_reg_schedule_user`(`registration_schedule_id` ASC, `user_id` ASC) USING BTREE COMMENT '同就诊人同排班唯一，防并发重复挂号',
   INDEX `registration_schedule_id_fk`(`registration_schedule_id` ASC) USING BTREE,
   INDEX `registration_order_id_fk`(`order_id` ASC) USING BTREE,
   INDEX `registration_user_id_fk`(`user_id` ASC) USING BTREE
