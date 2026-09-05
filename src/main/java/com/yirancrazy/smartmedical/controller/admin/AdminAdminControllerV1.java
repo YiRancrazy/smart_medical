@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.AdminManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminAdminSimpleResponse;
@@ -14,7 +13,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 管理员账号与列表管理接口
  * @Datetime: 2026-03-05 19:25
  * @Version: 1.0
  */

@@ -3,12 +3,8 @@ package com.yirancrazy.smartmedical.pojo.dto.user.response;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.cglib.core.Local;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Date;
 
 /**
  * @Author: YiRanCrazy@gmail.com

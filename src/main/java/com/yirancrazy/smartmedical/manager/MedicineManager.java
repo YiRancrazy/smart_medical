@@ -21,12 +21,22 @@ public class MedicineManager {
 
     private final MedicineService medicineService;
 
+    /**
+     * 新增药品（补雪花 ID 后入库）
+     * @param medicine 药品实体
+     * @return 影响行数
+     */
     public int addMedicine(Medicine medicine) {
         Long id = IdUtil.getSnowflakeNextId();
         medicine.setMedicineId(id);
         return medicineService.insertMedicine(medicine);
     }
 
+    /**
+     * 按 ID 查询药品
+     * @param id 药品 ID
+     * @return 药品实体；不存在返回 null
+     */
     public Medicine getMedicineById(Long id) {
         return medicineService.getMedicineById(id);
     }

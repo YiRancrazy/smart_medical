@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.service;
 
-import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 
 import java.util.List;

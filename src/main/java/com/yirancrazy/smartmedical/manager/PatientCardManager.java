@@ -19,12 +19,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 就诊卡业务编排：就诊卡 / 就诊人关联
  * @Datetime: 2026-02-13 19:16
  * @Version: 1.0
  */

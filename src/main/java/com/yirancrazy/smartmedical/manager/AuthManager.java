@@ -3,12 +3,10 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.crypto.CryptoException;
-import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
-import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
@@ -21,7 +19,6 @@ import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.NicknameGenerator;
 import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
-import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -36,11 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户鉴权业务编排：登录 / 注册 / 验证码 / 令牌签发与刷新
  * @Datetime: 2026-02-02 13:15
  * @Version: 1.0
  */

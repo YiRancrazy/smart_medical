@@ -1,18 +1,15 @@
 package com.yirancrazy.smartmedical.manager;
 
-import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.*;
-import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 

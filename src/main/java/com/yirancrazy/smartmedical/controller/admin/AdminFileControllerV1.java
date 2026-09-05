@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.FileManager;
-import com.yirancrazy.smartmedical.pojo.File;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.simple.AdminFileSimpleResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 文件上传下载接口
  * @Datetime: 2026-03-18 16:50
  * @Version: 1.0
  */

@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import org.springframework.transaction.annotation.Transactional;

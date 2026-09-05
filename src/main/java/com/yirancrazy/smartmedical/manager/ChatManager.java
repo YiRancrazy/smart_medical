@@ -25,11 +25,21 @@ public class ChatManager {
 
     private final ChatService chatService;
 
+    /**
+     * 新增聊天记录（补雪花 ID 后入库）
+     * @param chat 聊天记录实体
+     * @return 影响行数
+     */
     public int addChat(Chat chat) {
         chat.setId(IdUtil.getSnowflakeNextId());
         return chatService.insertChat(chat);
     }
 
+    /**
+     * 按 ID 查询聊天记录
+     * @param id 聊天记录 ID
+     * @return 聊天记录实体；不存在返回 null
+     */
     public Chat getChatById(Long id) {
         return chatService.getChatById(id);
     }

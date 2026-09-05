@@ -55,11 +55,21 @@ public class DoctorManager {
     private final RegistrationStatusLogManager statusLogManager;
     private final UserService userService;
     private final AccountService accountService;
+    /**
+     * 新增医生（补雪花 ID 后入库）
+     * @param doctor 医生实体
+     * @return 影响行数
+     */
     public int addDoctor(Doctor doctor) {
         doctor.setId(IdUtil.getSnowflakeNextId());
         return doctorService.insertDoctor(doctor);
     }
 
+    /**
+     * 按 ID 查询医生详情（拼装科室 / 职称 / 学历名称）
+     * @param id 医生 ID
+     * @return 医生详情 VO；医生不存在返回 404
+     */
     public Result<DoctorVo> getDoctorById(Long id) {
         Doctor doctor = doctorService.getDoctorById(id);
 
@@ -171,6 +181,11 @@ public class DoctorManager {
         return Result.success(result);
     }
 
+    /**
+     * 获取确认挂号页的医生信息（医生 / 科室 / 职称）
+     * @param doctorId 医生 ID
+     * @return 确认页医生信息 VO；医生不存在返回失败
+     */
     public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(Long doctorId) {
         Doctor doctor = doctorService.getDoctorById(doctorId);
         if (doctor == null) {
@@ -189,6 +204,11 @@ public class DoctorManager {
         ));
     }
 
+    /**
+     * 按医生名称模糊查询医生列表（拼装科室名称，供管理员选择医生用）
+     * @param name 医生名称（模糊）
+     * @return 医生简单响应列表
+     */
     public Result<List<AdminDoctorSimpleResponse>> listDoctorsSimpleResponseByDoctorName(String name){
         List<Doctor> doctorList = doctorService.listDoctorsSimpleResponseByDoctorName(name);
         List<Long> departmentIds = doctorList.stream()

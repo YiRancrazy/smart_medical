@@ -1,7 +1,5 @@
 package com.yirancrazy.smartmedical.service;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.Account;
 

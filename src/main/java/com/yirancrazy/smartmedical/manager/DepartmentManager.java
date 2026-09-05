@@ -2,7 +2,6 @@ package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.IdUtil;
-import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
@@ -11,8 +10,6 @@ import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.AdminDepartmentRequest;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminRegistrationScheduleTemplateDetail;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminDepartmentSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import com.yirancrazy.smartmedical.pojo.vo.ChildDepartmentBaseInfo;

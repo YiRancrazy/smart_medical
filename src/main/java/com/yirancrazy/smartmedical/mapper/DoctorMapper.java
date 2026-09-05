@@ -2,7 +2,6 @@ package com.yirancrazy.smartmedical.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yirancrazy.smartmedical.pojo.Doctor;
-import com.yirancrazy.smartmedical.pojo.Registration;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 

@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;

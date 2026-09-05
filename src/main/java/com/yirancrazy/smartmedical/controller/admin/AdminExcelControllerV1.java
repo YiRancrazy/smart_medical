@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 挂号排班 Excel 导入导出接口
  * @Datetime: 2026-03-18 17:59
  * @Version: 1.0
  */

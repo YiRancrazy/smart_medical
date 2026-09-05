@@ -2,7 +2,6 @@ package com.yirancrazy.smartmedical.service;
 
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.PatientCard;
-import com.yirancrazy.smartmedical.pojo.Result;
 
 import java.util.List;
 

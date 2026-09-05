@@ -2,13 +2,10 @@ package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.AccountMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
-import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

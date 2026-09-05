@@ -25,11 +25,21 @@ public class ShiftManager {
 
     private final ShiftService shiftService;
 
+    /**
+     * 新增班次（补雪花 ID 后入库）
+     * @param shift 班次实体
+     * @return 影响行数
+     */
     public int addShift(Shift shift) {
         shift.setId(IdUtil.getSnowflakeNextId());
         return shiftService.insertShift(shift);
     }
 
+    /**
+     * 按 ID 查询班次
+     * @param id 班次 ID
+     * @return 班次实体；不存在返回 null
+     */
     public Shift getShiftById(Long id) {
         return shiftService.getShiftById(id);
     }

@@ -45,6 +45,11 @@ public class OrderItemManager {
         return orderItemService.insertOrderItem(orderItem);
     }
 
+    /**
+     * 按 ID 查询订单明细
+     * @param id 订单明细 ID
+     * @return 订单明细实体；不存在返回 null
+     */
     public OrderItem getOrderItemById(Long id) {
         return orderItemService.getOrderItemById(id);
     }

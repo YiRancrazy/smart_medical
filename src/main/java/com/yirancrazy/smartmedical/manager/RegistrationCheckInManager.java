@@ -12,7 +12,6 @@ import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
-import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.PatientService;

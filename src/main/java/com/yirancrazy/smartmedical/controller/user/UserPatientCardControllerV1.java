@@ -1,12 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.PatientCardManager;
-import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PatientCardSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmPatientCardVo;
-import com.yirancrazy.smartmedical.service.PatientCardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +14,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户端 - 就诊人 / 就诊卡管理接口
  * @Datetime: 2026-02-14 10:47
  * @Version: 1.0
  */

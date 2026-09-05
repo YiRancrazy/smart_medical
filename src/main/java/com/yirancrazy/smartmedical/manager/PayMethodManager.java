@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 支付方式业务编排：支付方式查询与父子层级组装
  * @Datetime: 2026-02-20 15:22
  * @Version: 1.0
  */

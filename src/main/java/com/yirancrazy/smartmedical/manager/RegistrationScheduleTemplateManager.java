@@ -133,6 +133,14 @@ public class RegistrationScheduleTemplateManager {
         return Result.success(pageInfo);
     }
 
+    /**
+     * 组装管理员端排班模板详情 DTO（医生 / 科室为空时兜底为空串，避免前端展示 null）
+     * @param registrationScheduleTemplate 排班模板实体
+     * @param doctor 医生实体（可空）
+     * @param department 科室实体（可空）
+     * @param remaining 剩余号源数
+     * @return 排班模板详情 DTO
+     */
     public AdminRegistrationScheduleTemplateDetail createAdminRegistrationScheduleTemplateDetail(RegistrationScheduleTemplate registrationScheduleTemplate, Doctor doctor, Department department, Integer remaining) {
         return new AdminRegistrationScheduleTemplateDetail(
                 String.valueOf(registrationScheduleTemplate.getId()),

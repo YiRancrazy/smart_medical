@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户端 - 支付方式查询接口
  * @Datetime: 2026-02-20 15:25
  * @Version: 1.0
  */

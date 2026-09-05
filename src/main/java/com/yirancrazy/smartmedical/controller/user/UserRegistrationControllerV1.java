@@ -2,7 +2,6 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.RegistrationCheckInManager;
 import com.yirancrazy.smartmedical.manager.RegistrationManager;
-import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.InsertRegistrationRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
@@ -14,7 +13,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com

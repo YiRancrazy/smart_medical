@@ -153,6 +153,11 @@ public class RegistrationScheduleManager {
         return Result.success(registrationConfirmTimeList);
     }
 
+    /**
+     * 按排班 ID 查询挂号价格（数据库以「分」存储，直接返回分，由前端格式化）
+     * @param registrationScheduleId 排班 ID
+     * @return 价格（分）；排班或模板不存在返回失败
+     */
     public Result<Integer> getRegistrationPriceByRegistrationScheduleId(Long registrationScheduleId) {
         RegistrationSchedule registrationSchedule = registrationScheduleService
                 .getRegistrationScheduleById(registrationScheduleId);

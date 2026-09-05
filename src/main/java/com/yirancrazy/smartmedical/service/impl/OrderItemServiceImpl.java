@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.OrderItemMapper;

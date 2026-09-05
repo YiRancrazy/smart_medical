@@ -10,7 +10,6 @@ import com.yirancrazy.smartmedical.pojo.dto.user.request.SmsRegisterRequest;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户端 - 认证接口：登录 / 注册 / 验证码 / 重置密码
  * @Datetime: 2026-02-02 13:57
  * @Version: 1.0
  */

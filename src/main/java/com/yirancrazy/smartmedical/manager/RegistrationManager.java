@@ -59,6 +59,12 @@ public class RegistrationManager {
     private final RegistrationStatusLogService registrationStatusLogService;
 
 
+    /**
+     * 按 ID 查询挂号记录（校验当前用户对该挂号的就诊人有访问权限）
+     * @param id 挂号记录 ID
+     * @param currentUserId 当前登录用户 ID
+     * @return 挂号详情 VO；记录不存在 / 无权限 / 关联信息不完整时返回失败
+     */
     public Result<AppointmentResponseSimple> getRegistrationById(Long id, Long currentUserId) {
         Registration reg = registrationService.getRegistrationById(id);
         if (reg == null) {

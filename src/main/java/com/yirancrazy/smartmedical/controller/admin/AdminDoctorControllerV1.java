@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 医生管理接口
  * @Datetime: 2026-03-06 12:53
  * @Version: 1.0
  */

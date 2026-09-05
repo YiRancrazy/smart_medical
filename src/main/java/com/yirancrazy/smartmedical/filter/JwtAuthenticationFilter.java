@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * JWT 认证过滤器
@@ -218,17 +217,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         return false;
-    }
-
-    /**
-     * 解析 token key
-     * @param uri URI
-     * @param userId 用户 ID
-     * @return token key
-     */
-    private String resolveTokenKey(String uri, String userId) {
-        // 登录时所有角色都写入 accessTokenPrefix + userId，filter 一致读取
-        return accessTokenPrefix + userId;
     }
 
     /**

@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户业务编排：用户 / 就诊人基础信息查询
  * @Datetime: 2026-02-02 13:15
  * @Version: 1.0
  */

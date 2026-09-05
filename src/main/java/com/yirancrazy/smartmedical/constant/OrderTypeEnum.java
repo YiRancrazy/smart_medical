@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.constant;
 
-import com.yirancrazy.smartmedical.pojo.OrderType;
 
 /**
  * @Author: YiRanCrazy@gmail.com

@@ -1,13 +1,10 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
-import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.manager.ShiftManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.ShiftSimpleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +14,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 班次管理接口
  * @Datetime: 2026-03-06 12:16
  * @Version: 1.0
  */

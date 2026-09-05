@@ -26,6 +26,9 @@ public class RoleTypeLoaderManage {
 
     private final RoleService roleService;
 
+    /**
+     * 应用启动时从 role 表加载全部角色到内存常量 ROLE_LIST，供鉴权 / 角色映射复用
+     */
     @PostConstruct
     public void loadRoleType() {
         List<Role> roles = roleService.listAllRoles();

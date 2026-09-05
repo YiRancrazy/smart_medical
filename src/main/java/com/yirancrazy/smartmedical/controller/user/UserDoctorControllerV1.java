@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户端 - 医生与挂号医生查询接口
  * @Datetime: 2026-02-02 13:57
  * @Version: 1.0
  */

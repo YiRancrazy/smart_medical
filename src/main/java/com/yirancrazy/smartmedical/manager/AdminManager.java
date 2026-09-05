@@ -35,11 +35,21 @@ public class AdminManager {
     private final AccountService accountService;
     private final DepartmentService departmentService;
 
+    /**
+     * 新增管理员（补雪花 ID 后入库）
+     * @param admin 管理员实体
+     * @return 影响行数
+     */
     public int addAdmin(Admin admin) {
         admin.setId(IdUtil.getSnowflakeNextId());
         return adminService.insertAdmin(admin);
     }
 
+    /**
+     * 按 ID 查询管理员
+     * @param id 管理员 ID
+     * @return 管理员实体；不存在返回 null
+     */
     public Admin getAdminById(Long id) {
         return adminService.getAdminById(id);
     }

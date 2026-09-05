@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 科室管理接口
  * @Datetime: 2026-03-06 20:07
  * @Version: 1.0
  */
