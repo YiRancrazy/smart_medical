@@ -8,8 +8,10 @@ import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import com.yirancrazy.smartmedical.service.*;
+import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +41,23 @@ public class AccountManager {
     private final UserService userService;
     private final RoleService roleService;
     private final DoctorService doctorService;
+    private final RedisUtil redisUtil;
+
+    @Value("${jwt.accessTokenPrefix}")
+    private String accessTokenPrefix;
+    @Value("${jwt.admin.adminRefreshTokenPrefix}")
+    private String adminRefreshTokenPrefix;
+
+    /**
+     * 吊销账号已签发的 access/refresh token（变更/删除后使旧 token 立即失效）
+     */
+    private void revokeTokens(Long accountId) {
+        if (accountId == null) {
+            return;
+        }
+        redisUtil.delete(accessTokenPrefix + accountId);
+        redisUtil.delete(adminRefreshTokenPrefix + accountId);
+    }
 
     /**
      * 根据用户名、角色ID、是否启用分页查询账户详情
@@ -200,6 +219,11 @@ public class AccountManager {
             account.setPhone(request.getPhone());
         }
         accountService.updateAccountById(account);
+        // 角色或手机号变更时吊销旧 token，防止降权/换号后旧令牌继续有效
+        if (request.getRoleId() != null || request.getPhone() != null) {
+            revokeTokens(accountId);
+            log.info("[account-update] 角色/手机号变更，已吊销 token accountId={}", accountId);
+        }
         log.info("[account-update] accountId={} -> roleId={}, enabled={}, phone={}",
                 accountId, account.getRoleId(), account.getEnabled(), account.getPhone());
         return Result.success(null);
@@ -217,6 +241,8 @@ public class AccountManager {
             return Result.fail("账户不存在");
         }
         accountService.deleteAccountById(accountId);
+        // 删除后吊销 token，被删账号令牌立即失效
+        revokeTokens(accountId);
         log.info("[account-delete] accountId={} soft-deleted", accountId);
         return Result.success(null);
     }

@@ -11,11 +11,14 @@ import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -41,9 +44,15 @@ class AccountManagerTest {
     @Mock private UserService userService;
     @Mock private RoleService roleService;
     @Mock private DoctorService doctorService;
+    @Mock private RedisUtil redisUtil;
 
     @InjectMocks
     private AccountManager accountManager;
+
+    private void setTokenPrefixes() {
+        ReflectionTestUtils.setField(accountManager, "accessTokenPrefix", "access_token_");
+        ReflectionTestUtils.setField(accountManager, "adminRefreshTokenPrefix", "refresh_token_");
+    }
 
     /**
      * 空列表：返回空 PageInfo
@@ -163,5 +172,39 @@ class AccountManagerTest {
         assertEquals(2, list.size());
         assertEquals("管理员", list.get(0).getUsername());
         assertEquals("张医生", list.get(1).getUsername());
+    }
+
+    /**
+     * 删除账户后吊销 access/refresh token
+     */
+    @Test
+    void deleteAccount_revokesTokens() {
+        setTokenPrefixes();
+        Account account = new Account();
+        account.setId(1001L);
+        when(accountService.getAccountById(1001L)).thenReturn(account);
+
+        accountManager.deleteAccount(1001L);
+
+        org.mockito.Mockito.verify(redisUtil).delete("access_token_1001");
+        org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
+    }
+
+    /**
+     * 角色变更后吊销旧 token
+     */
+    @Test
+    void updateAccount_roleChange_revokesTokens() {
+        setTokenPrefixes();
+        Account account = new Account();
+        account.setId(1001L);
+        when(accountService.getAccountById(1001L)).thenReturn(account);
+
+        AccountUpdateRequest request = new AccountUpdateRequest();
+        request.setRoleId(2L);
+        accountManager.updateAccount(1001L, request);
+
+        org.mockito.Mockito.verify(redisUtil).delete("access_token_1001");
+        org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
     }
 }
