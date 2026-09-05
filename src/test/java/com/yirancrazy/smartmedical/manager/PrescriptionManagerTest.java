@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -476,6 +477,7 @@ class PrescriptionManagerTest {
         inv.setDrugId(7001L);
         inv.setWarehouseId(9001L);
         inv.setAvailableQuantity(10);
+        inv.setLockedQuantity(2);
 
         Order order = new Order();
         order.setId(5001L);
@@ -493,6 +495,7 @@ class PrescriptionManagerTest {
         when(drugInventoryMapper.update(eq(null), any())).thenReturn(1);
         when(orderService.getOrderById(5001L)).thenReturn(order);
         when(paymentRecordMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(orig);
+        when(prescriptionService.update(any(UpdateWrapper.class))).thenReturn(true);
 
         prescriptionManager.refund(4001L, userId);
 
@@ -500,8 +503,7 @@ class PrescriptionManagerTest {
         assertEquals(4, orig.getStatus());
         verify(orderService).updateOrderById(order);
         assertEquals(OrderStatus.REFUNDED.getCode(), order.getStatus());
-        verify(prescriptionService).updateById(rx);
-        assertEquals(PrescriptionStatus.CANCELLED.getCode(), rx.getStatus());
+        verify(prescriptionService).update(any(UpdateWrapper.class));
         verify(orderStatusLogManager).addOrderStatusLog(any());
         verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
     }

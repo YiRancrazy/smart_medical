@@ -3,7 +3,6 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.*;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -16,18 +15,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.concurrent.TimeUnit;
+import org.springframework.dao.DuplicateKeyException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
  * PaymentRecordManager 单测
- * 覆盖 BUG-B05: 支付回调 transactionSn 去重
+ * 覆盖 BUG-B03: 支付回调幂等（DB 唯一索引 + 订单状态守卫，无 Redis 前置标记）
  */
 @ExtendWith(MockitoExtension.class)
 class PaymentRecordManagerTest {
@@ -37,8 +34,6 @@ class PaymentRecordManagerTest {
 
     @Mock
     private PaymentRecordService paymentRecordService;
-    @Mock
-    private RedisUtil redisUtil;
     @Mock
     private PatientCardService patientCardService;
     @Mock
@@ -65,16 +60,26 @@ class PaymentRecordManagerTest {
     private OrderStatusLogManager orderStatusLogManager;
 
     @Test
-    void paySuccess_duplicateTransactionSn_shouldSkip() {
-        Long transactionSn = 9876543210L;
-        when(redisUtil.setIfAbsent(eq("payment:txn:" + transactionSn), eq("1"), eq(24L), eq(TimeUnit.HOURS)))
-                .thenReturn(Boolean.FALSE);
+    void paySuccess_duplicateTransactionSn_marksOrderPaidIdempotent() {
+        Long orderId = 5001L;
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(1001L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        order.setTotalAmount(100);
 
-        Result<Void> result = paymentRecordManager.paySuccess(1L, null, 1, transactionSn, 100);
+        when(orderService.getOrderById(orderId)).thenReturn(order);
+        doThrow(new DuplicateKeyException("uk_transaction_sn"))
+                .when(paymentRecordService).insertPaymentRecord(any());
+        when(ordersMapper.update(any(), any())).thenReturn(1);
+        when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
+        doNothing().when(prescriptionManager).markAsPaid(orderId);
+
+        Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 100);
 
         assertEquals(200, result.getCode());
-        assertNull(result.getData());
-        verify(orderService, never()).getOrderById(anyLong());
+        // 重复流水号被 DB 唯一索引拦下（幂等），但订单仍应被置为已支付，避免漏单
+        verify(ordersMapper).update(any(), any());
     }
 
     // ===== paySuccess() 测试 =====
@@ -88,7 +93,6 @@ class PaymentRecordManagerTest {
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(5000);
 
-        when(redisUtil.setIfAbsent(anyString(), eq("1"), eq(24L), eq(TimeUnit.HOURS))).thenReturn(Boolean.TRUE);
         when(orderService.getOrderById(orderId)).thenReturn(order);
         when(ordersMapper.update(any(), any())).thenReturn(1);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
@@ -106,7 +110,6 @@ class PaymentRecordManagerTest {
     @Test
     void paySuccess_orderNotFound_throwsException() {
         Long orderId = 5001L;
-        when(redisUtil.setIfAbsent(anyString(), eq("1"), eq(24L), eq(TimeUnit.HOURS))).thenReturn(Boolean.TRUE);
         when(orderService.getOrderById(orderId)).thenReturn(null);
 
         BizException ex = assertThrows(BizException.class,
@@ -122,7 +125,6 @@ class PaymentRecordManagerTest {
         order.setUserId(9999L);
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
 
-        when(redisUtil.setIfAbsent(anyString(), eq("1"), eq(24L), eq(TimeUnit.HOURS))).thenReturn(Boolean.TRUE);
         when(orderService.getOrderById(orderId)).thenReturn(order);
 
         BizException ex = assertThrows(BizException.class,
@@ -139,7 +141,6 @@ class PaymentRecordManagerTest {
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(5000);
 
-        when(redisUtil.setIfAbsent(anyString(), eq("1"), eq(24L), eq(TimeUnit.HOURS))).thenReturn(Boolean.TRUE);
         when(orderService.getOrderById(orderId)).thenReturn(order);
 
         BizException ex = assertThrows(BizException.class,
@@ -160,7 +161,6 @@ class PaymentRecordManagerTest {
         reg.setId(8001L);
         reg.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
 
-        when(redisUtil.setIfAbsent(anyString(), eq("1"), eq(24L), eq(TimeUnit.HOURS))).thenReturn(Boolean.TRUE);
         when(orderService.getOrderById(orderId)).thenReturn(order);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(reg);
 
