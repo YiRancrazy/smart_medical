@@ -12,6 +12,7 @@ import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
+import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
@@ -23,6 +24,7 @@ import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderItem;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Prescription;
+import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
@@ -82,6 +84,12 @@ public class PrescriptionManager {
     private static final int TXN_LOCK = 4;
     /** 库存异动类型:解锁 */
     private static final int TXN_UNLOCK = 5;
+    /** 支付记录状态:成功 */
+    private static final int PAYMENT_STATUS_SUCCESS = 2;
+    /** 支付记录状态:已退款 */
+    private static final int PAYMENT_STATUS_REFUNDED = 4;
+    /** 默认支付方式:4 现金 */
+    private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
 
     private final RegistrationService registrationService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
@@ -95,6 +103,7 @@ public class PrescriptionManager {
     private final OrderService orderService;
     private final OrderItemService orderItemService;
     private final InventoryTransactionService inventoryTransactionService;
+    private final PaymentRecordMapper paymentRecordMapper;
     private final RegistrationStatusLogManager statusLogManager;
     private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
@@ -400,6 +409,109 @@ public class PrescriptionManager {
 
         // S28: 删除 from=to 的冗余挂号状态日志（无状态变化），改为 info 日志即可
         log.info("[prescription-paid] prescriptionId={}, orderId={}", rx.getId(), orderId);
+    }
+
+    /**
+     * 用户退款已支付处方(仅 status=1 已支付、未发药):释放锁定库存 + 写退款记录 + 订单置为已退款 + 处方置为已取消
+     * @param prescriptionId 处方ID
+     * @param userId 当前用户ID
+     * @throws BizException PRESCRIPTION_NOT_FOUND / PRESCRIPTION_NOT_OWNED / PRESCRIPTION_ALREADY_DISPENSED
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void refund(Long prescriptionId, Long userId) {
+        Prescription rx = prescriptionService.getById(prescriptionId);
+        if (rx == null) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
+        }
+        MedicalRecord record = rx.getMedicalRecordId() == null
+                ? null : medicalRecordService.getById(rx.getMedicalRecordId());
+        if (record == null || !patientManager.getAccessiblePatientUserIds(userId, null).contains(record.getPatientId())) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
+        }
+        // 仅已支付可退，已取消/已发药拒绝（已发药应走药师逆向）
+        if (rx.getStatus() == null || rx.getStatus() != PrescriptionStatus.PAID.getCode()) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "仅已支付未发药的处方可退款");
+        }
+
+        // 1. 释放锁定库存：locked -= q, available += q（与 cancelByDoctor 一致）
+        List<PrescriptionItem> items = prescriptionItemService.list(
+                new LambdaQueryWrapper<PrescriptionItem>()
+                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
+        Map<Long, DrugInventory> inventoryMap = drugInventoryMapper.selectList(
+                new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
+                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
+        for (PrescriptionItem item : items) {
+            DrugInventory inv = inventoryMap.get(item.getDrugId());
+            if (inv == null) {
+                continue;
+            }
+            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
+            drugInventoryMapper.update(null,
+                    new UpdateWrapper<DrugInventory>()
+                            .eq("id", inv.getId())
+                            .setSql("locked_quantity = GREATEST(locked_quantity - " + item.getQuantity() + ", 0)")
+                            .setSql("available_quantity = available_quantity + " + item.getQuantity()));
+            InventoryTransaction txn = new InventoryTransaction();
+            txn.setId(IdUtil.getSnowflakeNextId());
+            txn.setDrugId(item.getDrugId());
+            txn.setWarehouseId(inv.getWarehouseId());
+            txn.setTransactionType(TXN_UNLOCK);
+            txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
+            txn.setQuantityChange(-item.getQuantity());
+            txn.setQuantityBefore(qtyBefore);
+            txn.setQuantityAfter(qtyBefore + item.getQuantity());
+            txn.setOperatorId(userId);
+            txn.setOperatorName("user");
+            inventoryTransactionService.insertInventoryTransaction(txn);
+        }
+
+        // 2. 订单退款（已支付才退），写退款记录 + 原支付记录置为已退款 + 订单置为已退款
+        if (rx.getOrderId() != null) {
+            Order order = orderService.getOrderById(rx.getOrderId());
+            if (order != null && order.getStatus() != null
+                    && order.getStatus() == OrderStatus.PAID.getCode()) {
+                PaymentRecord orig = paymentRecordMapper.selectOne(
+                        new LambdaQueryWrapper<PaymentRecord>()
+                                .eq(PaymentRecord::getOrderId, order.getId())
+                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_SUCCESS)
+                                .last("LIMIT 1"));
+                int refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+                if (refundAmount > 0) {
+                    PaymentRecord refund = new PaymentRecord();
+                    refund.setId(IdUtil.getSnowflakeNextId());
+                    refund.setOrderId(order.getId());
+                    refund.setSn(System.currentTimeMillis());
+                    refund.setTotalAmount(-refundAmount);
+                    refund.setRealAmount(-refundAmount);
+                    refund.setPaymentMethodId(orig != null && orig.getPaymentMethodId() != null
+                            ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
+                    refund.setStatus(PAYMENT_STATUS_REFUNDED);
+                    refund.setPaymentTime(LocalDateTime.now());
+                    paymentRecordMapper.insert(refund);
+                }
+                if (orig != null) {
+                    orig.setStatus(PAYMENT_STATUS_REFUNDED);
+                    paymentRecordMapper.updateById(orig);
+                }
+                Integer fromStatus = order.getStatus();
+                order.setStatus(OrderStatus.REFUNDED.getCode());
+                orderService.updateOrderById(order);
+                OrderStatusLog orderLog = new OrderStatusLog();
+                orderLog.setOrderId(order.getId());
+                orderLog.setFromStatus(fromStatus);
+                orderLog.setToStatus(OrderStatus.REFUNDED.getCode());
+                orderLog.setOperatorId(userId);
+                orderLog.setOperatorRole("user");
+                orderLog.setRemark("处方退款");
+                orderStatusLogManager.addOrderStatusLog(orderLog);
+            }
+        }
+
+        // 3. 处方置为已取消（掉出药师待发药列表，DISPENSED 需走药师逆向）
+        rx.setStatus(PrescriptionStatus.CANCELLED.getCode());
+        prescriptionService.updateById(rx);
+        log.info("[prescription-refund] prescriptionId={}, orderId={}, userId={}", prescriptionId, rx.getOrderId(), userId);
     }
 
     /**

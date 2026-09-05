@@ -49,4 +49,13 @@ public class UserPrescriptionControllerV1 {
                                                @RequestAttribute("currentUserId") Long userId) {
         return Result.success(prescriptionManager.getPrescriptionDetail(id, userId));
     }
+
+    @Operation(summary = "用户端 - 退款已支付处方", description = "仅已支付未发药处方可退，退款后库存与款项回退")
+    @Parameter(name = "id", description = "处方ID", required = true)
+    @PostMapping("/{id:\\d+}/refund")
+    public Result<String> refund(@PathVariable Long id,
+                                 @RequestAttribute("currentUserId") Long userId) {
+        prescriptionManager.refund(id, userId);
+        return Result.success("退款成功");
+    }
 }

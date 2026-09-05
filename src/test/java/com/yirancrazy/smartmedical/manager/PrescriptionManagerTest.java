@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
+import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -32,6 +33,7 @@ import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderItem;
+import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
@@ -76,6 +78,7 @@ class PrescriptionManagerTest {
     @Mock private MedicalRecordService medicalRecordService;
     @Mock private DrugService drugService;
     @Mock private DrugInventoryMapper drugInventoryMapper;
+    @Mock private PaymentRecordMapper paymentRecordMapper;
     @Mock private OrderService orderService;
     @Mock private OrderItemService orderItemService;
     @Mock private InventoryTransactionService inventoryTransactionService;
@@ -448,5 +451,98 @@ class PrescriptionManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
         assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void refund_paidPrescription_releasesInventoryAndRefundsOrder() {
+        Long userId = 3001L;
+        Prescription rx = new Prescription();
+        rx.setId(4001L);
+        rx.setMedicalRecordId(1001L);
+        rx.setOrderId(5001L);
+        rx.setStatus(PrescriptionStatus.PAID.getCode());
+
+        MedicalRecord record = new MedicalRecord();
+        record.setId(1001L);
+        record.setPatientId(9009L);
+
+        PrescriptionItem item = new PrescriptionItem();
+        item.setDrugId(7001L);
+        item.setQuantity(2);
+
+        DrugInventory inv = new DrugInventory();
+        inv.setId(8001L);
+        inv.setDrugId(7001L);
+        inv.setWarehouseId(9001L);
+        inv.setAvailableQuantity(10);
+
+        Order order = new Order();
+        order.setId(5001L);
+        order.setStatus(OrderStatus.PAID.getCode());
+        order.setTotalAmount(2000);
+
+        PaymentRecord orig = new PaymentRecord();
+        orig.setPaymentMethodId(4);
+
+        when(prescriptionService.getById(4001L)).thenReturn(rx);
+        when(medicalRecordService.getById(1001L)).thenReturn(record);
+        when(patientManager.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
+        when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
+        when(drugInventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(inv));
+        when(drugInventoryMapper.update(eq(null), any())).thenReturn(1);
+        when(orderService.getOrderById(5001L)).thenReturn(order);
+        when(paymentRecordMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(orig);
+
+        prescriptionManager.refund(4001L, userId);
+
+        verify(paymentRecordMapper).insert(any(PaymentRecord.class));
+        assertEquals(4, orig.getStatus());
+        verify(orderService).updateOrderById(order);
+        assertEquals(OrderStatus.REFUNDED.getCode(), order.getStatus());
+        verify(prescriptionService).updateById(rx);
+        assertEquals(PrescriptionStatus.CANCELLED.getCode(), rx.getStatus());
+        verify(orderStatusLogManager).addOrderStatusLog(any());
+        verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
+    }
+
+    @Test
+    void refund_nonOwnedPrescription_throwsException() {
+        Long userId = 3001L;
+        Prescription rx = new Prescription();
+        rx.setId(4001L);
+        rx.setMedicalRecordId(1001L);
+        rx.setStatus(PrescriptionStatus.PAID.getCode());
+
+        MedicalRecord record = new MedicalRecord();
+        record.setId(1001L);
+        record.setPatientId(8888L);
+
+        when(prescriptionService.getById(4001L)).thenReturn(rx);
+        when(medicalRecordService.getById(1001L)).thenReturn(record);
+        when(patientManager.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
+
+        BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
+        assertEquals(BizErrorCode.PRESCRIPTION_NOT_OWNED.getCode(), ex.getCode());
+    }
+
+    @Test
+    void refund_dispensedPrescription_rejected() {
+        Long userId = 3001L;
+        Prescription rx = new Prescription();
+        rx.setId(4001L);
+        rx.setMedicalRecordId(1001L);
+        rx.setStatus(PrescriptionStatus.DISPENSED.getCode());
+
+        MedicalRecord record = new MedicalRecord();
+        record.setId(1001L);
+        record.setPatientId(9009L);
+
+        when(prescriptionService.getById(4001L)).thenReturn(rx);
+        when(medicalRecordService.getById(1001L)).thenReturn(record);
+        when(patientManager.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
+
+        BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
+        assertEquals(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED.getCode(), ex.getCode());
     }
 }
