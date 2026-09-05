@@ -1,12 +1,8 @@
 <template>
-  <div class="login-page">
-    <div class="login-logo">智慧医疗</div>
-    <glass-card class="login-card">
+  <div class="register-page">
+    <div class="register-logo">智慧医疗</div>
+    <glass-card class="register-card">
       <van-form @submit="handleSubmit">
-        <van-tabs v-model:active="mode" class="login-tabs">
-          <van-tab title="密码登录" name="password" />
-          <van-tab title="验证码登录" name="code" />
-        </van-tabs>
         <van-field
           v-model="form.phone"
           label="手机号"
@@ -17,15 +13,6 @@
           ]"
         />
         <van-field
-          v-if="mode === 'password'"
-          v-model="form.password"
-          type="password"
-          label="密码"
-          placeholder="请输入密码"
-          :rules="[{ required: true, message: '请输入密码' }]"
-        />
-        <van-field
-          v-else
           v-model="form.code"
           type="digit"
           label="验证码"
@@ -48,22 +35,19 @@
             </van-button>
           </template>
         </van-field>
-        <div class="login-actions">
+        <div class="register-actions">
           <van-button round block type="primary" native-type="submit" :loading="loading">
-            {{ submitText }}
+            注册
           </van-button>
         </div>
-        <div class="switch-mode" @click="$router.push('/register')">
-          没有账号？去注册
-        </div>
-        <div class="forgot-link" v-if="mode === 'password'" @click="$router.push('/forgot-password')">忘记密码？</div>
+        <div class="back-login" @click="$router.push('/login')">已有账号？去登录</div>
       </van-form>
     </glass-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onUnmounted } from 'vue'
+import { reactive, ref, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { showToast } from 'vant'
 import GlassCard from '@/components/GlassCard.vue'
@@ -72,18 +56,12 @@ import { authApi } from '@/api/auth'
 
 const userStore = useUserStore()
 const loading = ref(false)
-// 登录模式：password 密码登录 / code 验证码登录（注册已独立为 /register 页面）
-const mode = ref<'password' | 'code'>('password')
-const form = reactive({ phone: '', password: '', code: '' })
+const form = reactive({ phone: '', code: '' })
 
 // 验证码重发倒计时（60s）
 const countdown = ref(0)
 const sending = ref(false)
 let timer: number | null = null
-
-const submitText = computed(() => {
-  return mode.value === 'code' ? '验证码登录' : '登录'
-})
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
@@ -108,12 +86,12 @@ async function handleSendCode() {
   }
   sending.value = true
   try {
-    // 验证码登录场景（scene=login），后端校验账号已存在才可发
-    await authApi.sendSmsCode(form.phone, 'login')
+    // 注册场景（默认 scene=register），后端校验账号不存在才可发
+    await authApi.sendSmsCode(form.phone)
     showToast('验证码已发送')
     startCountdown()
   } catch (e) {
-    // 发送失败/冷却中/账号不存在，透传后端错误文案
+    // 发送失败/冷却中/账号已存在，透传后端错误文案
     showToast((e as Error)?.message || '验证码发送失败')
   } finally {
     sending.value = false
@@ -123,14 +101,11 @@ async function handleSendCode() {
 async function handleSubmit() {
   loading.value = true
   try {
-    if (mode.value === 'code') {
-      await userStore.loginByCode(form.phone, form.code)
-    } else {
-      await userStore.login(form.phone, form.password)
-    }
+    await userStore.register(form.phone, form.code)
+    showToast('注册成功')
   } catch (e) {
-    // 透传后端错误文案（验证码错误/过期/账号不存在等）
-    showToast((e as Error)?.message || '操作失败')
+    // 透传后端错误文案（验证码错误/过期/账号已存在等）
+    showToast((e as Error)?.message || '注册失败')
   } finally {
     loading.value = false
   }
@@ -138,13 +113,13 @@ async function handleSubmit() {
 </script>
 
 <style scoped lang="scss">
-.login-page {
+.register-page {
   min-height: 100vh;
   padding: 80px 24px 24px;
   background: $gradient-primary;
 }
 
-.login-logo {
+.register-logo {
   text-align: center;
   font-size: 28px;
   font-weight: $font-weight-bold;
@@ -152,27 +127,15 @@ async function handleSubmit() {
   margin-bottom: 48px;
 }
 
-.login-tabs {
-  margin-bottom: 16px;
-}
-
-.login-actions {
+.register-actions {
   margin-top: 32px;
 }
 
-.switch-mode {
+.back-login {
   margin-top: 16px;
   text-align: center;
   color: $color-primary;
   font-size: 14px;
-  cursor: pointer;
-}
-
-.forgot-link {
-  margin-top: 12px;
-  text-align: center;
-  color: $color-text-secondary;
-  font-size: 13px;
   cursor: pointer;
 }
 </style>

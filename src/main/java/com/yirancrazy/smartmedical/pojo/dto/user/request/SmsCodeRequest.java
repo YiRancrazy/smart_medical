@@ -7,9 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 发送短信验证码请求（用户注册）
+ * 发送短信验证码请求（用户注册 / 验证码登录）
  * @Author: YiRanCrazy@gmail.com
- * @Description: 用户输入手机号请求发送注册验证码
+ * @Description: 用户输入手机号请求发送短信验证码，scene 区分 register（注册，默认）与 login（验证码登录）
  * @Datetime: 2026-09-04 20:30
  * @Version: 1.0
  */
@@ -22,4 +22,7 @@ public class SmsCodeRequest {
     @NotBlank(message = "手机号不能为空")
     @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")
     private String phone;       // 手机号
+
+    /** 验证码场景：register（注册，默认）/ login（验证码登录） */
+    private String scene;       // 验证码场景
 }

@@ -50,6 +50,7 @@ public class SecurityConfig {
             "/api/admin/v1/auth/login",
             "/api/admin/v1/auth/refresh",
             "/api/user/v1/auth/login",
+            "/api/user/v1/auth/login-by-code",
             "/api/user/v1/auth/register",
             "/api/user/v1/auth/sms-code",
             "/api/user/v1/auth/forgot-password",
