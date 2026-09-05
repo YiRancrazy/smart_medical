@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Prescription;
@@ -14,6 +13,7 @@ import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderStatusLogService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
@@ -62,13 +62,11 @@ class PharmacyManagerTest {
     @Mock private PrescriptionItemService prescriptionItemService;
     @Mock private DrugService drugService;
     @Mock private DrugInventoryService drugInventoryService;
-    @Mock private DrugInventoryMapper drugInventoryMapper;
     @Mock private InventoryTransactionService inventoryTransactionService;
     @Mock private RegistrationService registrationService;
     @Mock private MedicalRecordService medicalRecordService;
     @Mock private OrderService orderService;
-    @Mock private RegistrationStatusLogManager statusLogManager;
-    @Mock private OrderStatusLogManager orderStatusLogManager;
+    @Mock private OrderStatusLogService orderStatusLogService;
 
     @InjectMocks
     private PharmacyManager pharmacyManager;
@@ -156,7 +154,7 @@ class PharmacyManagerTest {
         lowInv.setStockQuantity(5);
         lowInv.setMinStock(10);
 
-        when(drugInventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(lowInv));
+        when(drugInventoryService.listLowStock()).thenReturn(List.of(lowInv));
 
         Result<PageResult<DrugInventory>> result = pharmacyManager.listLowStock(null, null);
 
@@ -174,7 +172,7 @@ class PharmacyManagerTest {
     @Test
     @SuppressWarnings("unchecked")
     void listLowStock_empty_returnsEmpty() {
-        when(drugInventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+        when(drugInventoryService.listLowStock()).thenReturn(List.of());
 
         Result<PageResult<DrugInventory>> result = pharmacyManager.listLowStock(null, null);
 
@@ -245,9 +243,9 @@ class PharmacyManagerTest {
         verify(drugInventoryService).updateDrugInventoryById(inv);
         verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
         verify(prescriptionService).updateById(rx);
-        verify(statusLogManager).transition(eq(reg), anyInt(), eq(pharmacistId), eq("pharmacist"), eq("发药完成"));
+        verify(registrationService).updateStatusWithLog(eq(reg), anyInt(), eq(pharmacistId), eq("pharmacist"), eq("发药完成"));
         verify(orderService).updateOrderById(order);
-        verify(orderStatusLogManager).addOrderStatusLog(any(OrderStatusLog.class));
+        verify(orderStatusLogService).addOrderStatusLog(any(OrderStatusLog.class));
     }
 
     @Test

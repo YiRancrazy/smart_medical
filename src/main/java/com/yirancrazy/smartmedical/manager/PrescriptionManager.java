@@ -11,8 +11,6 @@ import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
-import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
@@ -43,17 +41,21 @@ import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import com.yirancrazy.smartmedical.service.OrderItemService;
 import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderStatusLogService;
+import com.yirancrazy.smartmedical.service.PaymentRecordService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -84,8 +86,6 @@ public class PrescriptionManager {
     private static final int TXN_LOCK = 4;
     /** 库存异动类型:解锁 */
     private static final int TXN_UNLOCK = 5;
-    /** 支付记录状态:成功 */
-    private static final int PAYMENT_STATUS_SUCCESS = 2;
     /** 支付记录状态:已退款 */
     private static final int PAYMENT_STATUS_REFUNDED = 4;
     /** 默认支付方式:4 现金 */
@@ -103,16 +103,15 @@ public class PrescriptionManager {
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
     private final DrugService drugService;
-    private final DrugInventoryMapper drugInventoryMapper;
+    private final DrugInventoryService drugInventoryService;
     private final OrderService orderService;
     private final OrderItemService orderItemService;
     private final InventoryTransactionService inventoryTransactionService;
-    private final PaymentRecordMapper paymentRecordMapper;
-    private final RegistrationStatusLogManager statusLogManager;
+    private final PaymentRecordService paymentRecordService;
     private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
-    private final OrderStatusLogManager orderStatusLogManager;
-    private final PatientManager patientManager;
+    private final OrderStatusLogService orderStatusLogService;
+    private final UserPatientRelationService userPatientRelationService;
     private final UserService userService;
     private final AccountService accountService;
 
@@ -152,7 +151,7 @@ public class PrescriptionManager {
                 drugResult.drugCache, drugResult.inventoryCache);
 
         // 6. registration 状态迁移:就诊中 → 完成
-        statusLogManager.transition(reg,
+        registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.COMPLETED.getCode(),
                 doctorId, "doctor", "提交病历开方");
 
@@ -201,8 +200,7 @@ public class PrescriptionManager {
         List<Long> drugIds = items.stream().map(PrescriptionItemRequest::getDrugId).distinct().collect(Collectors.toList());
         Map<Long, Drug> drugCache = drugService.listDrugsByIds(drugIds).stream()
                 .collect(Collectors.toMap(Drug::getId, d -> d));
-        Map<Long, DrugInventory> inventoryCache = drugInventoryMapper.selectList(
-                new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
+        Map<Long, DrugInventory> inventoryCache = drugInventoryService.listByDrugIds(drugIds)
                 .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
         for (PrescriptionItemRequest item : items) {
             Drug drug = drugCache.get(item.getDrugId());
@@ -259,7 +257,7 @@ public class PrescriptionManager {
      * 无处方药品时直接完成就诊
      */
     private PrescriptionSubmitVO handleNoPrescription(Registration reg, MedicalRecord record, Long doctorId) {
-        statusLogManager.transition(reg,
+        registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.COMPLETED.getCode(),
                 doctorId, "doctor", "就诊完成(无处方)");
         PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
@@ -333,18 +331,13 @@ public class PrescriptionManager {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
                         "可用库存不足：drugId=" + item.getDrugId());
             }
-            int rows = drugInventoryMapper.update(null,
-                    new UpdateWrapper<DrugInventory>()
-                            .eq("id", inv.getId())
-                            .ge("available_quantity", item.getQuantity())
-                            .setSql("locked_quantity = locked_quantity + " + item.getQuantity())
-                            .setSql("available_quantity = available_quantity - " + item.getQuantity()));
+            int rows = drugInventoryService.lockInventory(inv.getId(), item.getQuantity());
             if (rows == 0) {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
                         "库存锁定失败(并发)：drugId=" + item.getDrugId());
             }
             // P6: 审计流水取 DB 真实值（事务内可见自身更新），避免并发下快照偏差
-            DrugInventory fresh = drugInventoryMapper.selectById(inv.getId());
+            DrugInventory fresh = drugInventoryService.getDrugInventoryById(inv.getId());
             int qtyAfter = fresh == null || fresh.getAvailableQuantity() == null
                     ? qtyBefore - item.getQuantity() : fresh.getAvailableQuantity();
             int qtyBeforeReal = qtyAfter + item.getQuantity();
@@ -442,7 +435,7 @@ public class PrescriptionManager {
         }
         MedicalRecord record = rx.getMedicalRecordId() == null
                 ? null : medicalRecordService.getById(rx.getMedicalRecordId());
-        if (record == null || !patientManager.getAccessiblePatientUserIds(userId, null).contains(record.getPatientId())) {
+        if (record == null || !userPatientRelationService.getAccessiblePatientUserIds(userId, null).contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
         }
         // 仅已支付可退，已取消/已发药拒绝（已发药应走药师逆向）
@@ -458,11 +451,7 @@ public class PrescriptionManager {
             Order order = orderService.getOrderById(rx.getOrderId());
             if (order != null && order.getStatus() != null
                     && order.getStatus() == OrderStatus.PAID.getCode()) {
-                PaymentRecord orig = paymentRecordMapper.selectOne(
-                        new LambdaQueryWrapper<PaymentRecord>()
-                                .eq(PaymentRecord::getOrderId, order.getId())
-                                .eq(PaymentRecord::getStatus, PAYMENT_STATUS_SUCCESS)
-                                .last("LIMIT 1"));
+                PaymentRecord orig = paymentRecordService.getSuccessPaymentRecordByOrderId(order.getId());
                 int refundAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
                 if (refundAmount > 0) {
                     PaymentRecord refund = new PaymentRecord();
@@ -475,11 +464,11 @@ public class PrescriptionManager {
                             ? orig.getPaymentMethodId() : DEFAULT_PAYMENT_METHOD_ID);
                     refund.setStatus(PAYMENT_STATUS_REFUNDED);
                     refund.setPaymentTime(LocalDateTime.now());
-                    paymentRecordMapper.insert(refund);
+                    paymentRecordService.insertPaymentRecord(refund);
                 }
                 if (orig != null) {
                     orig.setStatus(PAYMENT_STATUS_REFUNDED);
-                    paymentRecordMapper.updateById(orig);
+                    paymentRecordService.updatePaymentRecordById(orig);
                 }
                 Integer fromStatus = order.getStatus();
                 order.setStatus(OrderStatus.REFUNDED.getCode());
@@ -491,7 +480,7 @@ public class PrescriptionManager {
                 orderLog.setOperatorId(userId);
                 orderLog.setOperatorRole("user");
                 orderLog.setRemark("处方退款");
-                orderStatusLogManager.addOrderStatusLog(orderLog);
+                orderStatusLogService.addOrderStatusLog(orderLog);
             }
         }
 
@@ -550,7 +539,7 @@ public class PrescriptionManager {
         if (record != null) {
             Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
             if (reg != null && reg.getStatus() == RegistrationStatusEnum.PENDING_PAYMENT.getCode()) {
-                statusLogManager.transition(reg,
+                registrationService.updateStatusWithLog(reg,
                         RegistrationStatusEnum.IN_TREATMENT.getCode(),
                         doctorId, "doctor", "作废处方");
             }
@@ -602,10 +591,7 @@ public class PrescriptionManager {
         if (drugIds.isEmpty()) {
             return;
         }
-        Map<Long, DrugInventory> inventoryMap = drugInventoryMapper.selectList(
-                        new LambdaQueryWrapper<DrugInventory>()
-                                .in(DrugInventory::getDrugId, drugIds)
-                                .last("FOR UPDATE"))
+        Map<Long, DrugInventory> inventoryMap = drugInventoryService.listByDrugIdsForUpdate(drugIds)
                 .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
         for (PrescriptionItem item : items) {
             DrugInventory inv = inventoryMap.get(item.getDrugId());
@@ -619,11 +605,7 @@ public class PrescriptionManager {
                 continue;
             }
             int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
-            drugInventoryMapper.update(null,
-                    new UpdateWrapper<DrugInventory>()
-                            .eq("id", inv.getId())
-                            .setSql("locked_quantity = locked_quantity - " + item.getQuantity())
-                            .setSql("available_quantity = available_quantity + " + item.getQuantity()));
+            drugInventoryService.releaseInventory(inv.getId(), item.getQuantity());
             InventoryTransaction txn = new InventoryTransaction();
             txn.setId(IdUtil.getSnowflakeNextId());
             txn.setDrugId(item.getDrugId());
@@ -663,7 +645,7 @@ public class PrescriptionManager {
         orderLog.setOperatorId(operatorId);
         orderLog.setOperatorRole(operatorRole);
         orderLog.setRemark(remark);
-        orderStatusLogManager.addOrderStatusLog(orderLog);
+        orderStatusLogService.addOrderStatusLog(orderLog);
     }
 
     /**
@@ -870,7 +852,7 @@ public class PrescriptionManager {
             if (record == null) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
-            List<Long> accessibleUserIds = patientManager.getAccessiblePatientUserIds(userId, null);
+            List<Long> accessibleUserIds = userPatientRelationService.getAccessiblePatientUserIds(userId, null);
             if (!accessibleUserIds.contains(record.getPatientId())) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }

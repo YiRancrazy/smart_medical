@@ -12,4 +12,10 @@ import com.yirancrazy.smartmedical.pojo.Prescription;
  */
 
 public interface PrescriptionService extends IService<Prescription> {
+
+    /**
+     * 支付成功回调:标记处方为已支付（状态守卫：仅待支付可置为已支付，已支付幂等跳过）
+     * @param orderId 订单ID
+     */
+    void markAsPaid(Long orderId);
 }

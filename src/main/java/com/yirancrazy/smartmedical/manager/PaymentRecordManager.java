@@ -1,14 +1,12 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PayMethodConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleResponse;
 import com.yirancrazy.smartmedical.service.*;
@@ -41,15 +39,13 @@ public class PaymentRecordManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final OrderService orderService;
-    private final OrdersMapper ordersMapper;
     private final OrderTypeService orderTypeService;
     private final OrderItemService orderItemService;
     private final ProductionTypeService productionTypeService;
     private final PayMethodService paymentMethodService;
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionService prescriptionService;
     private final RegistrationService registrationService;
-    private final RegistrationStatusLogManager registrationStatusLogManager;
-    private final OrderStatusLogManager orderStatusLogManager;
+    private final OrderStatusLogService orderStatusLogService;
 
     /**
      * 获取用户所有的缴费记录
@@ -219,11 +215,7 @@ public class PaymentRecordManager {
      * 原子更新订单状态 WAITING_FOR_PAYMENT → PAID
      */
     private void updateOrderToPaid(Long orderId, Order order) {
-        int updated = ordersMapper.update(null,
-                new UpdateWrapper<Order>()
-                        .eq("id", orderId)
-                        .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
-                        .set("status", OrderStatus.PAID.getCode()));
+        int updated = orderService.markOrderPaid(orderId);
         if (updated == 0) {
             log.info("[payment-success] orderId={} concurrent paid, skip", orderId);
             syncRegistrationStatusPaid(orderId);
@@ -237,7 +229,7 @@ public class PaymentRecordManager {
         orderLog.setOperatorId(0L);
         orderLog.setOperatorRole("system");
         orderLog.setRemark("支付成功");
-        orderStatusLogManager.addOrderStatusLog(orderLog);
+        orderStatusLogService.addOrderStatusLog(orderLog);
     }
 
     /**
@@ -247,12 +239,12 @@ public class PaymentRecordManager {
         // 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
         if (registration != null) {
-            registrationStatusLogManager.transition(registration,
+            registrationService.updateStatusWithLog(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
                     0L, "system", "支付成功");
         }
         // 联动处方:标记处方为已支付
-        prescriptionManager.markAsPaid(orderId);
+        prescriptionService.markAsPaid(orderId);
     }
 
     /**
@@ -264,7 +256,7 @@ public class PaymentRecordManager {
         // 仅当挂号仍处于待支付时才补同步，避免回退已报到/就诊中等状态
         if (registration != null
                 && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
-            registrationStatusLogManager.transition(registration,
+            registrationService.updateStatusWithLog(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
                     0L, "system", "支付成功(补同步)");
         }

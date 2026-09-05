@@ -10,7 +10,6 @@ import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
@@ -29,6 +28,7 @@ import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.OrderStatusLogService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
@@ -68,13 +68,11 @@ public class PharmacyManager {
     private final PrescriptionItemService prescriptionItemService;
     private final DrugService drugService;
     private final DrugInventoryService drugInventoryService;
-    private final DrugInventoryMapper drugInventoryMapper;
     private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationService registrationService;
     private final MedicalRecordService medicalRecordService;
     private final OrderService orderService;
-    private final RegistrationStatusLogManager statusLogManager;
-    private final OrderStatusLogManager orderStatusLogManager;
+    private final OrderStatusLogService orderStatusLogService;
 
     /**
      * 待发药列表（status=1 已支付，F31支持可选分页）
@@ -254,7 +252,7 @@ public class PharmacyManager {
             if (record != null && record.getRegistrationId() != null) {
                 Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
                 if (reg != null && !Integer.valueOf(RegistrationStatusEnum.COMPLETED.getCode()).equals(reg.getStatus())) {
-                    statusLogManager.transition(reg,
+                    registrationService.updateStatusWithLog(reg,
                             RegistrationStatusEnum.COMPLETED.getCode(),
                             pharmacistId, "pharmacist", "发药完成");
                 }
@@ -279,7 +277,7 @@ public class PharmacyManager {
                 orderLog.setOperatorId(pharmacistId);
                 orderLog.setOperatorRole("pharmacist");
                 orderLog.setRemark("发药完成");
-                orderStatusLogManager.addOrderStatusLog(orderLog);
+                orderStatusLogService.addOrderStatusLog(orderLog);
             }
         }
     }
@@ -295,11 +293,7 @@ public class PharmacyManager {
             PageHelper.startPage(pageNum, pageSize);
         }
         // F31: 过滤+排序下推到 SQL，避免 Java 端分页漏数据
-        // ponytail: DrugInventoryService 无 list(wrapper) 方法，直接走 mapper（同 RegistrationManager 直接注入 Mapper 的模式）
-        List<DrugInventory> list = drugInventoryMapper.selectList(
-                new LambdaQueryWrapper<DrugInventory>()
-                        .apply("stock_quantity < min_stock")
-                        .last("ORDER BY (stock_quantity - min_stock) ASC"));
+        List<DrugInventory> list = drugInventoryService.listLowStock();
         PageInfo<DrugInventory> pageInfo = new PageInfo<>(list);
         return Result.success(new PageResult<>(pageInfo, list));
     }

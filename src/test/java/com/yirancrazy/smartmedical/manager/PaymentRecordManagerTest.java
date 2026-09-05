@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.*;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
@@ -41,8 +40,6 @@ class PaymentRecordManagerTest {
     @Mock
     private OrderService orderService;
     @Mock
-    private OrdersMapper ordersMapper;
-    @Mock
     private OrderTypeService orderTypeService;
     @Mock
     private OrderItemService orderItemService;
@@ -51,13 +48,11 @@ class PaymentRecordManagerTest {
     @Mock
     private PayMethodService payMethodService;
     @Mock
-    private PrescriptionManager prescriptionManager;
+    private PrescriptionService prescriptionService;
     @Mock
     private RegistrationService registrationService;
     @Mock
-    private RegistrationStatusLogManager registrationStatusLogManager;
-    @Mock
-    private OrderStatusLogManager orderStatusLogManager;
+    private OrderStatusLogService orderStatusLogService;
 
     @Test
     void paySuccess_duplicateTransactionSn_marksOrderPaidIdempotent() {
@@ -71,15 +66,15 @@ class PaymentRecordManagerTest {
         when(orderService.getOrderById(orderId)).thenReturn(order);
         doThrow(new DuplicateKeyException("uk_transaction_sn"))
                 .when(paymentRecordService).insertPaymentRecord(any());
-        when(ordersMapper.update(any(), any())).thenReturn(1);
+        when(orderService.markOrderPaid(orderId)).thenReturn(1);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
-        doNothing().when(prescriptionManager).markAsPaid(orderId);
+        doNothing().when(prescriptionService).markAsPaid(orderId);
 
         Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 100);
 
         assertEquals(200, result.getCode());
         // 重复流水号被 DB 唯一索引拦下（幂等），但订单仍应被置为已支付，避免漏单
-        verify(ordersMapper).update(any(), any());
+        verify(orderService).markOrderPaid(orderId);
     }
 
     // ===== paySuccess() 测试 =====
@@ -94,17 +89,17 @@ class PaymentRecordManagerTest {
         order.setTotalAmount(5000);
 
         when(orderService.getOrderById(orderId)).thenReturn(order);
-        when(ordersMapper.update(any(), any())).thenReturn(1);
+        when(orderService.markOrderPaid(orderId)).thenReturn(1);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
-        doNothing().when(prescriptionManager).markAsPaid(orderId);
+        doNothing().when(prescriptionService).markAsPaid(orderId);
 
         Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
 
         assertEquals(200, result.getCode());
-        verify(ordersMapper).update(any(), any());
-        verify(orderStatusLogManager).addOrderStatusLog(any(OrderStatusLog.class));
+        verify(orderService).markOrderPaid(orderId);
+        verify(orderStatusLogService).addOrderStatusLog(any(OrderStatusLog.class));
         verify(registrationService).getRegistrationByOrderId(orderId);
-        verify(prescriptionManager).markAsPaid(orderId);
+        verify(prescriptionService).markAsPaid(orderId);
     }
 
     @Test
@@ -167,8 +162,8 @@ class PaymentRecordManagerTest {
         Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
 
         assertEquals(200, result.getCode());
-        verify(ordersMapper, never()).update(any(), any());
-        verify(registrationStatusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.SUCCESS.getCode()),
+        verify(orderService, never()).markOrderPaid(anyLong());
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.SUCCESS.getCode()),
                 eq(0L), eq("system"), eq("支付成功(补同步)"));
     }
 }
