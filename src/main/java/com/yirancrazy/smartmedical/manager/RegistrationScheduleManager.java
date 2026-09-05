@@ -4,7 +4,11 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
 import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
-import com.yirancrazy.smartmedical.pojo.*;
+import com.yirancrazy.smartmedical.pojo.AppointmentRule;
+import com.yirancrazy.smartmedical.pojo.Doctor;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmTime;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationDateAndRemainQuotaVo;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
@@ -16,7 +20,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * @Author: YiRanCrazy@gmail.com
