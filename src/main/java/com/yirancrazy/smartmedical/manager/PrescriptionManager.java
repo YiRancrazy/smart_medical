@@ -559,6 +559,8 @@ public class PrescriptionManager {
             drugInventoryMapper.update(null,
                     new UpdateWrapper<DrugInventory>()
                             .eq("id", inv.getId())
+                            // 守卫：仅当 locked 足够时才释放，作为并发双释放的兜底
+                            .ge("locked_quantity", item.getQuantity())
                             .setSql("locked_quantity = GREATEST(locked_quantity - " + item.getQuantity() + ", 0)")
                             .setSql("available_quantity = available_quantity + " + item.getQuantity()));
             inv.setAvailableQuantity(qtyBefore + item.getQuantity());
@@ -596,9 +598,15 @@ public class PrescriptionManager {
             }
         }
 
-        // 处方置为已取消
-        rx.setStatus(PrescriptionStatus.CANCELLED.getCode());
-        prescriptionService.updateById(rx);
+        // 处方置为已取消：条件更新仅当仍处于待支付才生效，并发作废只有一个成功，失败方抛异常回滚库存释放
+        boolean rxUpdated = prescriptionService.update(
+                new UpdateWrapper<Prescription>()
+                        .eq("id", rx.getId())
+                        .eq("status", PrescriptionStatus.PENDING_PAYMENT.getCode())
+                        .set("status", PrescriptionStatus.CANCELLED.getCode()));
+        if (!rxUpdated) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_CANCELLED, "处方已被处理，请刷新");
+        }
 
         // registration 状态回退：仅旧流程产生的 PENDING_PAYMENT 回退到就诊中；
         // 新流程提交后挂号已完成，作废处方不再回退挂号状态
