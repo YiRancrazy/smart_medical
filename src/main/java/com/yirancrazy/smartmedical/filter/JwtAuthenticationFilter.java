@@ -154,8 +154,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             request.setAttribute("currentUserId", currentUserId);
             request.setAttribute("currentAccountId", accountId);
             // L4: currentDoctorId 仅对医生角色(2)设置，其余角色置空，避免用户域接口误取到患者 userId
-            Object roleClaim = payload.getClaim("role");
-            boolean isDoctor = roleClaim != null && roleClaim.equals(2L);
+            boolean isDoctor = resolveRoleId(payload) == 2L;
             if (isDoctor) {
                 // B06: 登录时已校验 doctor 表存在 id=userId 的记录，约定 account.userId == doctor.id，
                 // 因此 currentDoctorId=currentUserId 安全
@@ -180,14 +179,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @return Spring Security 角色权限列表
      */
     private List<SimpleGrantedAuthority> resolveAuthorities(JWTPayload payload) {
-        Object roleClaim = payload.getClaim("role");
-        if (roleClaim == null) {
-            return Collections.emptyList();
-        }
-        long roleId;
-        try {
-            roleId = Long.parseLong(String.valueOf(roleClaim));
-        } catch (NumberFormatException e) {
+        long roleId = resolveRoleId(payload);
+        if (roleId < 0) {
             return Collections.emptyList();
         }
         String authority = switch ((int) roleId) {
@@ -203,6 +196,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return Collections.emptyList();
         }
         return List.of(new SimpleGrantedAuthority(authority));
+    }
+
+    /**
+     * 将 JWT payload 中的 role claim 规范化为数字角色 ID（兼容 Long / Integer / String 类型，
+     * 与 resolveAuthorities 共用，避免类型比较不一致导致角色误判）
+     * @param payload JWT payload
+     * @return 角色 ID；claim 缺失或非数字时返回 -1
+     */
+    private long resolveRoleId(JWTPayload payload) {
+        Object roleClaim = payload.getClaim("role");
+        if (roleClaim == null) {
+            return -1;
+        }
+        try {
+            return Long.parseLong(String.valueOf(roleClaim));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /**
