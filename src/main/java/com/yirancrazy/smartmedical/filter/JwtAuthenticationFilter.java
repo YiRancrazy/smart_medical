@@ -154,9 +154,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
             request.setAttribute("currentUserId", currentUserId);
             request.setAttribute("currentAccountId", accountId);
-            // B06: 登录时已校验 doctor 表存在 id=userId 的记录，约定 account.userId == doctor.id，
-            // 因此 currentDoctorId=currentUserId 安全；pharmacist 无独立表，currentPharmacistId 用 userId 作操作者ID
-            request.setAttribute("currentDoctorId", currentUserId);
+            // L4: currentDoctorId 仅对医生角色(2)设置，其余角色置空，避免用户域接口误取到患者 userId
+            Object roleClaim = payload.getClaim("role");
+            boolean isDoctor = roleClaim != null && roleClaim.equals(2L);
+            if (isDoctor) {
+                // B06: 登录时已校验 doctor 表存在 id=userId 的记录，约定 account.userId == doctor.id，
+                // 因此 currentDoctorId=currentUserId 安全
+                request.setAttribute("currentDoctorId", currentUserId);
+            } else {
+                request.removeAttribute("currentDoctorId");
+            }
+            // pharmacist 无独立表，currentPharmacistId 用 userId 作操作者ID
             request.setAttribute("currentPharmacistId", currentUserId);
             log.debug("JWT 认证通过：accountId={}, userId={}, uri={}", accountId, currentUserId, request.getRequestURI());
             filterChain.doFilter(request, response);
