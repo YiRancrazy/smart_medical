@@ -60,7 +60,19 @@ public class UserPatientRelationManager {
 
         Long id = IdUtil.getSnowflakeNextId();
         User patientUser = userService.getUserByIdCard(idCard);
-        if (patientUser == null) {
+        if (patientUser != null) {
+            // 身份证命中已有用户：校验提交手机号与该用户账号归属一致，避免身份证与手机号分属两人时
+            // 静默错绑他人账号，导致后续重复添加被误判为"已存在"
+            List<Account> phoneAccounts = accountService.getAccountByPhone(phone);
+            if (phoneAccounts != null && !phoneAccounts.isEmpty()) {
+                Long idCardUserId = patientUser.getId();
+                boolean ownedByPatient = phoneAccounts.stream()
+                        .anyMatch(account -> account.getUserId().equals(idCardUserId));
+                if (!ownedByPatient) {
+                    return Result.fail("该手机号已被其他账号使用，与身份证不一致");
+                }
+            }
+        } else {
             List<Account> accounts = accountService.getAccountByPhone(phone);
             if (accounts != null && !accounts.isEmpty()) {
                 patientUser = userService.getUserById(accounts.get(0).getUserId());
