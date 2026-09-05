@@ -101,6 +101,9 @@ public class PayMethodManager {
      * @return 二级支付类型列表
      */
     public Result<List<PayMethodVo>> listAllChildPayMethods(String parentId) {
+        if (parentId == null || parentId.isBlank() || !parentId.matches("\\d+")) {
+            return Result.fail("parentId 参数不合法");
+        }
         List<PayMethodVo> bookingConfirmPayMethods = new ArrayList<>();
         List<PaymentMethod> paymentMethods = payMethodService.listChildPayMethodByParentId(Long.valueOf(parentId));
         if(paymentMethods == null){
