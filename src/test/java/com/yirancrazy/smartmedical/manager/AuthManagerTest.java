@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
+import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,13 +45,14 @@ class AuthManagerTest {
     @Mock private RedisUtil redisUtil;
     @Mock private PatientCardService patientCardService;
     @Mock private PatientService patientService;
+    @Mock private SmsService smsService;
     @Mock private HttpServletResponse response;
 
     @InjectMocks
     private AuthManager authManager;
 
     private AuthManager buildManager() {
-        AuthManager m = new AuthManager(accountService, userService, redisUtil, patientCardService, patientService);
+        AuthManager m = new AuthManager(accountService, userService, redisUtil, patientCardService, patientService, smsService);
         ReflectionTestUtils.setField(m, "accessSecretKey", "test-access-secret");
         ReflectionTestUtils.setField(m, "refreshSecretKey", "test-refresh-secret");
         ReflectionTestUtils.setField(m, "accessTokenPrefix", "access_token_");
@@ -127,9 +129,10 @@ class AuthManagerTest {
         existing.setPhone("13800000000");
         when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(existing));
 
-        Result<String> result = m.register("13800000000", "raw123");
+        Result<LoginVo> result = m.register("13800000000", "raw123", response);
 
         assertEquals(10001, result.getCode());
+        verify(smsService).verifyCode("13800000000", "raw123");
     }
 
     @Test
@@ -139,12 +142,30 @@ class AuthManagerTest {
         when(patientCardService.insertPatientCard(any(PatientCard.class))).thenReturn(1);
         when(patientService.insertPatient(any(Patient.class))).thenReturn(1);
 
-        Result<String> result = m.register("13800000000", "raw123");
+        Result<LoginVo> result = m.register("13800000000", "raw123", response);
 
         assertEquals(200, result.getCode());
+        verify(smsService).verifyCode("13800000000", "raw123");
         verify(userService).insertUser(any(User.class));
         verify(accountService).insertAccount(any(Account.class));
         verify(patientCardService).insertPatientCard(any(PatientCard.class));
         verify(patientService).insertPatient(any(Patient.class));
+    }
+
+    @Test
+    void forgotPassword_verifyCodeRequiredBeforeReset() {
+        AuthManager m = buildManager();
+        Account existing = new Account();
+        existing.setId(9L);
+        existing.setRoleId(4L);
+        when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(existing));
+
+        Result<String> result = m.forgotPassword("13800000000", "123456", "newpass123");
+
+        assertEquals(200, result.getCode());
+        verify(smsService).verifyCode("13800000000", "123456");
+        verify(accountService).updateAccountById(existing);
+        verify(redisUtil).delete("access_token_9");
+        verify(redisUtil).delete("refresh_token_9");
     }
 }

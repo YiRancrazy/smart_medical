@@ -130,21 +130,60 @@ public class AuthManager {
     }
 
     /**
-     * 发送注册短信验证码（未登录，由 CaptchaVerifyFilter 守卫先过滑块，防短信轰炸）
+     * 发送短信验证码（未登录，60s 冷却防短信轰炸）
      * @param phone 用户手机号
+     * @param scene 场景：login（验证码登录，账号必须已存在）/ register（注册，默认，账号不能已存在）
      * @return 发送结果
      */
-    public Result<String> sendSmsCode(String phone) {
+    public Result<String> sendSmsCode(String phone, String scene) {
         if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
             return Result.fail("手机号格式不正确");
         }
+        boolean isLogin = "login".equalsIgnoreCase(scene);
+        boolean isForgot = "forgot".equalsIgnoreCase(scene); // 忘记密码：账号必须已存在
         List<Account> existing = accountService.getAccountByPhone(phone);
-        if (existing != null && !existing.isEmpty()) {
-            return Result.info(10001, "账号已存在", null);
+        boolean exists = existing != null && !existing.isEmpty();
+        if (isLogin || isForgot) {
+            // 验证码登录：账号必须已存在，未注册提示去注册
+            if (!exists) {
+                return Result.info(10001, "账号不存在", null);
+            }
+        } else {
+            // 注册：账号不能已存在
+            if (exists) {
+                return Result.info(10001, "账号已存在", null);
+            }
         }
         // 冷却/发送失败由 SmsService 抛 BizException，GlobalExceptionHandler 统一转 Result
         smsService.sendCode(phone);
         return Result.success("验证码已发送");
+    }
+
+    /**
+     * 用户验证码登录（手机号 + 短信验证码，登录成功签发 token）
+     * @param phone 用户手机号
+     * @param code 短信验证码
+     * @param response HttpServletResponse 响应对象（用于签发 token）
+     * @return 登录结果
+     */
+    public Result<LoginVo> loginByCode(String phone, String code, HttpServletResponse response) {
+        checkLoginRate(phone);
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        // 校验验证码（过期/错误抛 BizException，GlobalExceptionHandler 统一转 Result）
+        smsService.verifyCode(phone, code);
+        Account account = accountService.getAccountByPhone(phone)
+                .stream()
+                .filter(a -> USER_ROLE.equals(a.getRoleId()))
+                .findFirst()
+                .orElse(null);
+        if (account == null) {
+            log.warn("[login-by-code] 账号不存在, phone={}", phone);
+            return Result.info(10001, "账号不存在", null);
+        }
+        User user = userService.getUserById(account.getUserId());
+        return Result.success(issueTokens(account, user, response));
     }
 
     /**
@@ -203,12 +242,13 @@ public class AuthManager {
     }
 
     /**
-     * 用户忘记密码重置（未登录，由 CaptchaVerifyFilter 守卫先过滑块）
+     * 用户忘记密码重置（未登录，须短信验证码校验，防止任意账号被接管）
      * @param phone 用户手机号
+     * @param code 短信验证码
      * @param newPassword 新密码
      * @return 重置结果
      */
-    public Result<String> forgotPassword(String phone, String newPassword) {
+    public Result<String> forgotPassword(String phone, String code, String newPassword) {
         checkLoginRate(phone);
         if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
             return Result.fail("手机号格式不正确");
@@ -216,6 +256,8 @@ public class AuthManager {
         if (newPassword == null || newPassword.length() < 6) {
             return Result.fail("密码长度至少 6 位");
         }
+        // 校验短信验证码（过期/错误抛 BizException），杜绝无身份校验的改密接管
+        smsService.verifyCode(phone, code);
         Account account = accountService.getAccountByPhone(phone)
                 .stream()
                 .filter(a -> USER_ROLE.equals(a.getRoleId()))

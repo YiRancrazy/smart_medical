@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.controller.user;
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.ChangePasswordRequest;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.ForgotPasswordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.PhoneAndPasswordLoginRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.SmsCodeRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.SmsRegisterRequest;
@@ -43,14 +44,26 @@ public class UserAuthControllerV1 {
 
 
     /**
-     * 发送注册短信验证码（需先通过滑块验证，防短信轰炸）
-     * @param smsCodeRequest 手机号
+     * 发送短信验证码（注册 / 验证码登录，60秒内不可重复发送）
+     * @param smsCodeRequest 手机号和场景
      * @return 发送结果
      */
     @PostMapping("/sms-code")
-    @Operation(summary = "用户端 - 发送注册验证码", description = "向手机号发送注册短信验证码，60秒内不可重复发送")
+    @Operation(summary = "用户端 - 发送短信验证码", description = "scene=register 发送注册验证码（账号不存在才可发）；scene=login 发送登录验证码（账号必须已存在）")
     public Result<String> sendSmsCode(@Valid @RequestBody SmsCodeRequest smsCodeRequest) {
-        return authManager.sendSmsCode(smsCodeRequest.getPhone());
+        return authManager.sendSmsCode(smsCodeRequest.getPhone(), smsCodeRequest.getScene());
+    }
+
+    /**
+     * 用户验证码登录（手机号 + 短信验证码，登录成功自动签发 token）
+     * @param smsRegisterRequest 手机号和验证码
+     * @param response 用于签发 token
+     * @return 登录结果（返回 LoginVo）
+     */
+    @PostMapping("/login-by-code")
+    @Operation(summary = "用户端 - 验证码登录", description = "手机号+短信验证码登录，登录成功后自动签发 token")
+    public Result<LoginVo> loginByCode(@Valid @RequestBody SmsRegisterRequest smsRegisterRequest, HttpServletResponse response) {
+        return authManager.loginByCode(smsRegisterRequest.getPhone(), smsRegisterRequest.getCode(), response);
     }
 
     /**
@@ -85,14 +98,14 @@ public class UserAuthControllerV1 {
     }
 
     /**
-     * 用户忘记密码重置（未登录，需先通过滑块验证）
-     * @param phoneAndPasswordLoginRequest 手机号和新密码
+     * 用户忘记密码重置（未登录，需短信验证码）
+     * @param forgotPasswordRequest 手机号、验证码和新密码
      * @return 重置结果
      */
     @PostMapping("/forgot-password")
-    @Operation(summary = "用户端 - 忘记密码", description = "未登录重置密码，需先通过滑块验证")
-    public Result<String> forgotPassword(@Valid @RequestBody PhoneAndPasswordLoginRequest phoneAndPasswordLoginRequest) {
-        return authManager.forgotPassword(phoneAndPasswordLoginRequest.getPhone(), phoneAndPasswordLoginRequest.getPassword());
+    @Operation(summary = "用户端 - 忘记密码", description = "未登录重置密码，需短信验证码校验")
+    public Result<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest) {
+        return authManager.forgotPassword(forgotPasswordRequest.getPhone(), forgotPasswordRequest.getCode(), forgotPasswordRequest.getPassword());
     }
 
     /**
