@@ -357,7 +357,16 @@ public class AuthManager {
                 userId = Long.parseLong(accountId);
             }
 
-            long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
+            Long exp;
+            try {
+                Object expObj = payload.getClaim("exp");
+                if (expObj == null) {
+                    return Result.fail("Refresh token 无效");
+                }
+                exp = Long.parseLong(String.valueOf(expObj));
+            } catch (NumberFormatException e) {
+                return Result.fail("Refresh token 无效");
+            }
             if (exp < System.currentTimeMillis() / 1000) {
                 return Result.fail("Refresh token 已过期");
             }
