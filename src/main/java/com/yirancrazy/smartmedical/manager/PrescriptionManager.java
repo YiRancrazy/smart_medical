@@ -135,6 +135,10 @@ public class PrescriptionManager {
 
         // 3. 校验所有药品 + 库存 + 累计金额
         DrugValidationResult drugResult = validateDrugsAndBuildCache(req.getItems());
+        if (drugResult.totalAmount > Integer.MAX_VALUE) {
+            throw new BizException(BizErrorCode.ORDER_AMOUNT_TOO_LARGE,
+                    "处方金额超出上限，无法提交");
+        }
 
         // 4. 创建处方 + 药品订单
         PrescriptionOrderResult poResult = createPrescriptionAndOrder(reg, record, drugResult.totalAmount);
@@ -154,7 +158,7 @@ public class PrescriptionManager {
         vo.setPrescriptionId(poResult.prescription.getId());
         vo.setOrderId(poResult.order.getId());
         vo.setOrderSn(String.valueOf(poResult.order.getSn()));
-        vo.setTotalAmount(drugResult.totalAmount);
+        vo.setTotalAmount((int) drugResult.totalAmount);
         vo.setRegistrationStatus(RegistrationStatusEnum.COMPLETED.getCode());
         return vo;
     }
@@ -189,7 +193,7 @@ public class PrescriptionManager {
      * 校验药品存在性和库存充足，返回药品缓存、库存缓存和总金额
      */
     private DrugValidationResult validateDrugsAndBuildCache(List<PrescriptionItemRequest> items) {
-        int totalAmount = 0;
+        long totalAmount = 0L;
         List<Long> drugIds = items.stream().map(PrescriptionItemRequest::getDrugId).distinct().collect(Collectors.toList());
         Map<Long, Drug> drugCache = drugService.listDrugsByIds(drugIds).stream()
                 .collect(Collectors.toMap(Drug::getId, d -> d));
@@ -208,7 +212,7 @@ public class PrescriptionManager {
                                 + ", available=" + (inv == null ? 0 : inv.getAvailableQuantity())
                                 + ", required=" + item.getQuantity());
             }
-            totalAmount += drug.getPrice() * item.getQuantity();
+            totalAmount += (long) drug.getPrice() * item.getQuantity();
         }
         return new DrugValidationResult(drugCache, inventoryCache, totalAmount);
     }
@@ -261,11 +265,12 @@ public class PrescriptionManager {
     /**
      * 创建处方头 + 药品订单，并关联订单ID到处方
      */
-    private PrescriptionOrderResult createPrescriptionAndOrder(Registration reg, MedicalRecord record, int totalAmount) {
+    private PrescriptionOrderResult createPrescriptionAndOrder(Registration reg, MedicalRecord record, long totalAmount) {
+        int amount = (int) totalAmount;
         Prescription rx = new Prescription();
         rx.setId(IdUtil.getSnowflakeNextId());
         rx.setMedicalRecordId(record.getId());
-        rx.setTotalAmount(totalAmount);
+        rx.setTotalAmount(amount);
         rx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
         prescriptionService.save(rx);
 
@@ -275,7 +280,7 @@ public class PrescriptionManager {
         order.setOrderTypeId(OrderTypeConstant.DRUG);
         order.setSn(IdUtil.getSnowflakeNextId());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
-        order.setTotalAmount(totalAmount);
+        order.setTotalAmount(amount);
         order.setOrderCreateTime(LocalDateTime.now());
         orderService.insertOrder(order);
 
@@ -357,9 +362,9 @@ public class PrescriptionManager {
     private static class DrugValidationResult {
         private final Map<Long, Drug> drugCache;
         private final Map<Long, DrugInventory> inventoryCache;
-        private final int totalAmount;
+        private final long totalAmount;
 
-        DrugValidationResult(Map<Long, Drug> drugCache, Map<Long, DrugInventory> inventoryCache, int totalAmount) {
+        DrugValidationResult(Map<Long, Drug> drugCache, Map<Long, DrugInventory> inventoryCache, long totalAmount) {
             this.drugCache = drugCache;
             this.inventoryCache = inventoryCache;
             this.totalAmount = totalAmount;

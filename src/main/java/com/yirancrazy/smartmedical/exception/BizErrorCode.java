@@ -23,6 +23,7 @@ public enum BizErrorCode {
     MEDICAL_RECORD_NOT_FOUND(2002, "病历不存在"),
     DRUG_NOT_FOUND(3001, "药品不存在"),
     DRUG_INVENTORY_INSUFFICIENT(3002, "药品库存不足"),
+    ORDER_AMOUNT_TOO_LARGE(3004, "金额超出上限"),
     INVENTORY_LOCKED(3003, "库存正在被其他操作锁定"),
     PRESCRIPTION_NOT_FOUND(4001, "处方不存在"),
     PRESCRIPTION_NOT_PAID(4002, "处方未支付"),
