@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import { setToken, setUid, setUserInfo, clearAuth, getToken, getUid, getUserInfo } from '@/utils/storage'
 import { usePatientStore } from '@/stores/patient'
+import { useRegistrationStore } from '@/stores/registration'
 import router from '@/router'
 
 export const useUserStore = defineStore('user', () => {
@@ -27,15 +28,26 @@ export const useUserStore = defineStore('user', () => {
     setUserInfo(userInfo.value)
   }
 
-  async function login(phone: string, password: string) {
-    const res = await authApi.login({ phone, password })
-    applyLoginData(res.data)
-
-    // U05: 优先回跳原目标页，无 redirect 才落首页
+  /**
+   * 登录后回跳：优先回跳原目标页，无 redirect 才落首页
+   */
+  async function goAfterLogin() {
     const redirect = typeof router.currentRoute.value.query.redirect === 'string'
       ? router.currentRoute.value.query.redirect
       : ''
     await router.replace(redirect || '/')
+  }
+
+  async function login(phone: string, password: string) {
+    const res = await authApi.login({ phone, password })
+    applyLoginData(res.data)
+    await goAfterLogin()
+  }
+
+  async function loginByCode(phone: string, code: string) {
+    const res = await authApi.loginByCode({ phone, code })
+    applyLoginData(res.data)
+    await goAfterLogin()
   }
 
   async function register(phone: string, code: string) {
@@ -51,6 +63,8 @@ export const useUserStore = defineStore('user', () => {
     clearAuth()
     // U19: 重置 patientStore，避免换账号后残留上一用户的就诊人数据
     usePatientStore().reset()
+    // M7: 清理挂号流程状态（sessionStorage 中的已选排班/订单），换账号不残留上次挂号数据
+    useRegistrationStore().resetFlow()
     router.push('/login')
   }
 
@@ -67,5 +81,5 @@ export const useUserStore = defineStore('user', () => {
     logout()
   }
 
-  return { token, uid, userInfo, isLoggedIn, login, register, logout, logoutWithApi }
+  return { token, uid, userInfo, isLoggedIn, login, loginByCode, register, logout, logoutWithApi }
 })
