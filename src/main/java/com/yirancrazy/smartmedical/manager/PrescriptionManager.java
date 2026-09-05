@@ -57,6 +57,7 @@ import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -89,6 +90,10 @@ public class PrescriptionManager {
     private static final int PAYMENT_STATUS_REFUNDED = 4;
     /** 默认支付方式:4 现金 */
     private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
+    /** 待支付处方超时时间：超过 30 分钟未支付自动作废并释放锁定库存 */
+    private static final int PAYMENT_TIMEOUT_MINUTES = 30;
+    /** 超时扫描间隔：每 60 秒执行一次 */
+    private static final long TIMEOUT_SCAN_INTERVAL_MS = 60_000L;
 
     private final RegistrationService registrationService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
@@ -203,6 +208,9 @@ public class PrescriptionManager {
             Drug drug = drugCache.get(item.getDrugId());
             if (drug == null) {
                 throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + item.getDrugId());
+            }
+            if (drug.getPrice() == null) {
+                throw new BizException(BizErrorCode.DRUG_PRICE_INVALID, "drugId=" + item.getDrugId());
             }
             DrugInventory inv = inventoryCache.get(item.getDrugId());
             if (inv == null || inv.getAvailableQuantity() < item.getQuantity()) {
@@ -335,8 +343,13 @@ public class PrescriptionManager {
                 throw new BizException(BizErrorCode.DRUG_INVENTORY_INSUFFICIENT,
                         "库存锁定失败(并发)：drugId=" + item.getDrugId());
             }
+            // P6: 审计流水取 DB 真实值（事务内可见自身更新），避免并发下快照偏差
+            DrugInventory fresh = drugInventoryMapper.selectById(inv.getId());
+            int qtyAfter = fresh == null || fresh.getAvailableQuantity() == null
+                    ? qtyBefore - item.getQuantity() : fresh.getAvailableQuantity();
+            int qtyBeforeReal = qtyAfter + item.getQuantity();
             inv.setLockedQuantity((inv.getLockedQuantity() == null ? 0 : inv.getLockedQuantity()) + item.getQuantity());
-            inv.setAvailableQuantity(qtyBefore - item.getQuantity());
+            inv.setAvailableQuantity(qtyAfter);
 
             InventoryTransaction txn = new InventoryTransaction();
             txn.setId(IdUtil.getSnowflakeNextId());
@@ -345,8 +358,8 @@ public class PrescriptionManager {
             txn.setTransactionType(TXN_LOCK);
             txn.setRelatedOrder(String.valueOf(order.getSn()));
             txn.setQuantityChange(item.getQuantity());
-            txn.setQuantityBefore(qtyBefore);
-            txn.setQuantityAfter(qtyBefore - item.getQuantity());
+            txn.setQuantityBefore(qtyBeforeReal);
+            txn.setQuantityAfter(qtyAfter);
             txn.setOperatorId(doctorId);
             txn.setOperatorName("doctor");
             inventoryTransactionService.insertInventoryTransaction(txn);
@@ -437,38 +450,8 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "仅已支付未发药的处方可退款");
         }
 
-        // 1. 释放锁定库存：locked -= q, available += q（与 cancelByDoctor 一致）
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
-        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
-        Map<Long, DrugInventory> inventoryMap = drugInventoryMapper.selectList(
-                new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
-                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
-        for (PrescriptionItem item : items) {
-            DrugInventory inv = inventoryMap.get(item.getDrugId());
-            if (inv == null) {
-                continue;
-            }
-            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
-            drugInventoryMapper.update(null,
-                    new UpdateWrapper<DrugInventory>()
-                            .eq("id", inv.getId())
-                            .setSql("locked_quantity = GREATEST(locked_quantity - " + item.getQuantity() + ", 0)")
-                            .setSql("available_quantity = available_quantity + " + item.getQuantity()));
-            InventoryTransaction txn = new InventoryTransaction();
-            txn.setId(IdUtil.getSnowflakeNextId());
-            txn.setDrugId(item.getDrugId());
-            txn.setWarehouseId(inv.getWarehouseId());
-            txn.setTransactionType(TXN_UNLOCK);
-            txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
-            txn.setQuantityChange(-item.getQuantity());
-            txn.setQuantityBefore(qtyBefore);
-            txn.setQuantityAfter(qtyBefore + item.getQuantity());
-            txn.setOperatorId(userId);
-            txn.setOperatorName("user");
-            inventoryTransactionService.insertInventoryTransaction(txn);
-        }
+        // 1. 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁 + 状态守卫，防并发双释放）
+        releaseInventory(rx, userId, "user");
 
         // 2. 订单退款（已支付才退），写退款记录 + 原支付记录置为已退款 + 订单置为已退款
         if (rx.getOrderId() != null) {
@@ -512,9 +495,15 @@ public class PrescriptionManager {
             }
         }
 
-        // 3. 处方置为已取消（掉出药师待发药列表，DISPENSED 需走药师逆向）
-        rx.setStatus(PrescriptionStatus.CANCELLED.getCode());
-        prescriptionService.updateById(rx);
+        // 3. 处方置为已取消：条件更新仅当仍处于已支付才生效，并发退款只有一个成功，失败方抛异常回滚库存释放
+        boolean rxUpdated = prescriptionService.update(
+                new UpdateWrapper<Prescription>()
+                        .eq("id", rx.getId())
+                        .eq("status", PrescriptionStatus.PAID.getCode())
+                        .set("status", PrescriptionStatus.CANCELLED.getCode()));
+        if (!rxUpdated) {
+            throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_CANCELLED, "处方已被处理，请刷新");
+        }
         log.info("[prescription-refund] prescriptionId={}, orderId={}, userId={}", prescriptionId, rx.getOrderId(), userId);
     }
 
@@ -540,62 +529,11 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "只能作废待支付处方");
         }
 
-        // 释放锁定库存：locked -= q, available += q
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
-        // 批量查库存，消除 N+1
-        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
-        Map<Long, DrugInventory> inventoryMap = drugInventoryMapper.selectList(
-                new LambdaQueryWrapper<DrugInventory>().in(DrugInventory::getDrugId, drugIds))
-                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
-        for (PrescriptionItem item : items) {
-            DrugInventory inv = inventoryMap.get(item.getDrugId());
-            if (inv == null) {
-                continue;
-            }
-            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
-            drugInventoryMapper.update(null,
-                    new UpdateWrapper<DrugInventory>()
-                            .eq("id", inv.getId())
-                            // 守卫：仅当 locked 足够时才释放，作为并发双释放的兜底
-                            .ge("locked_quantity", item.getQuantity())
-                            .setSql("locked_quantity = GREATEST(locked_quantity - " + item.getQuantity() + ", 0)")
-                            .setSql("available_quantity = available_quantity + " + item.getQuantity()));
-            inv.setAvailableQuantity(qtyBefore + item.getQuantity());
-
-            InventoryTransaction txn = new InventoryTransaction();
-            txn.setId(IdUtil.getSnowflakeNextId());
-            txn.setDrugId(item.getDrugId());
-            txn.setWarehouseId(inv.getWarehouseId());
-            txn.setTransactionType(TXN_UNLOCK);
-            txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
-            txn.setQuantityChange(-item.getQuantity());
-            txn.setQuantityBefore(qtyBefore);
-            txn.setQuantityAfter(qtyBefore + item.getQuantity());
-            txn.setOperatorId(doctorId);
-            txn.setOperatorName("doctor");
-            inventoryTransactionService.insertInventoryTransaction(txn);
-        }
+        // 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁，防并发双释放）
+        releaseInventory(rx, doctorId, "doctor");
 
         // 关闭订单
-        if (rx.getOrderId() != null) {
-            Order order = orderService.getOrderById(rx.getOrderId());
-            if (order != null) {
-                Integer fromStatus = order.getStatus();
-                order.setStatus(OrderStatus.CANCELED.getCode());
-                orderService.updateOrderById(order);
-                // S29: 写订单状态变更日志
-                OrderStatusLog orderLog = new OrderStatusLog();
-                orderLog.setOrderId(order.getId());
-                orderLog.setFromStatus(fromStatus);
-                orderLog.setToStatus(OrderStatus.CANCELED.getCode());
-                orderLog.setOperatorId(doctorId);
-                orderLog.setOperatorRole("doctor");
-                orderLog.setRemark("作废处方关闭订单");
-                orderStatusLogManager.addOrderStatusLog(orderLog);
-            }
-        }
+        closeOrderForCancel(rx, doctorId, "doctor", "作废处方关闭订单");
 
         // 处方置为已取消：条件更新仅当仍处于待支付才生效，并发作废只有一个成功，失败方抛异常回滚库存释放
         boolean rxUpdated = prescriptionService.update(
@@ -617,6 +555,115 @@ public class PrescriptionManager {
                         doctorId, "doctor", "作废处方");
             }
         }
+    }
+
+    /**
+     * 定时扫描超时未支付的处方，自动作废并释放锁定库存（B1）
+     * @Scheduled 经调度器代理调用，@Transactional 生效；整批一个事务，异常整体回滚下轮重试
+     */
+    @Scheduled(fixedDelay = TIMEOUT_SCAN_INTERVAL_MS, initialDelay = TIMEOUT_SCAN_INTERVAL_MS)
+    @Transactional(rollbackFor = Exception.class)
+    public void releaseExpiredPendingPrescriptions() {
+        LocalDateTime deadline = LocalDateTime.now().minusMinutes(PAYMENT_TIMEOUT_MINUTES);
+        List<Prescription> expired = prescriptionService.list(
+                new LambdaQueryWrapper<Prescription>()
+                        .eq(Prescription::getStatus, PrescriptionStatus.PENDING_PAYMENT.getCode())
+                        .eq(Prescription::getDeleted, false)
+                        .lt(Prescription::getCreateTime, deadline));
+        if (expired.isEmpty()) {
+            return;
+        }
+        log.info("[prescription-timeout] 待支付超时处方 {} 条，开始自动作废释放库存", expired.size());
+        for (Prescription rx : expired) {
+            releaseInventory(rx, 0L, "system");
+            closeOrderForCancel(rx, 0L, "system", "支付超时自动作废");
+            boolean rxUpdated = prescriptionService.update(
+                    new UpdateWrapper<Prescription>()
+                            .eq("id", rx.getId())
+                            .eq("status", PrescriptionStatus.PENDING_PAYMENT.getCode())
+                            .set("status", PrescriptionStatus.CANCELLED.getCode()));
+            if (!rxUpdated) {
+                log.warn("[prescription-timeout] prescriptionId={} 状态已变化，跳过", rx.getId());
+            }
+        }
+    }
+
+    /**
+     * 释放处方锁定库存：FOR UPDATE 行锁串行化并发释放，防双释放；审计流水取行锁后的真实值
+     * @param rx 处方
+     * @param operatorId 操作人ID（系统超时任务传 0L）
+     * @param operatorName 操作人角色
+     */
+    private void releaseInventory(Prescription rx, Long operatorId, String operatorName) {
+        List<PrescriptionItem> items = prescriptionItemService.list(
+                new LambdaQueryWrapper<PrescriptionItem>()
+                        .eq(PrescriptionItem::getPrescriptionId, rx.getId()));
+        List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
+        if (drugIds.isEmpty()) {
+            return;
+        }
+        Map<Long, DrugInventory> inventoryMap = drugInventoryMapper.selectList(
+                        new LambdaQueryWrapper<DrugInventory>()
+                                .in(DrugInventory::getDrugId, drugIds)
+                                .last("FOR UPDATE"))
+                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
+        for (PrescriptionItem item : items) {
+            DrugInventory inv = inventoryMap.get(item.getDrugId());
+            if (inv == null) {
+                continue;
+            }
+            int lockedBefore = inv.getLockedQuantity() == null ? 0 : inv.getLockedQuantity();
+            if (lockedBefore < item.getQuantity()) {
+                log.warn("[inventory-release] drugId={} locked={} < qty={}，已释放过，跳过",
+                        item.getDrugId(), lockedBefore, item.getQuantity());
+                continue;
+            }
+            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
+            drugInventoryMapper.update(null,
+                    new UpdateWrapper<DrugInventory>()
+                            .eq("id", inv.getId())
+                            .setSql("locked_quantity = locked_quantity - " + item.getQuantity())
+                            .setSql("available_quantity = available_quantity + " + item.getQuantity()));
+            InventoryTransaction txn = new InventoryTransaction();
+            txn.setId(IdUtil.getSnowflakeNextId());
+            txn.setDrugId(item.getDrugId());
+            txn.setWarehouseId(inv.getWarehouseId());
+            txn.setTransactionType(TXN_UNLOCK);
+            txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
+            txn.setQuantityChange(-item.getQuantity());
+            txn.setQuantityBefore(qtyBefore);
+            txn.setQuantityAfter(qtyBefore + item.getQuantity());
+            txn.setOperatorId(operatorId);
+            txn.setOperatorName(operatorName);
+            inventoryTransactionService.insertInventoryTransaction(txn);
+            // 更新本地值，同一处方多明细同药时后续判断准确
+            inv.setLockedQuantity(lockedBefore - item.getQuantity());
+            inv.setAvailableQuantity(qtyBefore + item.getQuantity());
+        }
+    }
+
+    /**
+     * 关闭处方关联订单（置为已取消并写订单状态日志）
+     */
+    private void closeOrderForCancel(Prescription rx, Long operatorId, String operatorRole, String remark) {
+        if (rx.getOrderId() == null) {
+            return;
+        }
+        Order order = orderService.getOrderById(rx.getOrderId());
+        if (order == null) {
+            return;
+        }
+        Integer fromStatus = order.getStatus();
+        order.setStatus(OrderStatus.CANCELED.getCode());
+        orderService.updateOrderById(order);
+        OrderStatusLog orderLog = new OrderStatusLog();
+        orderLog.setOrderId(order.getId());
+        orderLog.setFromStatus(fromStatus);
+        orderLog.setToStatus(OrderStatus.CANCELED.getCode());
+        orderLog.setOperatorId(operatorId);
+        orderLog.setOperatorRole(operatorRole);
+        orderLog.setRemark(remark);
+        orderStatusLogManager.addOrderStatusLog(orderLog);
     }
 
     /**
