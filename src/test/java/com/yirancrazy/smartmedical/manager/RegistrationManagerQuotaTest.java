@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.*;
 import com.yirancrazy.smartmedical.service.*;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
@@ -33,7 +32,7 @@ class RegistrationManagerQuotaTest {
     @Mock
     private PatientService patientService;
     @Mock
-    private PatientManager patientManager;
+    private UserPatientRelationService userPatientRelationService;
     @Mock
     private OrderService orderService;
     @Mock
@@ -42,8 +41,6 @@ class RegistrationManagerQuotaTest {
     private OrderItemService orderItemService;
     @Mock
     private RegistrationScheduleService registrationScheduleService;
-    @Mock
-    private RegistrationScheduleMapper registrationScheduleMapper;
     @Mock
     private RegistrationScheduleTemplateService registrationScheduleTemplateService;
     @Mock
@@ -76,7 +73,7 @@ class RegistrationManagerQuotaTest {
         when(patientCardService.getPatientCardById(patientCardId)).thenReturn(patientCard);
         when(patientService.getPatientByPatientCardId(patientCardId)).thenReturn(patient);
         when(registrationScheduleService.getRegistrationScheduleById(scheduleId)).thenReturn(schedule);
-        when(registrationScheduleMapper.update(any(), any())).thenReturn(0);
+        when(registrationScheduleService.deductRemainingQuota(scheduleId)).thenReturn(0);
 
         Result<String> result = registrationManager.addRegistration(scheduleId, userId, patientCardId);
 

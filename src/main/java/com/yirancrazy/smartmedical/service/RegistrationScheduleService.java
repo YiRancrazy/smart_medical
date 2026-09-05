@@ -147,4 +147,18 @@ public interface RegistrationScheduleService {
      * @return 挂号排班信息列表
      */
     List<RegistrationSchedule> getRegistrationScheduleListByTemplateIdList(List<Long> templateIdList);
+
+    /**
+     * 原子扣减号源：WHERE remaining_quota > 0 防止并发超卖；扣减后为 0 则置为已满(2)
+     * @param scheduleId 排班ID
+     * @return 影响行数（0 表示无号源）
+     */
+    int deductRemainingQuota(Long scheduleId);
+
+    /**
+     * 恢复号源：remaining_quota + 1，已满(2)则恢复为正常(1)
+     * @param scheduleId 排班ID
+     * @return 影响行数
+     */
+    int releaseQuota(Long scheduleId);
 }

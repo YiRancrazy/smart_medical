@@ -3,6 +3,8 @@ package com.yirancrazy.smartmedical.service;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.Registration;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -130,4 +132,53 @@ public interface RegistrationService {
      * @return 挂号信息
      */
     Registration getRegistrationByOrderId(Long orderId);
+
+    /**
+     * 统计指定时间范围内（排除已取消）的挂号数量
+     * @param start 开始时间（含）
+     * @param end 结束时间（不含）
+     * @return 挂号数量
+     */
+    Long countTodayRegistrations(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * 统计处于指定状态集合内的挂号数量
+     * @param statuses 状态集合
+     * @return 挂号数量
+     */
+    Long countByStatuses(Collection<Integer> statuses);
+
+    /**
+     * 统计处于指定状态的挂号数量
+     * @param status 状态
+     * @return 挂号数量
+     */
+    Long countByStatus(Integer status);
+
+    /**
+     * 按排班ID集合 + 状态集合查询挂号列表（按挂号时间升序）
+     * @param scheduleIds 排班ID集合
+     * @param statuses 状态集合
+     * @return 挂号列表
+     */
+    List<Registration> listByScheduleIdsAndStatuses(List<Long> scheduleIds, Collection<Integer> statuses);
+
+    /**
+     * 按排班ID集合 + 单个状态查询挂号列表（按报到时间升序）
+     * @param scheduleIds 排班ID集合
+     * @param status 状态
+     * @return 挂号列表
+     */
+    List<Registration> listByScheduleIdsAndStatus(List<Long> scheduleIds, Integer status);
+
+    /**
+     * 挂号状态迁移：原子更新 registration.status（带 status=fromStatus 乐观守门）+ 写状态日志
+     * @param reg 已加载的挂号实体
+     * @param toStatus 目标状态
+     * @param operatorId 操作人ID(0=系统)
+     * @param operatorRole 操作人角色(user/doctor/pharmacist/system)
+     * @param remark 备注
+     * @throws BizException 非法状态流转或乐观守门失败时抛出 REGISTRATION_STATUS_INVALID
+     */
+    void updateStatusWithLog(Registration reg, int toStatus, Long operatorId, String operatorRole, String remark);
 }

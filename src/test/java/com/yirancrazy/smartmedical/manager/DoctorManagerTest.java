@@ -3,7 +3,6 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
@@ -50,8 +49,6 @@ class DoctorManagerTest {
     @Mock private AppointmentRuleService appointmentRuleService;
     @Mock private DegreeService degreeService;
     @Mock private RegistrationService registrationService;
-    @Mock private RegistrationMapper registrationMapper;
-    @Mock private RegistrationStatusLogManager statusLogManager;
     @Mock private UserService userService;
     @Mock private AccountService accountService;
 
@@ -78,7 +75,7 @@ class DoctorManagerTest {
 
         doctorManager.callPatient(REG_ID, DOCTOR_ID);
 
-        verify(statusLogManager).transition(eq(reg), eq(RegistrationStatusEnum.IN_TREATMENT.getCode()),
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.IN_TREATMENT.getCode()),
                 eq(DOCTOR_ID), eq("doctor"), eq("叫号接诊"));
     }
 
@@ -110,7 +107,7 @@ class DoctorManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> doctorManager.callPatient(REG_ID, DOCTOR_ID));
         assertEquals(BizErrorCode.DOCTOR_NOT_MATCH.getCode(), ex.getCode());
-        verify(statusLogManager, never()).transition(any(), any(Integer.class), any(Long.class), any(), any());
+        verify(registrationService, never()).updateStatusWithLog(any(), any(Integer.class), any(Long.class), any(), any());
     }
 
     /**

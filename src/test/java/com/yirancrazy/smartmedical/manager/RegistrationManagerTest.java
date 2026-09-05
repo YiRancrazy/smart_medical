@@ -21,6 +21,7 @@ import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,7 @@ class RegistrationManagerTest {
     @Mock private RedisUtil redisUtil;
     @Mock private PatientCardService patientCardService;
     @Mock private PatientService patientService;
-    @Mock private PatientManager patientManager;
+    @Mock private UserPatientRelationService userPatientRelationService;
     @Mock private OrderService orderService;
     @Mock private OrderTypeService orderTypeService;
     @Mock private OrderItemService orderItemService;
@@ -66,7 +67,7 @@ class RegistrationManagerTest {
 
     @BeforeEach
     void setUp() {
-        when(patientManager.getAccessiblePatientUserIds(7L, null)).thenReturn(List.of(7L));
+        when(userPatientRelationService.getAccessiblePatientUserIds(7L, null)).thenReturn(List.of(7L));
     }
 
     @Test

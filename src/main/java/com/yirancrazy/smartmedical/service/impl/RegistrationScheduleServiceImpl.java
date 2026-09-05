@@ -2,8 +2,10 @@ package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
@@ -175,5 +177,32 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
         }
         return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
                 .in(RegistrationSchedule::getRegistrationScheduleTemplateId, templateIdList));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int deductRemainingQuota(Long scheduleId) {
+        return registrationScheduleMapper.update(null,
+                new UpdateWrapper<RegistrationSchedule>()
+                        .eq("id", scheduleId)
+                        .gt("remaining_quota", 0)
+                        .setSql("remaining_quota = remaining_quota - 1")
+                        // 扣减后为 0 则置为满号(2)
+                        .setSql("status = IF(remaining_quota - 1 = 0, "
+                                + RegistrationScheduleStatusEnum.FULL.getCode() + ", status)"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int releaseQuota(Long scheduleId) {
+        return registrationScheduleMapper.update(null,
+                new UpdateWrapper<RegistrationSchedule>()
+                        .eq("id", scheduleId)
+                        .setSql("remaining_quota = remaining_quota + 1")
+                        .setSql("status = IF(status = 2, 1, status)"));
     }
 }

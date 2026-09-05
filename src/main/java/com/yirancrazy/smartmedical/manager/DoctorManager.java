@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
@@ -10,7 +9,6 @@ import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.AppointmentRule;
 import com.yirancrazy.smartmedical.pojo.Degree;
@@ -76,8 +74,6 @@ public class DoctorManager {
     private final AppointmentRuleService appointmentRuleService;
     private final DegreeService degreeService;
     private final RegistrationService registrationService;
-    private final RegistrationMapper registrationMapper;
-    private final RegistrationStatusLogManager statusLogManager;
     private final UserService userService;
     private final AccountService accountService;
     /**
@@ -363,7 +359,7 @@ public class DoctorManager {
         if (!Integer.valueOf(RegistrationStatusEnum.REPORTED.getCode()).equals(reg.getStatus())) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "该挂号未报到");
         }
-        statusLogManager.transition(reg, RegistrationStatusEnum.IN_TREATMENT.getCode(),
+        registrationService.updateStatusWithLog(reg, RegistrationStatusEnum.IN_TREATMENT.getCode(),
                 doctorId, "doctor", "叫号接诊");
     }
 
@@ -387,12 +383,9 @@ public class DoctorManager {
         Map<Long, RegistrationScheduleTemplate> templateMap = registrationScheduleTemplateService
                 .listAllRegistrationScheduleTemplateByIdList(templateIds).stream()
                 .collect(Collectors.toMap(RegistrationScheduleTemplate::getId, t -> t, (t1, t2) -> t1));
-        List<Registration> registrations = registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleId, scheduleIds)
-                        .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.SUCCESS.getCode())
-                                .or().eq(Registration::getStatus, RegistrationStatusEnum.REPORTED.getCode()))
-                        .orderByAsc(Registration::getRegistrationTime));
+        List<Registration> registrations = registrationService.listByScheduleIdsAndStatuses(scheduleIds,
+                List.of(RegistrationStatusEnum.SUCCESS.getCode(),
+                        RegistrationStatusEnum.REPORTED.getCode()));
         Map<Long, User> userMap = batchLoadUsers(registrations);
         Map<Long, Account> accountMap = batchLoadAccounts(registrations);
         return registrations.stream().map(reg -> {
@@ -438,11 +431,8 @@ public class DoctorManager {
         if (scheduleIds.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Registration> registrations = registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleId, scheduleIds)
-                        .eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
-                        .orderByAsc(Registration::getCheckInTime));
+        List<Registration> registrations = registrationService.listByScheduleIdsAndStatus(
+                scheduleIds, RegistrationStatusEnum.IN_TREATMENT.getCode());
         Map<Long, User> userMap = batchLoadUsers(registrations);
         Map<Long, Account> accountMap = batchLoadAccounts(registrations);
         return registrations.stream().map(reg -> toWaitingVO(reg, userMap, accountMap))
@@ -468,11 +458,7 @@ public class DoctorManager {
         }
         List<Long> scheduleIds = schedules.stream()
                 .map(RegistrationSchedule::getId).collect(Collectors.toList());
-        return registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleId, scheduleIds)
-                        .eq(Registration::getStatus, status)
-                        .orderByAsc(Registration::getCheckInTime));
+        return registrationService.listByScheduleIdsAndStatus(scheduleIds, status);
     }
 
     private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, User> userMap, Map<Long, Account> accountMap) {

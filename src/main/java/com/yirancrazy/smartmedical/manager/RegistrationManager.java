@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
@@ -9,10 +8,8 @@ import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
-import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.DoctorPosition;
@@ -39,6 +36,7 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
@@ -71,12 +69,11 @@ public class RegistrationManager {
     private final RedisUtil redisUtil;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
-    private final PatientManager patientManager;
+    private final UserPatientRelationService userPatientRelationService;
     private final OrderService orderService;
     private final OrderTypeService orderTypeService;
     private final OrderItemService orderItemService;
     private final RegistrationScheduleService registrationScheduleService;
-    private final RegistrationScheduleMapper registrationScheduleMapper;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final DoctorService doctorService;
     private final UserService userService;
@@ -97,7 +94,7 @@ public class RegistrationManager {
             return Result.fail("挂号记录不存在");
         }
         // 校验当前用户对该挂号记录的就诊人有访问权限
-        List<Long> accessibleUserIds = patientManager.getAccessiblePatientUserIds(currentUserId, null);
+        List<Long> accessibleUserIds = userPatientRelationService.getAccessiblePatientUserIds(currentUserId, null);
         if (!accessibleUserIds.contains(reg.getUserId())) {
             return Result.fail("无权查看该挂号记录");
         }
@@ -145,14 +142,7 @@ public class RegistrationManager {
 
 
         // 原子扣减号源：WHERE remaining_quota > 0 防止并发超卖；扣减后为 0 则置为已满(2)
-        int deducted = registrationScheduleMapper.update(null,
-                new UpdateWrapper<RegistrationSchedule>()
-                        .eq("id", registrationScheduleId)
-                        .gt("remaining_quota", 0)
-                        .setSql("remaining_quota = remaining_quota - 1")
-                        // 扣减后为 0 则置为满号(2)
-                        .setSql("status = IF(remaining_quota - 1 = 0, "
-                                + RegistrationScheduleStatusEnum.FULL.getCode() + ", status)"));
+        int deducted = registrationScheduleService.deductRemainingQuota(registrationScheduleId);
         if (deducted == 0) {
             return Result.fail("该排班已无号源");
         }
@@ -218,7 +208,7 @@ public class RegistrationManager {
      */
     public Result<PageResult<AppointmentResponseSimple>> getRegistrationByUid(
             Long currentUserId, Long patientCardId, Integer pageNum, Integer pageSize) {
-        List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(currentUserId, patientCardId);
+        List<Long> patientUserIds = userPatientRelationService.getAccessiblePatientUserIds(currentUserId, patientCardId);
         if (patientUserIds == null || patientUserIds.isEmpty()) {
             return Result.success(new PageResult<>(1, pageSize == null ? 0 : pageSize, 0L, 0, new ArrayList<>()));
         }
