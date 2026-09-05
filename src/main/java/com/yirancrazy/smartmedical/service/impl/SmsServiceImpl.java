@@ -31,6 +31,8 @@ public class SmsServiceImpl implements SmsService {
 
     private static final String CODE_KEY_PREFIX = "sms:code:";
     private static final String COOLDOWN_KEY_PREFIX = "sms:code:cooldown:";
+    private static final String FAIL_KEY_PREFIX = "sms:code:fail:";
+    private static final int MAX_ATTEMPTS = 5;
 
     @Value("${sms.base-url:https://push.spug.cc/sms/}")
     private String baseUrl;
@@ -57,6 +59,8 @@ public class SmsServiceImpl implements SmsService {
         String code = RandomUtil.randomNumbers(6);
         redisUtil.setEx(CODE_KEY_PREFIX + phone, code, codeExpireMinutes, TimeUnit.MINUTES);
         redisUtil.setEx(cooldownKey, "1", resendSeconds, TimeUnit.SECONDS);
+        // 发送新验证码时重置历史错误计数
+        redisUtil.delete(FAIL_KEY_PREFIX + phone);
 
         if (isMock()) {
             log.warn("[sms] mock 模式（未配置 SMS_TEMPLATE_CODE），验证码 code={} 仅记录日志, phone={}", code, phone);
@@ -82,9 +86,18 @@ public class SmsServiceImpl implements SmsService {
             throw new BizException(BizErrorCode.SMS_CODE_EXPIRED);
         }
         if (!stored.equals(code)) {
+            Long failCount = redisUtil.incrAndExpireOnFirst(FAIL_KEY_PREFIX + phone, 1, codeExpireMinutes, TimeUnit.MINUTES);
+            if (failCount != null && failCount >= MAX_ATTEMPTS) {
+                // 连续错误超限：使验证码失效，防止在线枚举爆破
+                redisUtil.delete(FAIL_KEY_PREFIX + phone);
+                redisUtil.delete(key);
+                log.warn("[sms] 验证码尝试次数超限已失效, phone={}", phone);
+                throw new BizException(BizErrorCode.SMS_CODE_EXCEED_LIMIT);
+            }
             throw new BizException(BizErrorCode.SMS_CODE_WRONG);
         }
         redisUtil.delete(key);
+        redisUtil.delete(FAIL_KEY_PREFIX + phone);
     }
 
     /**

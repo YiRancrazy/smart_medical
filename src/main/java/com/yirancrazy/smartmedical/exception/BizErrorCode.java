@@ -40,7 +40,8 @@ public enum BizErrorCode {
     SMS_CODE_SEND_TOO_FREQUENT(8002, "验证码发送过于频繁，请稍后再试"),
     SMS_CODE_SEND_FAILED(8003, "验证码发送失败，请稍后再试"),
     SMS_CODE_EXPIRED(8004, "验证码已过期，请重新获取"),
-    SMS_CODE_WRONG(8005, "验证码错误");
+    SMS_CODE_WRONG(8005, "验证码错误"),
+    SMS_CODE_EXCEED_LIMIT(8006, "验证码错误次数过多，已失效，请重新获取");
 
     private final int code;
     private final String defaultMessage;
