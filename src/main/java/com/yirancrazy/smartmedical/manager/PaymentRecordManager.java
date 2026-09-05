@@ -46,6 +46,7 @@ public class PaymentRecordManager {
     private final PrescriptionService prescriptionService;
     private final RegistrationService registrationService;
     private final OrderStatusLogService orderStatusLogService;
+    private final UserPatientRelationService userPatientRelationService;
 
     /**
      * 获取用户所有的缴费记录
@@ -164,9 +165,10 @@ public class PaymentRecordManager {
         if (order == null) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单不存在");
         }
-        // 归属校验
-        if (currentUserId != null && !currentUserId.equals(order.getUserId())) {
-            log.warn("[payment-success] orderId={} 属于 userId={} 但 currentUserId={} 调用，拒绝",
+        // 归属校验：本人或已授权代理（家属）可支付，与列表查询 getAccessiblePatientUserIds 语义一致
+        if (currentUserId != null && !currentUserId.equals(order.getUserId())
+                && !userPatientRelationService.hasAuthorization(currentUserId, order.getUserId())) {
+            log.warn("[payment-success] orderId={} 属于 userId={}，currentUserId={} 且无代理授权，拒绝",
                     orderId, order.getUserId(), currentUserId);
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "无权支付他人订单");
         }

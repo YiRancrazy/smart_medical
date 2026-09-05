@@ -53,6 +53,8 @@ class PaymentRecordManagerTest {
     private RegistrationService registrationService;
     @Mock
     private OrderStatusLogService orderStatusLogService;
+    @Mock
+    private UserPatientRelationService userPatientRelationService;
 
     @Test
     void paySuccess_duplicateTransactionSn_marksOrderPaidIdempotent() {
@@ -121,6 +123,7 @@ class PaymentRecordManagerTest {
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
 
         when(orderService.getOrderById(orderId)).thenReturn(order);
+        when(userPatientRelationService.hasAuthorization(1001L, 9999L)).thenReturn(false);
 
         BizException ex = assertThrows(BizException.class,
                 () -> paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000));
