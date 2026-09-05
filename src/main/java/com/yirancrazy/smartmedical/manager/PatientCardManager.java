@@ -75,11 +75,23 @@ public class PatientCardManager {
         // 获取患者信息
         Patient defaultPatient = patientService.getPatientByUserId(defaultUserPatientRelation.getPatientUserId());
 
+        if (defaultPatient == null) {
+            return Result.fail("默认就诊人不存在");
+        }
+
         // 获取患者用户信息
         User defaultPatientUser = userService.getUserById(defaultPatient.getUserId());
 
+        if (defaultPatientUser == null) {
+            return Result.fail("默认就诊人用户信息不存在");
+        }
+
         // 获取默认就诊卡信息
         PatientCard patientCard = patientCardService.getPatientCardById(defaultPatient.getPatientCardId());
+
+        if (patientCard == null) {
+            return Result.fail("默认就诊卡不存在");
+        }
 
         OutPatientCardBaseInfo result = new OutPatientCardBaseInfo();
         result.setPatientId(String.valueOf(defaultPatient.getId())); // 患者id
@@ -123,9 +135,6 @@ public class PatientCardManager {
         // 通过用户idList获取用户信息
         List<User> userList = userService.listUsersByUserIds(userIds);
 
-        // 获取用户账户信息
-        Account patientAccount = accountService.getAccountByUserId(userId);
-
         // 获取所有患者卡信息
         List<PatientCard> patientCards = patientCardService.getPatientCardsByIds(
                 patients.stream().map(Patient::getPatientCardId).collect(Collectors.toList()));
@@ -149,6 +158,11 @@ public class PatientCardManager {
                 return Result.fail("未绑定任何就诊人");
             }
 
+            // 按就诊人自身 userId 获取账户，避免所有就诊人共用父账号手机号
+            Account patientAccount = accountService.getAccountByUserId(patient.getUserId());
+            String patientPhone = (patientAccount == null || patientAccount.getPhone() == null)
+                    ? "" : DesensitizedUtil.mobilePhone(patientAccount.getPhone());
+
             RegistrationConfirmPatientCardVo registrationConfirmPatientCardVo = new RegistrationConfirmPatientCardVo();
             registrationConfirmPatientCardVo.setUserId(String.valueOf(userPatientRelation.getPatientUserId()));
             registrationConfirmPatientCardVo.setPatientUserId(String.valueOf(patientUser.getId()));
@@ -158,7 +172,7 @@ public class PatientCardManager {
             registrationConfirmPatientCardVo.setPatientCardNo(patientCard == null ? "" : String.valueOf(patientCard.getId()));
             registrationConfirmPatientCardVo.setRelation(userPatientRelation.getRelation());
             registrationConfirmPatientCardVo.setDefaultPatientCard(userPatientRelation.getDefaulted());
-            registrationConfirmPatientCardVo.setPatientPhone(DesensitizedUtil.mobilePhone(patientAccount.getPhone()));
+            registrationConfirmPatientCardVo.setPatientPhone(patientPhone);
             result.add(registrationConfirmPatientCardVo);
         }
 
