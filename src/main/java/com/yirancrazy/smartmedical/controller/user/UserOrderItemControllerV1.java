@@ -25,9 +25,10 @@ public class UserOrderItemControllerV1 {
     private final OrderItemManager orderItemManager;
 
     @PostMapping("/add")
-    @Operation(summary = "添加订单明细", description = "添加新订单明细")
-    public Result<Integer> addOrderItem(@RequestBody OrderItem orderItem) {
-        return Result.success(orderItemManager.addOrderItem(orderItem));
+    @Operation(summary = "添加订单明细", description = "添加新订单明细（校验订单归属）")
+    public Result<Integer> addOrderItem(@RequestBody OrderItem orderItem,
+                                        @RequestAttribute("currentUserId") Long currentUserId) {
+        return Result.success(orderItemManager.addOrderItem(orderItem, currentUserId));
     }
 
     @GetMapping("/{id:\\d+}")

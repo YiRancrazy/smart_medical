@@ -30,6 +30,7 @@ public enum BizErrorCode {
     PRESCRIPTION_ALREADY_DISPENSED(4004, "处方已发药"),
     PRESCRIPTION_ALREADY_CANCELLED(4005, "处方已取消"),
     ORDER_STATUS_INVALID(5001, "订单状态不允许此操作"),
+    ORDER_NOT_OWNED(5002, "无权操作此订单"),
     DOCTOR_NOT_MATCH(6001, "医生不匹配"),
     CONCURRENT_OPERATION(7001, "操作冲突，请刷新后重试"),
     LOGIN_RATE_LIMITED(8001, "登录尝试过于频繁，请5分钟后再试"),
