@@ -15,6 +15,7 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -60,6 +61,7 @@ public class ExcelManager {
      * @param excelFile excel 文件
      * @return 插入数量
      */
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> uploadRegistrationTemplate(MultipartFile excelFile) {
         if (excelFile == null || excelFile.isEmpty()) {
             return Result.fail("请上传有效文件");
