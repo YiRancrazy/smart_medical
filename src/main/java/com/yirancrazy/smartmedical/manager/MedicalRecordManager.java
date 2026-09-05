@@ -493,9 +493,23 @@ public class MedicalRecordManager {
      * @throws BizException MEDICAL_RECORD_NOT_FOUND
      */
     public com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO getMedicalRecordDetailForAdmin(Long id) {
+        return getMedicalRecordDetailForAdmin(id, null);
+    }
+
+    /**
+     * 病历详情（admin 传 doctorId=null 无约束；doctor 传 doctorId 校验归属，防止读取他人病历）
+     * @param id 病历ID
+     * @param doctorId 医生ID；非空时校验病历必须属于该医生
+     * @return 病历详情 VO
+     * @throws BizException MEDICAL_RECORD_NOT_FOUND / DOCTOR_NOT_MATCH
+     */
+    public com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO getMedicalRecordDetailForAdmin(Long id, Long doctorId) {
         MedicalRecord record = medicalRecordService.getById(id);
         if (record == null) {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND);
+        }
+        if (doctorId != null && !doctorId.equals(record.getDoctorId())) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "无权查看非本人病历");
         }
         com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO vo =
                 new com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO();

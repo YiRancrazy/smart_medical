@@ -92,14 +92,16 @@ public class DoctorMedicalRecordControllerV1 {
     }
 
     /**
-     * 医生端 - 历史病历详情
+     * 医生端 - 历史病历详情（校验病历归属当前医生）
      * @param id 病历ID
+     * @param doctorId 当前医生ID
      * @return 病历详情
      */
     @Operation(summary = "医生端 - 历史病历详情")
     @GetMapping("/history/{id:\\d+}")
     public Result<com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO> historyDetail(
-            @PathVariable Long id) {
-        return Result.success(medicalRecordManager.getMedicalRecordDetailForAdmin(id));
+            @PathVariable Long id,
+            @RequestAttribute("currentDoctorId") Long doctorId) {
+        return Result.success(medicalRecordManager.getMedicalRecordDetailForAdmin(id, doctorId));
     }
 }
