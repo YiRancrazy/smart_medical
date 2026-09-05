@@ -45,6 +45,12 @@ export async function loginByRole(role: number, data: LoginParams): Promise<Resu
 
   const resData = response.data as Result<string>
 
+  // 登录接口返回非 200（业务失败：如滑块未通过 code=10003、账号密码错误 code=500 等）。
+  // 这里使用裸 axios 未走 request 拦截器，若不前置校验会把真实失败吞成误导性的"未获取到token"。
+  if (typeof resData?.code === 'number' && resData.code !== 200) {
+    throw new Error(resData.message || '登录失败，请重试')
+  }
+
   const headerToken = response.headers.authorization?.replace('Bearer ', '')
   const bodyToken = typeof resData.data === 'string' && isValidJwt(resData.data) ? resData.data : undefined
 
