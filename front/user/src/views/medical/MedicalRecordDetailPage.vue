@@ -3,6 +3,12 @@
     <van-nav-bar title="病历详情" left-arrow @click-left="$router.back()" />
 
     <van-loading v-if="loading" size="24px" />
+    <template v-else-if="!record">
+      <empty-state description="病历不存在或已删除" />
+      <div class="empty-back">
+        <van-button round block type="primary" @click="$router.back()">返回</van-button>
+      </div>
+    </template>
     <template v-else-if="record">
       <glass-card class="card">
         <div class="section-title">病历信息</div>
@@ -28,6 +34,7 @@ import { useRoute } from 'vue-router'
 import { getMedicalRecordDetail } from '@/api/medicalRecord'
 import type { MedicalRecord } from '@/api/medicalRecord'
 import GlassCard from '@/components/GlassCard.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import { showToast } from 'vant'
 
 const route = useRoute()
@@ -70,5 +77,9 @@ onMounted(async () => {
 .link-text {
   font-size: $font-size-sm;
   color: #1989fa;
+}
+
+.empty-back {
+  padding: 0 16px;
 }
 </style>

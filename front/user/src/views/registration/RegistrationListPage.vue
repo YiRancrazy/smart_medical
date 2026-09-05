@@ -37,8 +37,9 @@ const activeTab = ref(0)
 const list = ref<AppointmentResponseSimple[]>([])
 
 // 后端 RegistrationStatusEnum：0待支付 1待就诊 2支付失败 3取消 4完成 5已报到 6就诊中 7待支付(处方补缴)
-const pendingList = computed(() => list.value.filter(r => [0, 1, 2, 5, 6, 7].includes(r.status)))
-const doneList = computed(() => list.value.filter(r => r.status === 4))
+// 按业务状态分组：待就诊=待处理/待就诊(0,1,2,7，有操作按钮)；已就诊=已报到/就诊中/完成(4,5,6)；已取消=3
+const pendingList = computed(() => list.value.filter(r => [0, 1, 2, 7].includes(r.status)))
+const doneList = computed(() => list.value.filter(r => [4, 5, 6].includes(r.status)))
 const cancelledList = computed(() => list.value.filter(r => r.status === 3))
 
 onMounted(async () => {
