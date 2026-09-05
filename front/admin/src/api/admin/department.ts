@@ -32,8 +32,8 @@ export interface DepartmentConditionsParams {
   type?: number
   status?: number
   parentId?: number
-  pageNum?: number
-  pageSize?: number
+  current?: number
+  size?: number
 }
 
 /**

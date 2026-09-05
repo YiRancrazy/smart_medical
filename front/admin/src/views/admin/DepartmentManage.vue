@@ -187,8 +187,8 @@ async function loadData() {
         sn: searchForm.value.sn || undefined,
         parentId: deptLevel.value === 'child' ? searchForm.value.parentId : undefined,
         status: searchForm.value.status,
-        pageNum,
-        pageSize
+        current: pageNum,
+        size: pageSize
       })
     } else if (deptLevel.value === 'parent') {
       res = await listParentDepartments(pageNum, pageSize)
