@@ -1,5 +1,5 @@
 import request from './index'
-import type { ApiResult } from './types'
+import type { ApiResult, PageResult } from './types'
 
 /**
  * 医生模块 API
@@ -42,6 +42,24 @@ export interface RegistrationDoctorConfirmVo {
   departmentName: string
   avatar: string
   positionName: string
+}
+
+export interface DoctorSearchItem {
+  doctorId: string
+  doctorName: string
+  departmentName: string
+  positionName: string
+  avatar: string
+}
+
+/**
+ * 按姓名模糊搜索医生
+ */
+export function searchDoctorsByName(name: string) {
+  return request.get<any, ApiResult<PageResult<DoctorSearchItem>>>(
+    '/api/user/v1/doctor/list',
+    { params: { name, pageNum: 1, pageSize: 20 } }
+  )
 }
 
 /**
