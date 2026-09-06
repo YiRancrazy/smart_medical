@@ -216,6 +216,18 @@ public class DoctorManager {
     }
 
     /**
+     * 删除医生（逻辑删除，is_deleted 置 1）
+     * @param id 医生 ID
+     * @return 影响行数
+     */
+    public Result<Integer> deleteDoctor(Long id) {
+        if (id == null) {
+            return Result.fail("医生ID不能为空");
+        }
+        return Result.success(doctorService.deleteDoctorById(id));
+    }
+
+    /**
      * 按 ID 查询医生详情（拼装科室 / 职称 / 学历名称）
      * @param id 医生 ID
      * @return 医生详情 VO；医生不存在返回 404

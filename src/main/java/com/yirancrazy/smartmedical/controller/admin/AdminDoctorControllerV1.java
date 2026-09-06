@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -90,6 +91,17 @@ public class AdminDoctorControllerV1 {
     @PostMapping("/")
     public Result<Long> addDoctor(@Valid @RequestBody AdminDoctorAddRequest request) {
         return doctorManager.addDoctorWithAccount(request);
+    }
+
+    /**
+     * 删除医生（逻辑删除）
+     * @param id 医生ID
+     * @return 影响行数
+     */
+    @Operation(summary = "管理员端 - 删除医生")
+    @DeleteMapping("/{id:\\d+}")
+    public Result<Integer> deleteDoctor(@PathVariable Long id) {
+        return doctorManager.deleteDoctor(id);
     }
 
     /**
