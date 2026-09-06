@@ -8,7 +8,7 @@ export const doctorRoutes: RouteRecordRaw = {
   meta: { roles: [2] },
   redirect: '/doctor/schedule',
   children: [
-    { path: 'schedule', name: 'TodaySchedule', component: () => import('@/views/doctor/TodaySchedule.vue'), meta: { title: '今日排班', icon: ScheduleOutlined } },
+    { path: 'schedule', name: 'ScheduleArrange', component: () => import('@/views/doctor/ScheduleArrange.vue'), meta: { title: '排班安排', icon: ScheduleOutlined } },
     { path: 'waiting', name: 'WaitingList', component: () => import('@/views/doctor/WaitingList.vue'), meta: { title: '候诊列表', icon: UserOutlined } },
     { path: 'in-progress', name: 'InProgressList', component: () => import('@/views/doctor/InProgressList.vue'), meta: { title: '就诊中', icon: UserOutlined } },
     { path: 'medical-record', name: 'MedicalRecordEdit', component: () => import('@/views/doctor/MedicalRecordEdit.vue'), meta: { title: '病历编辑', hideMenu: true } },

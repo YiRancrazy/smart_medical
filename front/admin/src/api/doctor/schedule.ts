@@ -2,29 +2,31 @@ import request from '../index'
 import type { Result } from '../types'
 
 /**
- * 医生今日排班 API
+ * 医生排班 API
  * @Author: YiRanCrazy@gmail.com
- * @Description: 医生查看今日排班详情
+ * @Description: 医生月度排班视图查询
  * @Datetime: 2026-07-17 10:22
  * @Version: 1.0
  */
 
-/** 后端 DoctorScheduleVO 字段 */
-export interface DoctorScheduleVO {
-  registrationId: string
-  status: number
+/** 后端 DoctorScheduleViewVO 字段（纯排班信息，无患者数据） */
+export interface DoctorScheduleViewVO {
+  scheduleId: string
+  scheduleDate: string
   shiftName: string
   startTime: string
   endTime: string
-  patientId: string
-  patientName: string
-  patientPhone: string
-  registrationTime: string
+  location: string
+  remark: string
+  status: number
 }
 
 /**
- * 获取医生今日排班（doctorId 由后端 JWT 自动注入）
+ * 获取医生月度排班（日 / 周 / 月视图共用数据源）
+ * @param month 月份，格式 yyyy-MM
  */
-export function getTodaySchedule() {
-  return request.get<any, Result<DoctorScheduleVO[]>>('/api/doctor/v1/schedule/today')
+export function getMonthSchedule(month: string) {
+  return request.get<any, Result<DoctorScheduleViewVO[]>>('/api/doctor/v1/schedule/month', {
+    params: { month }
+  })
 }
