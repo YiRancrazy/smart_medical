@@ -249,10 +249,16 @@ public class UserPatientRelationManager {
             return Result.fail("该就诊人存在在途挂号，无法删除");
         }
         // 释放手机号：把孤立 account 的 phone 改为唯一 tombstone，并禁用账号
+        // B19-fix: account.phone 列为 char(11)，旧值 "deleted_<id>@local" 达 33 字符触发 Data too long；
+        // 改用字母前缀 + 8 位随机数字（共 11 字符），与真实 11 位纯数字手机号天然不冲突，查重保证唯一索引不撞
         Account orphanAccount = accountService.getAccountByUserId(relation.getPatientUserId());
         if (orphanAccount != null) {
+            String tombstone;
+            do {
+                tombstone = "del" + RandomUtil.randomNumbers(8);
+            } while (!accountService.getAccountByPhone(tombstone).isEmpty());
             orphanAccount.setEnabled(false);
-            orphanAccount.setPhone("deleted_" + orphanAccount.getId() + "@local");
+            orphanAccount.setPhone(tombstone);
             accountService.updateAccountById(orphanAccount);
         }
         return Result.success(userPatientRelationService.deleteUserPatientRelationById(id));
