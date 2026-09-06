@@ -306,12 +306,12 @@ async function handleModalOk() {
 
   try {
     if (formData.value.id) {
-      await updateDepartment(formData.value.id, formData.value)
+      const { parentId, ...rest } = formData.value
+      await updateDepartment(formData.value.id, { ...rest, parentDepartmentId: parentId })
       message.success('修改成功')
     } else {
-      // F28: 新增时剔除 undefined 的 id，避免污染请求体
-      const { id, ...createPayload } = formData.value
-      await createDepartment(createPayload)
+      const { id, parentId, ...rest } = formData.value
+      await createDepartment({ ...rest, parentDepartmentId: parentId })
       message.success('新增成功')
     }
     modalVisible.value = false
