@@ -14,7 +14,13 @@ const dynamicRouteNames: (string | symbol)[] = []
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
-  if (to.meta.public) return next()
+  if (to.meta.public) {
+    // 已登录（含记住登录）访问 /login 时跳对应角色首页，避免停留在登录页
+    if (to.name === 'Login' && authStore.token && authStore.rolePath !== '/login') {
+      return next(authStore.rolePath)
+    }
+    return next()
+  }
 
   if (!authStore.token) {
     return next({ name: 'Login', query: { redirect: to.fullPath } })
