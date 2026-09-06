@@ -6,12 +6,14 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RegistrationShiftTypeEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.AppointmentRule;
+import com.yirancrazy.smartmedical.pojo.ConsultationRoom;
 import com.yirancrazy.smartmedical.pojo.Degree;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
@@ -23,7 +25,7 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
-import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleVO;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleViewVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
@@ -33,6 +35,7 @@ import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorConfirmVo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
+import com.yirancrazy.smartmedical.service.ConsultationRoomService;
 import com.yirancrazy.smartmedical.service.DegreeService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorPositionService;
@@ -53,7 +56,9 @@ import com.yirancrazy.smartmedical.utils.MinIOUtil;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -85,6 +90,7 @@ public class DoctorManager {
     private final RegistrationService registrationService;
     private final UserService userService;
     private final AccountService accountService;
+    private final ConsultationRoomService consultationRoomService;
     /**
      * 新增医生（补雪花 ID 后入库）
      * @param doctor 医生实体
@@ -505,47 +511,66 @@ public class DoctorManager {
     }
 
     /**
-     * 医生今日排班列表（按 registration_schedule_template.doctorId 过滤）
+     * 医生月度排班列表（含跨月日历首尾日期，纯排班信息，无患者数据）
      * @param doctorId 医生ID
-     * @return 当日挂号 VO 列表
+     * @param month 月份，格式 yyyy-MM
+     * @return 排班视图 VO 列表；月份格式非法返回 null
      */
-    public List<DoctorScheduleVO> listTodaySchedule(Long doctorId) {
-        List<RegistrationSchedule> schedules = registrationScheduleService
-                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
-        if (schedules == null || schedules.isEmpty()) {
+    public Result<List<DoctorScheduleViewVO>> listMonthSchedule(Long doctorId, String month) {
+        YearMonth yearMonth;
+        try {
+            yearMonth = YearMonth.parse(month);
+        } catch (DateTimeParseException e) {
+            return Result.fail("月份格式应为 yyyy-MM");
+        }
+        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
+                .listRegistrationScheduleTemplatesByDoctorIdListAndDate(List.of(doctorId),
+                        yearMonth.atDay(1), yearMonth.atEndOfMonth());
+        return Result.success(toScheduleViewVOList(templates));
+    }
+
+    /**
+     * 模板列表转排班视图 VO 列表（拼装班次类型 / 出诊地点，无患者数据）
+     * @param templates 排班模板列表
+     * @return 排班视图 VO 列表
+     */
+    private List<DoctorScheduleViewVO> toScheduleViewVOList(List<RegistrationScheduleTemplate> templates) {
+        if (templates == null || templates.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Long> scheduleIds = schedules.stream()
-                .map(RegistrationSchedule::getId).collect(Collectors.toList());
-        Map<Long, RegistrationSchedule> scheduleMap = schedules.stream()
-                .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s));
-        List<Long> templateIds = schedules.stream()
-                .map(RegistrationSchedule::getRegistrationScheduleTemplateId).distinct().collect(Collectors.toList());
-        Map<Long, RegistrationScheduleTemplate> templateMap = registrationScheduleTemplateService
-                .listAllRegistrationScheduleTemplateByIdList(templateIds).stream()
-                .collect(Collectors.toMap(RegistrationScheduleTemplate::getId, t -> t, (t1, t2) -> t1));
-        List<Registration> registrations = registrationService.listByScheduleIdsAndStatuses(scheduleIds,
-                List.of(RegistrationStatusEnum.SUCCESS.getCode(),
-                        RegistrationStatusEnum.REPORTED.getCode()));
-        Map<Long, User> userMap = batchLoadUsers(registrations);
-        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
-        return registrations.stream().map(reg -> {
-            DoctorScheduleVO vo = new DoctorScheduleVO();
-            vo.setRegistrationId(String.valueOf(reg.getId()));
-            vo.setStatus(reg.getStatus());
-            vo.setRegistrationTime(reg.getRegistrationTime());
-            RegistrationSchedule s = scheduleMap.get(reg.getRegistrationScheduleId());
-            if (s != null) {
-                RegistrationScheduleTemplate t = templateMap.get(s.getRegistrationScheduleTemplateId());
-                if (t != null) {
-                    vo.setShiftName(t.getName());
-                }
-                vo.setStartTime(s.getStartTime());
-                vo.setEndTime(s.getEndTime());
-            }
-            fillPatientInfo(vo, reg, userMap, accountMap);
-            return vo;
-        }).collect(Collectors.toList());
+        List<Long> roomIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getConsultationRoomId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, ConsultationRoom> roomMap = roomIds.isEmpty() ? Collections.emptyMap()
+                : consultationRoomService.listAllConsultationRooms().stream()
+                        .filter(room -> roomIds.contains(room.getId()))
+                        .collect(Collectors.toMap(ConsultationRoom::getId, room -> room, (a, b) -> a));
+        return templates.stream()
+                .sorted(Comparator.comparing(RegistrationScheduleTemplate::getRegistrationDate)
+                        .thenComparing(RegistrationScheduleTemplate::getStartTime,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(template -> {
+                    DoctorScheduleViewVO vo = new DoctorScheduleViewVO();
+                    vo.setScheduleId(String.valueOf(template.getId()));
+                    vo.setScheduleDate(template.getRegistrationDate());
+                    vo.setShiftName(template.getRegistrationType() == null ? "-"
+                            : Arrays.stream(RegistrationShiftTypeEnum.values())
+                                    .filter(t -> t.getCode().equals(template.getRegistrationType()))
+                                    .findFirst()
+                                    .map(RegistrationShiftTypeEnum::getMessage)
+                                    .orElse("-"));
+                    vo.setStartTime(template.getStartTime());
+                    vo.setEndTime(template.getEndTime());
+                    ConsultationRoom room = template.getConsultationRoomId() == null ? null
+                            : roomMap.get(template.getConsultationRoomId());
+                    vo.setLocation(room == null ? "-" : room.getName());
+                    vo.setRemark(template.getRemark());
+                    vo.setStatus(Boolean.TRUE.equals(template.getEnabled()) ? 1 : 0);
+                    return vo;
+                })
+                .toList();
     }
 
     /**
@@ -614,15 +639,6 @@ public class DoctorManager {
         vo.setPatientName(user != null ? user.getNickname() : null);
         vo.setPatientPhone(account != null ? account.getPhone() : null);
         return vo;
-    }
-
-    private void fillPatientInfo(DoctorScheduleVO vo, Registration reg,
-                                  Map<Long, User> userMap, Map<Long, Account> accountMap) {
-        vo.setPatientId(String.valueOf(reg.getUserId()));
-        User user = userMap.get(reg.getUserId());
-        Account account = accountMap.get(reg.getUserId());
-        vo.setPatientName(user != null ? user.getNickname() : null);
-        vo.setPatientPhone(account != null ? account.getPhone() : null);
     }
 
     /** 批量加载用户信息（userId → User） */
