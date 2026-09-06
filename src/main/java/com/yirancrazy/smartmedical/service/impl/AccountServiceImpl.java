@@ -11,6 +11,7 @@ import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,7 @@ public class AccountServiceImpl implements AccountService {
     private final AccountMapper accountMapper;
     private final AdminService adminService;
     private final DoctorService doctorService;
+    private final UserService userService;
 
     /**
      * 添加账户
@@ -163,6 +165,7 @@ public class AccountServiceImpl implements AccountService {
             userIds.addAll(doctorService
                     .listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentId(username, null)
                     .stream().map(Doctor::getId).toList());
+            userIds.addAll(userService.listUserIdsByNicknameLike(username));
             if (userIds.isEmpty()) {
                 // 无匹配姓名：清空 PageHelper 上下文，直接返回空页，避免污染同线程后续查询
                 PageHelper.clearPage();
