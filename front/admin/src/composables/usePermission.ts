@@ -14,7 +14,7 @@ export function useSideMenu() {
       (r.meta?.roles as number[] | undefined)?.includes(authStore.roleId!)
     )
     return (
-      rootRoute?.children?.map((child) => {
+      rootRoute?.children?.filter((child) => !child.meta?.hideMenu).map((child) => {
         const iconComp = child.meta?.icon
         return {
           key: child.name as string,
