@@ -93,31 +93,47 @@ public class RegistrationScheduleManager {
         }
         List<Long> registrationScheduleIdList = registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList();
 
+        // 与时段接口同口径：仅聚合已启用模板与正常排班，否则日期余量含停诊/禁用号源导致选中后对不上
+        registrationScheduleTemplateList = registrationScheduleTemplateList.stream()
+                .filter(t -> Boolean.TRUE.equals(t.getEnabled()))
+                .toList();
+
         List<RegistrationSchedule> registrationSchedules = registrationScheduleService
                 .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleIdList);
 
         // ponytail: S14 — 按 date 聚合同日所有 schedule 的剩余/总号源，避免跳过同日上午+下午
+        // 一个模板按小时生成多条 schedule（见 ExcelManager.buildSchedules），须累加全部正常排班余量，
+        // findFirst 只算第一个小时且首条停诊会误跳过整个模板
         java.util.Map<LocalDate, RegistrationDateAndRemainQuotaVo> mergedByDate = new java.util.TreeMap<>();
         for (RegistrationScheduleTemplate registrationScheduleTemplate : registrationScheduleTemplateList) {
-            RegistrationSchedule registrationSchedule = registrationSchedules.stream()
-                    .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
-                    .findFirst().orElse(null);
-            if (registrationSchedule == null) {
-                log.warn("跳过排班模板 {}：未找到对应排班记录", registrationScheduleTemplate.getId());
+            int templateRemaining = 0;
+            boolean hasNormalSchedule = false;
+            for (RegistrationSchedule registrationSchedule : registrationSchedules) {
+                if (!Objects.equals(registrationSchedule.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId())) {
+                    continue;
+                }
+                if (registrationSchedule.getStatus() == null
+                        || !RegistrationScheduleStatusEnum.NORMAL.getCode().equals(registrationSchedule.getStatus())) {
+                    continue;
+                }
+                hasNormalSchedule = true;
+                templateRemaining += (registrationSchedule.getRemainingQuota() == null ? 0 : registrationSchedule.getRemainingQuota());
+            }
+            if (!hasNormalSchedule) {
                 continue;
             }
             LocalDate date = registrationScheduleTemplate.getRegistrationDate();
             RegistrationDateAndRemainQuotaVo vo = mergedByDate.get(date);
             if (vo == null) {
                 vo = new RegistrationDateAndRemainQuotaVo();
-                vo.setDoctorId(String.valueOf(registrationSchedule.getDoctorId()));
+                vo.setDoctorId(String.valueOf(registrationScheduleTemplate.getDoctorId()));
                 vo.setDate(date);
                 vo.setTotalQuota(0);
                 vo.setRemainQuota(0);
                 mergedByDate.put(date, vo);
             }
             vo.setTotalQuota(vo.getTotalQuota() + (registrationScheduleTemplate.getTotalQuota() == null ? 0 : registrationScheduleTemplate.getTotalQuota()));
-            vo.setRemainQuota(vo.getRemainQuota() + (registrationSchedule.getRemainingQuota() == null ? 0 : registrationSchedule.getRemainingQuota()));
+            vo.setRemainQuota(vo.getRemainQuota() + templateRemaining);
         }
 
         List<RegistrationDateAndRemainQuotaVo> result = new ArrayList<>(mergedByDate.values());
