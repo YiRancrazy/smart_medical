@@ -40,6 +40,13 @@ export function listAccountsByConditions(params: AccountConditionsParams) {
 }
 
 /**
+ * 获取所有管理员简单列表（科室负责人下拉等场景）
+ */
+export function listAdminSimple() {
+  return request.get<any, Result<AccountDetailResponse[]>>('/api/admin/v1/admin/list/simple')
+}
+
+/**
  * 更新账户（F20）
  */
 export function updateAccount(accountId: string | number, params: {

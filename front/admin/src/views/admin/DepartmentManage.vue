@@ -80,6 +80,15 @@
         <a-form-item label="科室编号" required>
           <a-input v-model:value="formData.sn" placeholder="请输入科室编号" />
         </a-form-item>
+        <a-form-item label="科室负责人" required>
+          <a-select
+            v-model:value="formData.managerId"
+            placeholder="请选择科室负责人"
+            show-search
+            option-filter-prop="label"
+            :options="adminOptions"
+          />
+        </a-form-item>
         <a-form-item v-if="deptLevel === 'child'" label="上级科室" required>
           <DepartmentTree v-model:value="formData.parentId" placeholder="请选择上级科室" />
         </a-form-item>
@@ -115,6 +124,7 @@ import {
   deleteDepartment
 } from '@/api/admin/department'
 import type { DepartmentSimple } from '@/api/admin/department'
+import { listAdminSimple, type AccountDetailResponse } from '@/api/admin/account'
 import { message } from 'ant-design-vue'
 import Modal from 'ant-design-vue/es/modal'
 
@@ -162,14 +172,32 @@ const formData = ref({
   id: undefined as string | undefined,
   name: '',
   sn: '',
+  managerId: undefined as string | undefined,
   parentId: undefined as string | undefined,
   type: '0',
   status: '1'
 })
 
+/** 管理员下拉选项（科室负责人） */
+const adminOptions = ref<{ label: string; value: string }[]>([])
+
 onMounted(() => {
   loadData()
+  loadAdminOptions()
 })
+
+async function loadAdminOptions() {
+  try {
+    const res = await listAdminSimple()
+    const list: AccountDetailResponse[] = res.data || []
+    adminOptions.value = list.map((a) => ({
+      label: a.username && a.username !== a.phone ? `${a.username}（${a.phone}）` : a.phone || a.username,
+      value: a.id
+    }))
+  } catch {
+    // 拉取失败不阻塞页面，提交时后端会校验负责人
+  }
+}
 
 async function loadData() {
   loading.value = true
@@ -239,6 +267,7 @@ function handleAdd() {
     id: undefined,
     name: '',
     sn: '',
+    managerId: undefined,
     parentId: undefined,
     type: '0',
     status: '1'
@@ -252,6 +281,7 @@ function handleEdit(record: DepartmentSimple) {
     id: record.id,
     name: record.name,
     sn: record.sn || '',
+    managerId: record.managerId || undefined,
     parentId: record.parentDepartmentId || undefined,
     type: record.type || '0',
     status: record.status || '1'
@@ -262,6 +292,10 @@ function handleEdit(record: DepartmentSimple) {
 async function handleModalOk() {
   if (!formData.value.name || !formData.value.sn) {
     message.warning('请填写必填项')
+    return
+  }
+  if (!formData.value.managerId) {
+    message.warning('请选择科室负责人')
     return
   }
   // F13: 二级科室必须选上级科室，避免无父级的"二级科室"破坏科室树

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -40,6 +41,31 @@ public class DepartmentManager {
     private final DepartmentService departmentService;
     private final AdminService adminService;
     private final AccountService accountService;
+
+    /**
+     * 补齐科室列表中缺失的上级科室名称
+     * <p>二级科室分页 / 检索时父科室不在当前列表内，需按 parentId 批量补查</p>
+     * @param departments 当前科室列表（合并后 parentDepartmentName 可能仍为空）
+     */
+    private void fillParentDepartmentNames(List<AdminDepartmentSimpleResponse> departments) {
+        List<String> missingParentIds = departments.stream()
+                .filter(d -> d.getParentDepartmentName() == null && d.getParentDepartmentId() != null
+                        && !"null".equals(d.getParentDepartmentId()) && !"0".equals(d.getParentDepartmentId()))
+                .map(AdminDepartmentSimpleResponse::getParentDepartmentId)
+                .distinct()
+                .toList();
+        if (missingParentIds.isEmpty()) {
+            return;
+        }
+        List<Long> parentIds = missingParentIds.stream().map(Long::valueOf).toList();
+        Map<String, String> parentNameMap = departmentService.listDepartmentsByIds(parentIds).stream()
+                .collect(Collectors.toMap(d -> String.valueOf(d.getId()), Department::getName));
+        for (AdminDepartmentSimpleResponse d : departments) {
+            if (d.getParentDepartmentName() == null) {
+                d.setParentDepartmentName(parentNameMap.get(d.getParentDepartmentId()));
+            }
+        }
+    }
 
     /**
      * 添加科室
@@ -240,6 +266,7 @@ public class DepartmentManager {
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
 
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
+        fillParentDepartmentNames(result);
 
         return Result.success(result);
 
@@ -259,6 +286,7 @@ public class DepartmentManager {
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);  // 获取所有负责人的账户信息
 
         List<AdminDepartmentSimpleResponse> list = mergeDepartmentAndAdminAndAccount(departments, admins, accounts); // 合并科室信息、负责人信息、账户信息
+        fillParentDepartmentNames(list);
 
 
         // 查找出所有一级科室
@@ -300,6 +328,7 @@ public class DepartmentManager {
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
 
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
+        fillParentDepartmentNames(result);
 
         return Result.success(new PageResult<>(pageinfo,result));
     }
@@ -320,6 +349,7 @@ public class DepartmentManager {
         List<Admin> admins = adminService.listAdminsByIds(managerIds);
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
+        fillParentDepartmentNames(result);
         return Result.success(new PageResult<>(pageinfo,result));
     }
 
@@ -339,9 +369,9 @@ public class DepartmentManager {
         List<Admin> admins = adminService.listAdminsByIds(managerIds);
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
+        fillParentDepartmentNames(result);
         return Result.success(new PageResult<>(pageinfo,result));
     }
-
 
     /**
      * 合并科室、管理员、账户信息
@@ -426,6 +456,7 @@ public class DepartmentManager {
                 List<Admin> admins = adminService.listAdminsByIds(managerIds);
                 List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         List<AdminDepartmentSimpleResponse> result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
+        fillParentDepartmentNames(result);
         return Result.success(new PageResult<>(pageinfo,result));
     }
 }
