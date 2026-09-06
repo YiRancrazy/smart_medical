@@ -138,7 +138,7 @@ const outpatientServices: ServiceItem[] = [
   { label: '预约挂号', icon: 'cluster-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/department' },
   { label: '门诊充值', icon: 'balance-o', bg: 'rgba(245, 158, 11, 0.1)', iconBg: 'transparent' },
   { label: '门诊费用', icon: 'bill-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/outpatient-fee' },
-  { label: '报告查询', icon: 'records', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent' },
+  { label: '处方查询', icon: 'records', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent', path: '/prescription' },
   { label: '线上退款', icon: 'refund-o', bg: 'rgba(139, 92, 246, 0.1)', iconBg: 'transparent' },
   { label: '病历查询', icon: 'description', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/medical-record' },
   { label: '云胶片', icon: 'photograph', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent' },
