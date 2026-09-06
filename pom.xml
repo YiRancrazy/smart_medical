@@ -123,6 +123,13 @@
             <version>${minio.version}</version>
         </dependency>
 
+        <!-- TinyPinyin 中文转拼音（医生账号初始密码用） -->
+        <dependency>
+            <groupId>io.github.biezhi</groupId>
+            <artifactId>TinyPinyin</artifactId>
+            <version>2.0.3.RELEASE</version>
+        </dependency>
+
         <!-- Knife4j 4.5.0 兼容 Spring Boot 3.5.9 -->
         <dependency>
             <groupId>com.nb6868.onex</groupId>
