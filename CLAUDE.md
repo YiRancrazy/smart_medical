@@ -33,7 +33,7 @@ src/main/java/com/yirancrazy/smartmedical/
 ├── manager/                       # 业务编排层（@Manager 注解，可注入多个 Service）
 ├── mapper/                        # MyBatis-Plus Mapper
 ├── pojo/                          # 实体 + dto + vo + result + excel
-├── service/ (+ impl/)             # IService 风格的业务接口与实现
+├── service/ (+ impl/)             # 业务服务接口与实现（少数继承 MyBatis-Plus IService，如 Prescription）
 └── utils/                         # 工具类
 src/main/resources/
 ├── application.yaml               # 主配置（JWT、MinIO、Knife4j）
@@ -55,6 +55,119 @@ src/main/resources/
 - API 用 `@Operation(summary = "...")` 标注，说明面向端（`管理员端 - `  / `用户端 - `  前缀）。
 - 请求 / 响应 DTO 放在 `pojo/dto/<role>/{request,response,result}/`；注意 `pojo/dto/user/response/` 子包历史命名（包含 admin / user 两端的响应，迁移前勿改路径）。
 - **数据库表 4 标准字段**：所有业务表（含日志表、状态流水表）都必须包含以下 4 列 —— `id`（雪花或自增，详见 §Layout 引用）、`create_time DATETIME DEFAULT CURRENT_TIMESTAMP`、`update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`、`is_deleted TINYINT(1) DEFAULT 0`；Entity 上对应字段加 MyBatis-Plus `@TableField(fill=...)` 与 `@TableLogic` 注解。即使语义上 append-only（如状态日志）也保留这 4 列，便于 DAO 层统一处理。**豁免**：仅当表为高频热点更新或纯 append-only 流水（参考 `drug_inventory`、`inventory_transaction`）时，可在 DDL 注释里**显式说明豁免原因**并省略非必要字段，但 `id` 永不豁免。新表必须在 `CreateTable.sql` 中显式列出这 4 列（即便计划豁免也要保留并注明）。
+
+## 分层架构规范
+
+后端严格四层架构：**单向依赖、逐层调用，禁止跨层与反向调用**。
+
+### 调用链总览
+
+```
+Controller  →  Manager  →  Service  →  Mapper
+(参数校验)   (业务编排)   (原子业务)   (持久化)
+Result<T>      Result<T>    裸数据       SQL / MyBatis-Plus
+```
+
+### 各层职责
+
+| 层 | 职责 | 禁止 |
+| --- | --- | --- |
+| **Controller** | 接收 HTTP 请求、参数校验（`@Valid` + DTO 校验注解）、调用 Manager、透传 `Result<T>` 作为响应 | 写业务逻辑、拼装业务结果、直接注入 Service / Mapper |
+| **Manager** | 业务编排（跨多 Service 组合）、事务管理（`@Transactional(rollbackFor = Exception.class)`）、DTO→Entity 转换、多 Service 数据合并组装、统一返回 `Result<T>` | 调其他 Manager / Controller、直接注入 Mapper |
+| **Service** | 原子化业务服务（单操作单方法）、业务规则验证（唯一性 / 状态校验）、只注入自身 Mapper | 跨 Service 编排、返回 `Result<T>`、处理 HTTP 语义 |
+| **Mapper** | 数据持久化（继承 `BaseMapper<T>`，复杂联表才写 XML）、查询条件封装 | 写业务逻辑、规则校验、事务控制 |
+
+- Manager 类标 `@Manager`（自定义注解，见 [annotation/Manager.java](src/main/java/com/yirancrazy/smartmedical/annotation/Manager.java)），构造注入多个 Service；原子操作下沉到 Service，Manager 不直连 Mapper。
+- 事务边界默认在 Manager 层；`service/impl/` 中历史遗留的少量 `@Transactional`（如 `PrescriptionServiceImpl`、`RegistrationServiceImpl`）应逐步收敛到 Manager。
+
+### 接口设计规范
+
+| 层 | 类命名 | 方法命名 | 入参 | 返回值 |
+| --- | --- | --- | --- | --- |
+| Controller | `XxxControllerV1`（`Admin/Doctor/User/Pharmacy` 端前缀） | 业务动作，如 `insertDepartment` | 请求 DTO（`pojo/dto/<role>/request/`）+ `@Valid`；`@RequestParam` / `@PathVariable`（ID 一律 `Long`） | `Result<T>` |
+| Manager | `XxxManager` | 与 Controller 语义对齐 | DTO 或原始参数，内部转 Entity | `Result<T>`（`success` / `fail`） |
+| Service | 接口 `XxxService` / 实现 `XxxServiceImpl` | `insertXxx` / `updateXxxById` / `deleteXxxById` / `listAllXxx` / `getXxxById` | Entity / ID / 基本类型（不收 DTO 与 `Result`） | 裸数据（Entity / `List<T>` / `Integer` / `PageInfo<T>`） |
+| Mapper | `XxxMapper` | 继承 `BaseMapper`，方法按需在接口或 XML 声明 | Entity / Wrapper | MyBatis-Plus 标准返回 |
+
+### 典型场景：挂号 + 支付（跨 Service 编排）
+
+调用链与数据流转：
+
+```
+UserRegistrationControllerV1 ─┐
+                              ▼
+RegistrationManager.addRegistration（@Transactional 事务边界，编排 8+ 个 Service）
+  ├─ RegistrationService              → RegistrationMapper             # 建挂号记录
+  ├─ RegistrationScheduleService      → RegistrationScheduleMapper     # 校验 + 锁号源
+  ├─ PatientCardService / PatientService → 对应 Mapper                 # 就诊人校验
+  ├─ OrderService + OrderItemService  → OrdersMapper / OrderItemMapper # 生成订单
+  └─ RegistrationStatusLogService     → RegistrationStatusLogMapper    # 写状态流水
+  └─ 任一步失败 → 整体回滚，返回 Result.fail(msg)
+  └─ 成功 → Result.success(orderId)
+
+UserPaymentControllerV1 ─┐
+                         ▼
+PaymentRecordManager.paySuccess（@Transactional：幂等标记 + 改单状态 + 写流水）→ 各 Service → Mapper → Result<Void>
+```
+
+关键代码形态（挂号入口）：
+
+```java
+@RestController
+@RequestMapping("/api/user/v1/registration")
+@RequiredArgsConstructor
+public class UserRegistrationControllerV1 {
+    private final RegistrationManager registrationManager;
+
+    @PostMapping("/")
+    @Operation(summary = "用户端 - 预约挂号")
+    public Result<String> addRegistration(@RequestParam Long registrationScheduleId,
+                                          @RequestParam Long uid,
+                                          @RequestParam Long patientCardId) {
+        return registrationManager.addRegistration(registrationScheduleId, uid, patientCardId);
+    }
+}
+```
+
+```java
+@Manager
+@RequiredArgsConstructor
+public class RegistrationManager {
+    private final RegistrationService registrationService;
+    private final RegistrationScheduleService registrationScheduleService;
+    private final OrderService orderService;
+    // ... 其余编排所需 Service
+
+    @Transactional(rollbackFor = Exception.class)
+    public Result<String> addRegistration(Long registrationScheduleId, Long uid, Long patientCardId) {
+        // 1. 校验号源 / 就诊人（Service 内做业务规则验证）
+        // 2. 建挂号记录 + 写状态流水
+        // 3. 生成订单（OrderService + OrderItemService）
+        return Result.success(orderId);
+    }
+}
+```
+
+```java
+@Service
+@RequiredArgsConstructor
+public class RegistrationServiceImpl implements RegistrationService {
+    private final RegistrationMapper registrationMapper;
+
+    @Override
+    public Integer insertRegistration(Registration registration) {
+        return registrationMapper.insert(registration); // 返回影响行数，裸数据
+    }
+}
+```
+
+```java
+@Mapper
+public interface RegistrationMapper extends BaseMapper<Registration> {
+}
+```
+
+数据流转小结：Controller 校验入参后调 Manager，不感知业务；Manager 在事务内编排多 Service 并聚合数据，返回 `Result<T>`；Service 调自身 Mapper 完成原子读写，返回裸数据；任一步失败整体回滚，Manager 返回 `Result.fail`。
 
 ## Java 类生成格式
 
@@ -159,7 +272,7 @@ public final class IdGenerator {
 
 - **不要**修改 `application*.yaml` 中的密钥、MinIO 凭据、JWT secret 入库；改动必须先确认是否走环境变量覆盖。
 - **不要**直接编辑 `src/main/resources/sql/CreateTable.sql` 的表结构，除非同步更新对应 `Mapper.java` 与 DTO；DDL 是真相源。
-- **不要**在 `Manager` 里调 `Controller`、不要在 `Mapper` 里写业务；层级：`Controller → Manager → Service → Mapper`。
+- **不要**跨层调用：Controller 直连 Service / Mapper、Manager 调 Controller 或互调 Manager、Service 互调、Mapper 写业务；层级：`Controller → Manager → Service → Mapper`（详见[分层架构规范](#分层架构规范)）。
 - **不要**新增不带 `@Operation` 的 controller 方法——Knife4j 文档依赖它。
 - **不要**用 `System.out.println`；用 `@Slf4j`（类上注解，`log.info/warn/error`）。
 - **不要**手写 MyBatis XML 来做简单 CRUD；用 MyBatis-Plus `BaseMapper`；只有复杂联表才写 XML（放 `src/main/resources/mapper/`）。
@@ -196,6 +309,72 @@ public final class IdGenerator {
 - `release/*` 或 `hotfix/*` 分支
 
 > 与 RTK 的关系:RTK 压缩 shell 输出(命令结果),caveman 压缩 Claude 文本(回复内容),二者互补不冲突。
+
+## AI 协作规范
+
+### 一、AI 权限边界矩阵
+
+| 改动类型 | 级别 | 说明 |
+| --- | --- | --- |
+| 单模块 CRUD、单 Service 内 Bug 修复、单测补充、文档（.dev / CLAUDE.md） | 自主执行 | 直接做；动手前先声明文件清单 + 影响面 + 涉及角色 |
+| 跨 ≥2 个 Manager 编排、任何 DDL、SecurityConfig / JWT filter、新增三方依赖、接口语义变更 | 需用户确认 | 先出方案，确认后再动手 |
+| 密钥 / 凭据入库、强推 `main` / `master`、删除生产数据、绕过 verify | 禁止 | 发现即停止并提示用户 |
+
+- **改动前声明**：文件清单 + 影响面 + 涉及角色（一行摘要），对齐后再动。
+- **AI 不替用户定业务规则**：挂号价格、状态流转、权限归属等只实现已确认规则；新规则必问（走 AskUserQuestion）。
+
+### 二、AI 行为准则与决策框架
+
+遇问题按序决策：
+1. CLAUDE.md 既有约定
+2. 代码库现有实现（复用优先，ponytail）
+3. `.dev` 开发文档
+4. AskUserQuestion 问用户
+
+**必问触发条件**：业务规则、接口契约（路径 / 参数 / 返回结构）、权限归属、状态流转语义。
+
+正向准则：
+- 新功能默认最小实现，禁止投机式抽象（YAGNI）。
+- 每项改动须能回答"为什么"，写入提交 body / 方案说明。
+- **未验证不得声称完成**：运行行为改动必须过 verify（编译 + 必要时启动 / curl 接口验证）。
+
+### 三、开发目标评估指标体系
+
+任务定义模板（每个任务含 4 要素）：
+- **目标**：一句话描述
+- **验收清单**：可验证条目
+- **边界**：明确不做的事
+- **风险点**：已知风险与回滚面
+
+4 级验收标准：
+
+| 级别 | 验收内容 |
+| --- | --- |
+| L1 | 编译 + 单测通过 |
+| L2 | 接口按 `@Operation` 契约验证（curl / Knife4j），参数与返回结构一致 |
+| L3 | 跨模块影响面回归，波及调用链逐一确认 |
+| L4 | 业务验收：角色权限、状态流转、金额 / 数量语义符合预期 |
+
+PR 前 checklist：跨层违规数、接口契约一致率、未收敛事务数（`PrescriptionServiceImpl` / `RegistrationServiceImpl` 等债务项）。
+
+### 四、AI 能力迭代路径
+
+- **经验 → 规则回流**：踩坑 / 新约定先记 memory，功能收尾时同步回 CLAUDE.md 对应章节。
+- **已知债务登记**：IService 混合风格、Manager 层事务收敛清单、`pojo/dto/user/response/` 历史命名——新代码不得继续扩散。
+- **能力三阶段**：
+  1. 执行者：按规范写码（默认）
+  2. 校验者：主动发现规范冲突并提议（需用户授权后生效）
+  3. 重构者：承担跨模块重构（需用户显式授权）
+
+### 五、异常情况处理机制
+
+**异常处理流程**：复现 → 读 `CreateTable.sql` + XML 验表结构 → 顺调用链定位根因 → 修复 → 回归验证。
+
+**卡住标准**：同一问题 2 次尝试未解决 → 停止重试，换方案或用 AskUserQuestion，禁止无脑重试。
+
+**风险升级**：涉及安全 / 数据 / 生产 / DDL → 先说明风险与回滚预案，获确认再动手（对齐"不走 vibe coding"场景清单）。
+
+**回滚预案**：按提交边界小步提交（见 Git 提交规范），异常时按模块回滚。
 
 ## Git 分支规范
 
@@ -338,10 +517,6 @@ BREAKING CHANGE: code=200 改为 0 表示成功，500 改为业务异常
 ### 后端项目
 
 - 项目测试端口：8080
-- 项目层级职责
-  - Controller层 负责数据校验，调用Manager层
-  - Manager层 负责业务逻辑，调用Service 层
-  - Service层 负责调用Mapper层
-  - Mapper 层负责数据库访问
+- 项目层级职责：见 [分层架构规范](#分层架构规范)：`Controller → Manager → Service → Mapper` 单向调用，禁止跨层 / 反向调用
 
 ### 前端端口
