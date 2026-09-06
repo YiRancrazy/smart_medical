@@ -20,8 +20,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -176,101 +184,117 @@ public class RegistrationScheduleTemplateManager {
      * @return 分页结果
      */
     public Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByDoctorIdAndDepartmentIdAndDateAndPage(Integer pageNum, Integer pageSize, Long doctorId, String startDate, String endDate, Long departmentId) {
-        LocalDate localStartDate = null;
-        LocalDate localEndDate = null;
-
-        if (startDate != null)
-            localStartDate = LocalDate.parse(startDate);
-        if (endDate != null)
-            localEndDate = LocalDate.parse(endDate);
+        // 日期解析防御：格式非法直接 fail，不抛 500
+        LocalDate localStartDate;
+        LocalDate localEndDate;
+        try {
+            localStartDate = startDate == null ? null : LocalDate.parse(startDate);
+            localEndDate = endDate == null ? null : LocalDate.parse(endDate);
+        } catch (DateTimeParseException e) {
+            return Result.fail("日期格式应为 yyyy-MM-dd");
+        }
 
         List<Department> departmentList = departmentService.listAllDepartment();
-        List<Doctor> doctorList = null;
-        List<RegistrationSchedule> registrationScheduleList;
+
+        // 医生+科室组合：校验医生归属科室（含子科室），不匹配直接 fail，不静默丢弃条件
+        if (doctorId != null && departmentId != null) {
+            Doctor doctor = doctorService.getDoctorById(doctorId);
+            if (doctor == null || !expandDepartmentIds(List.of(departmentId), departmentList).contains(doctor.getDepartmentId())) {
+                return Result.fail("医生与科室不匹配");
+            }
+        }
+
+        // 统一收口医生 ID 集合：指定医生 / 科室（级联子科室）/ 全部
+        List<Long> doctorIdList;
+        if (doctorId != null) {
+            doctorIdList = List.of(doctorId);
+        } else if (departmentId != null) {
+            Set<Long> departmentIds = expandDepartmentIds(List.of(departmentId), departmentList);
+            List<Doctor> doctors = new ArrayList<>();
+            for (Long deptId : departmentIds) {
+                doctors.addAll(doctorService.listDoctorsByDepartmentId(deptId));
+            }
+            doctorIdList = doctors.stream().map(Doctor::getId).distinct().collect(Collectors.toList());
+        } else {
+            doctorIdList = doctorService.listAllDoctors().stream().map(Doctor::getId).toList();
+        }
+
+        // 空集合短路：避免 IN () 无效 SQL
+        if (doctorIdList.isEmpty()) {
+            return emptyPage(pageNum, pageSize);
+        }
+
+        PageHelper.startPage(pageNum, pageSize);
+        List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
+                .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
+        PageInfo<RegistrationScheduleTemplate> sourcePage = new PageInfo<>(registrationScheduleTemplateList);
+        List<RegistrationSchedule> registrationScheduleList = registrationScheduleService
+                .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
+        List<Doctor> doctorList = doctorService.listDoctorsByIds(doctorIdList);
+
         List<AdminRegistrationScheduleTemplateDetail> result = new ArrayList<>();
-        PageInfo<RegistrationScheduleTemplate> sourcePage = null;
+        for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
+            Doctor doctor = doctorList.stream().filter(d -> d.getId().equals(item.getDoctorId())).findFirst().orElse(null);
+            if (doctor == null) continue;
+            Department department = departmentList.stream().filter(d -> d.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
+            List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(r -> r.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
 
-        if (departmentId != null && doctorId == null) {
-            List<Doctor> doctors = doctorService.listDoctorsByDepartmentId(departmentId);
-            List<Long> doctorIdList = doctors.stream().map(Doctor::getId).toList();
-            PageHelper.startPage(pageNum, pageSize);
-            List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
-                    .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
-            sourcePage = new PageInfo<>(registrationScheduleTemplateList);
-            registrationScheduleList = registrationScheduleService
-                    .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
-            doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
-
-            for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
-                Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
-                if (doctor == null) continue;
-                Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
-                List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
-
-            Integer remaining = 0;
+            int remaining = 0;
             for (RegistrationSchedule r : registrationSchedules) {
                 if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
             }
 
             result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
         }
-    } else if (doctorId != null) {
-            PageHelper.startPage(pageNum, pageSize);
-            List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
-                    .listRegistrationScheduleTemplatesByDoctorIdAndDate(doctorId, localStartDate, localEndDate);
-            sourcePage = new PageInfo<>(registrationScheduleTemplateList);
-            registrationScheduleList = registrationScheduleService
-                    .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
-            Doctor doctor1 = doctorService.getDoctorById(doctorId);
-            doctorList = doctor1 == null ? List.of() : List.of(doctor1);
-
-            for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
-                Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
-                if (doctor == null) continue;
-                Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
-                List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
-
-                int remaining = 0;
-                for (RegistrationSchedule r : registrationSchedules) {
-                    if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
-                }
-
-                result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
-            }
-        } else {
-            List<Doctor> doctors = doctorService.listAllDoctors();
-            List<Long> doctorIdList = doctors.stream().map(Doctor::getId).toList();
-            PageHelper.startPage(pageNum, pageSize);
-            List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService
-                    .listRegistrationScheduleTemplatesByDoctorIdListAndDate(doctorIdList, localStartDate, localEndDate);
-            sourcePage = new PageInfo<>(registrationScheduleTemplateList);
-            registrationScheduleList = registrationScheduleService
-                    .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList());
-            doctorList = doctorIdList.isEmpty() ? List.of() : doctorService.listDoctorsByIds(doctorIdList);
-
-            for (RegistrationScheduleTemplate item : registrationScheduleTemplateList) {
-                Doctor doctor = doctorList.stream().filter(item1 -> item1.getId().equals(item.getDoctorId())).findFirst().orElse(null);
-                if (doctor == null) continue;
-                Department department = departmentList.stream().filter(item1 -> item1.getId().equals(doctor.getDepartmentId())).findFirst().orElse(null);
-                List<RegistrationSchedule> registrationSchedules = registrationScheduleList.stream().filter(item1 -> item1.getRegistrationScheduleTemplateId().equals(item.getId())).toList();
-
-                int remaining = 0;
-                for (RegistrationSchedule r : registrationSchedules) {
-                    if (r.getRemainingQuota() != null) remaining += r.getRemainingQuota();
-                }
-
-                result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
-            }
-        }
 
         PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
-        if (sourcePage != null) {
-            pageInfo.setTotal(sourcePage.getTotal());
-            pageInfo.setPageNum(sourcePage.getPageNum());
-            pageInfo.setPageSize(sourcePage.getPageSize());
-            pageInfo.setPages(sourcePage.getPages());
-        }
+        pageInfo.setTotal(sourcePage.getTotal());
+        pageInfo.setPageNum(sourcePage.getPageNum());
+        pageInfo.setPageSize(sourcePage.getPageSize());
+        pageInfo.setPages(sourcePage.getPages());
         pageInfo.setList(result);
+        return Result.success(pageInfo);
+    }
+
+    /**
+     * 级联展开科室集合：含自身及所有后代科室 id（BFS）
+     * @param departmentIds 待展开的科室 id
+     * @param departmentList 全量科室列表
+     * @return 展开后的科室 id 集合
+     */
+    private Set<Long> expandDepartmentIds(List<Long> departmentIds, List<Department> departmentList) {
+        Map<Long, List<Long>> childrenMap = new HashMap<>();
+        for (Department d : departmentList) {
+            if (d.getParentDepartmentId() != null) {
+                childrenMap.computeIfAbsent(d.getParentDepartmentId(), k -> new ArrayList<>()).add(d.getId());
+            }
+        }
+        Set<Long> result = new HashSet<>(departmentIds);
+        Deque<Long> queue = new ArrayDeque<>(departmentIds);
+        while (!queue.isEmpty()) {
+            Long current = queue.poll();
+            for (Long child : childrenMap.getOrDefault(current, List.of())) {
+                if (result.add(child)) {
+                    queue.add(child);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 构造空分页结果（total=0）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 空分页
+     */
+    private Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> emptyPage(Integer pageNum, Integer pageSize) {
+        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
+        pageInfo.setPageNum(pageNum);
+        pageInfo.setPageSize(pageSize);
+        pageInfo.setPages(0);
+        pageInfo.setTotal(0);
+        pageInfo.setList(List.of());
         return Result.success(pageInfo);
     }
 

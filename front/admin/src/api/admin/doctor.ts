@@ -10,11 +10,10 @@ import type { Result, PageResult } from '../types'
  */
 
 export interface DoctorSimpleResponse {
-  id: number
-  name: string
-  departmentId: number
+  doctorId: string
+  doctorName: string
+  departmentId: string
   departmentName: string
-  position: string
 }
 
 /** 后端 AdminDoctorDetailResponse 字段 */

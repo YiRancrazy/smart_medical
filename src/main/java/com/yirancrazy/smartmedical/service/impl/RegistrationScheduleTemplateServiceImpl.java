@@ -115,10 +115,4 @@ public class RegistrationScheduleTemplateServiceImpl implements RegistrationSche
                 .apply("DATE(registration_date) = {0}", date));
     }
 
-    @Override
-    public List<RegistrationScheduleTemplate> listRegistrationScheduleTemplatesByDoctorIdAndDate(Long doctorId, LocalDate startDate, LocalDate endDate) {
-        return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
-                .eq(RegistrationScheduleTemplate::getDoctorId, doctorId)
-                .between(RegistrationScheduleTemplate::getRegistrationDate, startDate, endDate));
-    }
 }

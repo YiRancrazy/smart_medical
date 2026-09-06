@@ -18,7 +18,7 @@
           />
         </a-form-item>
         <a-form-item label="排班日期">
-          <a-range-picker v-model:value="searchForm.dateRange" />
+          <a-range-picker v-model:value="searchForm.dateRange" value-format="YYYY-MM-DD" />
         </a-form-item>
         <a-form-item>
           <a-space>

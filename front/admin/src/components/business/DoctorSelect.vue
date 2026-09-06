@@ -11,14 +11,14 @@
     <template v-if="loading" #notFoundContent>
       <a-spin size="small" />
     </template>
-    <a-select-option v-for="item in doctors" :key="item.id" :value="item.id">
-      {{ item.name }} - {{ item.departmentName }} ({{ item.position }})
+    <a-select-option v-for="item in doctors" :key="item.doctorId" :value="item.doctorId">
+      {{ item.doctorName }} - {{ item.departmentName }}
     </a-select-option>
   </a-select>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { listDoctorsSimple } from '@/api/admin/doctor'
 import type { DoctorSimpleResponse } from '@/api/admin/doctor'
 import { message } from 'ant-design-vue'
@@ -51,6 +51,11 @@ watch(() => props.value, (newVal) => {
   selectedId.value = newVal == null || newVal === '' ? undefined : String(newVal)
 })
 
+// 挂载即加载全量医生，保证打开下拉就能看到列表
+onMounted(() => {
+  searchDoctors('')
+})
+
 // F23: 卸载时清理定时器，避免更新已卸载组件
 onUnmounted(() => {
   if (searchTimer.value) clearTimeout(searchTimer.value)
@@ -66,13 +71,10 @@ function handleSearch(value: string) {
 }
 
 async function searchDoctors(name: string) {
-  if (!name || name.trim() === '') {
-    doctors.value = []
-    return
-  }
   loading.value = true
   try {
-    const res = await listDoctorsSimple(name)
+    // 空关键词返回全量医生（后端 name 为空时不加 like 条件）
+    const res = await listDoctorsSimple(name.trim())
     doctors.value = res.data || []
   } catch (error) {
     message.error('查询医生失败')
@@ -84,7 +86,7 @@ async function searchDoctors(name: string) {
 function handleChange(value: any) {
   const v = value == null ? undefined : String(value)
   emit('update:value', v)
-  const doctor = doctors.value.find(d => String(d.id) === v)
+  const doctor = doctors.value.find(d => String(d.doctorId) === v)
   emit('change', v, doctor)
 }
 </script>
