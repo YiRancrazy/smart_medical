@@ -21,6 +21,7 @@ import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
@@ -40,9 +41,15 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.constant.RoleConstant;
+import com.yirancrazy.smartmedical.utils.DoctorInitPasswordUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.yirancrazy.smartmedical.utils.MinIOUtil;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -86,6 +93,101 @@ public class DoctorManager {
     public int addDoctor(Doctor doctor) {
         doctor.setId(IdUtil.getSnowflakeNextId());
         return doctorService.insertDoctor(doctor);
+    }
+
+    /**
+     * 添加医生并创建登录账户（事务：任一步失败整体回滚）
+     * 初始密码 = 姓名拼音首字母大写 + 手机号，BCrypt 入库，明文不落日志
+     * @param req 添加请求
+     * @return 新医生 ID
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Long> addDoctorWithAccount(AdminDoctorAddRequest req) {
+        // 手机号查重（account.phone 唯一）
+        if (CollUtil.isNotEmpty(accountService.getAccountByPhone(req.getPhone()))) {
+            return Result.fail("该手机号已注册");
+        }
+
+        // 1. 插入医生档案（新医生固定在职，评分等由业务后续产生）
+        Long doctorId = IdUtil.getSnowflakeNextId();
+        Doctor doctor = new Doctor();
+        doctor.setId(doctorId);
+        doctor.setName(req.getName());
+        doctor.setDepartmentId(req.getDepartmentId());
+        doctor.setDoctorPositionId(req.getPositionId());
+        doctor.setDegreeId(req.getDegreeId());
+        doctor.setAvatar(req.getAvatar());
+        doctor.setAddress(req.getAddress());
+        doctor.setTags(CollUtil.isEmpty(req.getTags()) ? "" : String.join(",", req.getTags()));
+        doctor.setDescription(req.getDescription());
+        doctor.setStatus(0);
+        doctorService.insertDoctor(doctor);
+
+        // 2. 创建登录账户：userId 约定 == doctor.id，roleId=2 医生
+        Account account = new Account();
+        account.setId(IdUtil.getSnowflakeNextId());
+        account.setUserId(doctorId);
+        account.setRoleId(RoleConstant.ROLE_DOCTOR_ID);
+        account.setPhone(req.getPhone());
+        account.setEmail(req.getEmail());
+        String initPassword = DoctorInitPasswordUtil.generate(req.getName(), req.getPhone());
+        account.setPassword(BCrypt.hashpw(initPassword, BCrypt.gensalt()));
+        account.setEnabled(true);
+        accountService.insertAccount(account);
+
+        return Result.success(doctorId);
+    }
+
+    /**
+     * 查询全部职称（添加医生表单下拉）
+     * @return 职称列表
+     */
+    public Result<List<DoctorPosition>> listAllDoctorPositions() {
+        return Result.success(doctorPositionService.listDoctorPositions());
+    }
+
+    /**
+     * 查询全部学历（添加医生表单下拉）
+     * @return 学历列表
+     */
+    public Result<List<Degree>> listAllDegrees() {
+        return Result.success(degreeService.listAllDegrees());
+    }
+
+    /**
+     * 上传医生头像到 MinIO
+     * @param file 图片文件
+     * @return 图片 URL
+     * @throws IllegalArgumentException 文件类型 / 大小不合法
+     */
+    public String uploadAvatar(MultipartFile file) throws Exception {
+        // S23: 校验文件类型与大小
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("仅允许上传图片文件");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("图片大小不能超过 5MB");
+        }
+        // 仅用雪花 ID 作为对象名，避免原始文件名含特殊字符或 ../ 注入 MinIO 路径
+        String ext = "";
+        String original = file.getOriginalFilename();
+        if (original != null) {
+            int dot = original.lastIndexOf('.');
+            if (dot >= 0 && dot < original.length() - 1) {
+                String raw = original.substring(dot + 1).toLowerCase();
+                if (raw.matches("[a-z0-9]{1,8}")) {
+                    ext = "." + raw;
+                }
+            }
+        }
+        String objectName = "doctor/avatar/" + IdUtil.getSnowflakeNextId() + ext;
+        MinIOUtil.uploadFile("imagehost", file, objectName, file.getContentType());
+        String basisUrl = MinIOUtil.getBasisUrl();
+        if (basisUrl == null) {
+            throw new IllegalStateException("MinIO 未配置，无法生成图片地址");
+        }
+        return basisUrl + objectName;
     }
 
     /**

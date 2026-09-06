@@ -64,10 +64,33 @@ export function getDoctorById(id: number) {
 }
 
 /**
- * 新增医生
+ * 新增医生（同时创建登录账户，初始密码 = 姓名拼音首字母大写 + 手机号）
  */
-export function createDoctor(data: Partial<DoctorDetailResponse>) {
+export function createDoctor(data: Partial<DoctorDetailResponse> & { name: string; phone: string; positionId: string | number; degreeId: string | number; email?: string }) {
   return request.post<any, Result<number>>('/api/admin/v1/doctor/', data)
+}
+
+/**
+ * 查询全部职称
+ */
+export function listDoctorPositions() {
+  return request.get<any, Result<{ id: number; name: string }[]>>('/api/admin/v1/doctor/positions')
+}
+
+/**
+ * 查询全部学历
+ */
+export function listDegrees() {
+  return request.get<any, Result<{ id: number; name: string }[]>>('/api/admin/v1/doctor/degrees')
+}
+
+/**
+ * 上传医生头像
+ */
+export function uploadDoctorAvatar(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post<any, Result<string>>('/api/admin/v1/doctor/upload/image', formData)
 }
 
 /**
