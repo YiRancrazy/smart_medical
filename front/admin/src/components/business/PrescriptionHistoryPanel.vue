@@ -19,7 +19,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="创建日期">
-          <a-range-picker v-model:value="dateRange" value-format="YYYY-MM-DD" />
+          <a-range-picker v-model:value="dateRange" />
         </a-form-item>
         <a-form-item>
           <a-space>

@@ -6,7 +6,7 @@
           <a-input v-model:value="searchForm.patientName" placeholder="请输入患者姓名" allow-clear />
         </a-form-item>
         <a-form-item label="创建日期">
-          <a-range-picker v-model:value="dateRange" value-format="YYYY-MM-DD" />
+          <a-range-picker v-model:value="dateRange" />
         </a-form-item>
         <a-form-item>
           <a-space>
