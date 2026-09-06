@@ -53,7 +53,7 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public Order getOrderByOrderSn(String orderSn) {
-        return ordersMapper.selectOne(new QueryWrapper<Order>().eq("order_sn", orderSn));
+        return ordersMapper.selectOne(new QueryWrapper<Order>().eq("sn", orderSn));
     }
 
     /**

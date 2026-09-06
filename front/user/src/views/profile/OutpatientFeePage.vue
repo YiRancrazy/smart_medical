@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getOutpatientFeeList, type OutpatientFeeItem } from '@/api/outpatientFee'
 import EmptyState from '@/components/EmptyState.vue'
@@ -60,10 +60,6 @@ const refreshing = ref(false)
 const finished = ref(false)
 const pageNum = ref(1)
 const pageSize = 10
-
-onMounted(() => {
-  onLoad()
-})
 
 async function onLoad() {
   loading.value = true
