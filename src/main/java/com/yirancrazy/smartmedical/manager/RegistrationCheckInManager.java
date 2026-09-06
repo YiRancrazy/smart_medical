@@ -65,7 +65,12 @@ public class RegistrationCheckInManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
-        if (!userId.equals(reg.getUserId())) {
+        // 本人或存在 user→patient_user 授权关系（代挂号/家属挂号）均可报到，与 cancel 权限口径一致
+        boolean hasPermission = userId.equals(reg.getUserId());
+        if (!hasPermission) {
+            hasPermission = userPatientRelationService.hasAuthorization(userId, reg.getUserId());
+        }
+        if (!hasPermission) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         Integer curStatus = reg.getStatus();

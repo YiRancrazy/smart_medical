@@ -124,6 +124,26 @@ class RegistrationCheckInManagerTest {
     }
 
     /**
+     * checkIn 代理权限：非本人但有授权关系 → 允许报到
+     */
+    @Test
+    void checkIn_authorizedProxy_allowed() {
+        Registration reg = buildRegistration(REG_ID, 888L, RegistrationStatusEnum.SUCCESS.getCode(), SCHEDULE_ID);
+        RegistrationSchedule schedule = buildSchedule(SCHEDULE_ID, TEMPLATE_ID);
+        RegistrationScheduleTemplate template = buildTemplate(TEMPLATE_ID, TODAY);
+
+        when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
+        when(userPatientRelationService.hasAuthorization(USER_ID, 888L)).thenReturn(true);
+        when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(schedule);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(TEMPLATE_ID)).thenReturn(template);
+
+        registrationCheckInManager.checkIn(REG_ID, USER_ID);
+
+        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.REPORTED.getCode()),
+                eq(USER_ID), eq("user"), eq("用户报到"));
+    }
+
+    /**
      * checkIn 非当天排班 → REGISTRATION_STATUS_INVALID
      */
     @Test
