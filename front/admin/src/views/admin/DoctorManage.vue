@@ -253,7 +253,7 @@ async function handleEditOk() {
   }
   try {
     await updateDoctor(editForm.value.doctorId, {
-      doctorName: editForm.value.doctorName,
+      name: editForm.value.doctorName,
       description: editForm.value.description,
       status: editForm.value.status
     })

@@ -73,7 +73,7 @@ export function createDoctor(data: Partial<DoctorDetailResponse>) {
 /**
  * 修改医生
  */
-export function updateDoctor(id: string | number, data: Partial<DoctorDetailResponse>) {
+export function updateDoctor(id: string | number, data: Partial<DoctorDetailResponse> & { name?: string }) {
   return request.put<any, Result<number>>(`/api/admin/v1/doctor/${id}`, data)
 }
 
