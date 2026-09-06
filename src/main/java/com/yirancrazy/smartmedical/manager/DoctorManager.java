@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -20,6 +21,7 @@ import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
@@ -84,6 +86,31 @@ public class DoctorManager {
     public int addDoctor(Doctor doctor) {
         doctor.setId(IdUtil.getSnowflakeNextId());
         return doctorService.insertDoctor(doctor);
+    }
+
+    /**
+     * 编辑医生信息（null 字段不更新，tags 列表拼逗号入库）
+     * @param id 医生 ID
+     * @param req 编辑请求
+     * @return 影响行数
+     */
+    public Result<Integer> updateDoctor(Long id, AdminDoctorUpdateRequest req) {
+        if (id == null) {
+            return Result.fail("医生ID不能为空");
+        }
+        Doctor doctor = new Doctor();
+        doctor.setId(id);
+        doctor.setName(req.getName());
+        doctor.setDepartmentId(req.getDepartmentId());
+        doctor.setDoctorPositionId(req.getPositionId());
+        doctor.setDegreeId(req.getDegreeId());
+        doctor.setAvatar(req.getAvatar());
+        doctor.setAddress(req.getAddress());
+        doctor.setScope(req.getScope());
+        doctor.setTags(CollUtil.isEmpty(req.getTags()) ? "" : String.join(",", req.getTags()));
+        doctor.setDescription(req.getDescription());
+        doctor.setStatus(req.getStatus());
+        return Result.success(doctorService.updateDoctorById(doctor));
     }
 
     /**

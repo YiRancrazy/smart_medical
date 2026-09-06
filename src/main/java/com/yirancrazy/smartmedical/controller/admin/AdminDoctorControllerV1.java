@@ -2,13 +2,18 @@ package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.DoctorManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,6 +62,18 @@ public class AdminDoctorControllerV1 {
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size) {
         return doctorManager.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentIdAndPage( username, departmentId, current, size );
+    }
+
+    /**
+     * 编辑医生信息
+     * @param id 医生ID
+     * @param request 编辑请求
+     * @return 影响行数
+     */
+    @Operation(summary = "管理员端 - 编辑医生信息")
+    @PutMapping("/{id:\\d+}")
+    public Result<Integer> updateDoctor(@PathVariable Long id, @Valid @RequestBody AdminDoctorUpdateRequest request) {
+        return doctorManager.updateDoctor(id, request);
     }
 
 }
