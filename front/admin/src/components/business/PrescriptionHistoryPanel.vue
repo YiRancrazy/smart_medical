@@ -50,6 +50,13 @@
           </template>
           <template v-if="column.key === 'action'">
             <a-button type="link" size="small" @click="handleView(record)">查看</a-button>
+            <a-button
+              v-if="cancelApi && record.status === 0"
+              type="link"
+              size="small"
+              danger
+              @click="handleCancel(record)"
+            >作废</a-button>
           </template>
         </template>
       </a-table>
@@ -106,12 +113,14 @@ import { formatDateTime, formatMoney } from '@/utils/format'
 import type { Result, PageInfo } from '@/api/types'
 import type { PrescriptionPageItemVO, PrescriptionDetailVO, PrescriptionQueryParams } from '@/api/history/prescription'
 import { message } from 'ant-design-vue'
+import Modal from 'ant-design-vue/es/modal'
 
 interface Props {
   title: string
   role: string
   pageApi: (role: string, params: PrescriptionQueryParams) => Promise<Result<PageInfo<PrescriptionPageItemVO>>>
   detailApi: (role: string, id: string | number) => Promise<Result<PrescriptionDetailVO>>
+  cancelApi?: (prescriptionId: string | number) => Promise<Result<void>>
 }
 
 const props = defineProps<Props>()
@@ -224,6 +233,25 @@ async function handleView(record: PrescriptionPageItemVO) {
   } finally {
     detailLoading.value = false
   }
+}
+
+function handleCancel(record: PrescriptionPageItemVO) {
+  Modal.confirm({
+    title: '确认作废',
+    content: `确定要作废处方 #${record.id} 吗？此操作不可恢复。`,
+    okText: '确定作废',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await props.cancelApi!(record.id)
+        message.success('处方已作废')
+        loadData()
+      } catch {
+        message.error('作废失败')
+      }
+    }
+  })
 }
 
 function getStatusText(status: number) {
