@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
@@ -11,6 +12,7 @@ import com.yirancrazy.smartmedical.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -193,5 +195,29 @@ public class OrderServiceImpl implements OrderService {
                         .eq("id", orderId)
                         .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
                         .set("status", OrderStatus.PAID.getCode()));
+    }
+
+    /**
+     * 根据当前时间获取过期的待处理订单
+     * @param deadline 截止时间（create_time 早于该时间即视为过期）
+     * @return 过期的待处理订单列表
+     */
+    @Override
+    public List<Order> listExpiredNotPayOrders(LocalDateTime deadline) {
+        return ordersMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                .lt(Order::getCreateTime, deadline));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int cancelOrderIfWaitingPayment(Long orderId) {
+        return ordersMapper.update(null,
+                new UpdateWrapper<Order>()
+                        .eq("id", orderId)
+                        .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                        .set("status", OrderStatus.CANCELED.getCode()));
     }
 }

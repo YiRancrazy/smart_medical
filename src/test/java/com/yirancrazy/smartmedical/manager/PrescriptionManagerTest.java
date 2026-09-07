@@ -59,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
@@ -469,17 +470,6 @@ class PrescriptionManagerTest {
         record.setId(1001L);
         record.setPatientId(9009L);
 
-        PrescriptionItem item = new PrescriptionItem();
-        item.setDrugId(7001L);
-        item.setQuantity(2);
-
-        DrugInventory inv = new DrugInventory();
-        inv.setId(8001L);
-        inv.setDrugId(7001L);
-        inv.setWarehouseId(9001L);
-        inv.setAvailableQuantity(10);
-        inv.setLockedQuantity(2);
-
         Order order = new Order();
         order.setId(5001L);
         order.setStatus(OrderStatus.PAID.getCode());
@@ -491,9 +481,6 @@ class PrescriptionManagerTest {
         when(prescriptionService.getById(4001L)).thenReturn(rx);
         when(medicalRecordService.getById(1001L)).thenReturn(record);
         when(userPatientRelationService.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
-        when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
-        when(drugInventoryService.listByDrugIdsForUpdate(List.of(7001L))).thenReturn(List.of(inv));
-        when(drugInventoryService.releaseInventory(8001L, 2)).thenReturn(1);
         when(orderService.getOrderById(5001L)).thenReturn(order);
         when(paymentRecordService.getSuccessPaymentRecordByOrderId(5001L)).thenReturn(orig);
         when(prescriptionService.update(any(UpdateWrapper.class))).thenReturn(true);
@@ -506,7 +493,8 @@ class PrescriptionManagerTest {
         assertEquals(OrderStatus.REFUNDED.getCode(), order.getStatus());
         verify(prescriptionService).update(any(UpdateWrapper.class));
         verify(orderStatusLogService).addOrderStatusLog(any());
-        verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
+        // 库存释放原语已下沉 Service，Manager 侧仅需验证委托调用
+        verify(prescriptionService).releaseLockedStock(eq(rx), eq(userId), eq("user"), anyString());
     }
 
     @Test

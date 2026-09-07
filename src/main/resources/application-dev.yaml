@@ -79,3 +79,8 @@ minio:
   img-size: ${MINIO_IMG_SIZE:10}                       # 图片大小限制，单位：m
   file-size: ${MINIO_FILE_SIZE:10}                     # 文件大小限制，单位：m
   file-host: http://${MINIO_HOST}:${MINIO_PORT}
+
+smart-medical:
+  scheduled-task:
+    timeoutScanIntervalMs: ${registration.timeoutScanIntervalMs:600000} # xx 秒扫描一次超时挂号记录
+    initTimeoutScanIntervalMs: ${registration.initTimeoutScanIntervalMs:600000} # 初始化时扫描一次超时挂号记录间隔

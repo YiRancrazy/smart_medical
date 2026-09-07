@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.service;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.Order;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -125,4 +126,18 @@ public interface OrderService {
      * @return 影响行数（0 表示订单状态已变更，无需重复支付）
      */
     int markOrderPaid(Long orderId);
+
+    /**
+     * 获取过期的待处理订单（status=待支付 且 create_time 早于截止时间）
+     * @param deadline 截止时间（create_time 早于该时间即视为过期）
+     * @return 过期的待处理订单列表
+     */
+    List<Order> listExpiredNotPayOrders(LocalDateTime deadline);
+
+    /**
+     * 带状态守卫取消待支付订单（仅 status=待支付 可置为已取消，防并发覆盖已支付/已取消订单）
+     * @param orderId 订单ID
+     * @return 影响行数（0 表示订单状态已变更，本次取消未生效）
+     */
+    int cancelOrderIfWaitingPayment(Long orderId);
 }
