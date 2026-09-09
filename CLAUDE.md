@@ -17,7 +17,7 @@
 - 单测：`./mvnw test`
 - 切换 profile：`./mvnw spring-boot:run -Dspring-boot.run.profiles=prod`
 - API 文档：启动后访问 `http://localhost:8080/swagger-ui.html`（Knife4j）
-- MinIO：`http://localdev:9000`，bucket `imagehost`（见 `application.yaml`）
+- MinIO：`http://localdev:9000`，bucket `smart-medical`（见 `application.yaml`）
 - MySQL：`jdbc:mysql://localdev:3306/smart_medical`（DDL 见 `src/main/resources/sql/CreateTable.sql`）
 
 ## Layout
