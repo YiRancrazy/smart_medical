@@ -127,7 +127,7 @@ public class ChatManager {
             }
         }
         String objectName = "chat/images/" + IdUtil.getSnowflakeNextId() + ext;
-        MinIOUtil.uploadFile("imagehost", file, objectName, file.getContentType());
+        MinIOUtil.uploadFile(MinIOUtil.getBucketName(), file, objectName, file.getContentType());
         String basisUrl = MinIOUtil.getBasisUrl();
         if (basisUrl == null) {
             throw new IllegalStateException("MinIO 未配置，无法生成图片地址");

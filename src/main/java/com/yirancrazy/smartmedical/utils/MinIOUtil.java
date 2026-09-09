@@ -56,6 +56,7 @@ public class MinIOUtil {
     private static volatile MinioClient minioClient;
 
     private static String endpoint;
+    private static String fileHost;
     private static String bucketName;
     private static String accessKey;
     private static String secretKey;
@@ -68,8 +69,9 @@ public class MinIOUtil {
     public MinIOUtil() {
     }
 
-    public MinIOUtil(String endpoint, String bucketName, String accessKey, String secretKey, Integer imgSize, Integer fileSize) {
+    public MinIOUtil(String endpoint, String fileHost, String bucketName, String accessKey, String secretKey, Integer imgSize, Integer fileSize) {
         MinIOUtil.endpoint = endpoint;
+        MinIOUtil.fileHost = fileHost;
         MinIOUtil.bucketName = bucketName;
         MinIOUtil.accessKey = accessKey;
         MinIOUtil.secretKey = secretKey;
@@ -92,10 +94,11 @@ public class MinIOUtil {
                                 .endpoint(endpoint)
                                 .credentials(accessKey, secretKey)
                                 .build();
-                        createBucket(bucketName);
                         log.info("创建完毕 MinioClient...");
                     } catch (Exception e) {
                         log.error("MinIO服务器异常：{}", e);
+                        // 客户端创建失败直接终止启动，避免 minioClient 为 null 留到业务层 NPE
+                        throw new IllegalStateException("MinIO 客户端创建失败", e);
                     }
                 }
             }
@@ -103,26 +106,34 @@ public class MinIOUtil {
     }
 
     /**
-     * 获取上传文件前缀路径（配置缺失时返回 null，避免拼出 "null/null/null" P3）
-     * @return 前缀路径；endpoint 或 bucketName 未配置时返回 null
+     * 获取对外访问 URL 前缀（基于 file-host 配置；配置缺失时返回 null）
+     * @return 前缀路径；fileHost 或 bucketName 未配置时返回 null
      */
     public static String getBasisUrl() {
-        if (endpoint == null || bucketName == null) {
+        if (fileHost == null || bucketName == null) {
             return null;
         }
-        return endpoint + SEPARATOR + bucketName + SEPARATOR;
+        return fileHost + SEPARATOR + bucketName + SEPARATOR;
+    }
+
+    /**
+     * 获取配置的 bucket 名称
+     * @return bucket 名；未配置时返回 null
+     */
+    public static String getBucketName() {
+        return bucketName;
     }
 
     /******************************  Operate Bucket Start  ******************************/
 
     /**
-     * 启动SpringBoot容器的时候初始化Bucket
-     * 如果没有Bucket则创建
-     * @throws Exception
+     * 启动时确保 bucket 存在，不存在则创建
+     * @throws Exception MinIO 不可达或建桶失败
      */
-    private static void createBucket(String bucketName) throws Exception {
+    public static void ensureBucketInitialized() throws Exception {
         if (!bucketExists(bucketName)) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+            log.info("MinIO bucket 不存在，已自动创建: {}", bucketName);
         }
     }
 
