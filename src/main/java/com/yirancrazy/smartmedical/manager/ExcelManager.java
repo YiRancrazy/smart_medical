@@ -228,6 +228,10 @@ public class ExcelManager {
             errors.add("第" + rowNo + "行：时间格式错误，开始时间=[" + row.getStartTime() + "], 结束时间=[" + row.getEndTime() + "], 支持 HH:mm 或 HH:mm:ss");
             return null;
         }
+        if (!endTime.isAfter(startTime)) {
+            errors.add("第" + rowNo + "行：结束时间必须晚于开始时间，开始时间=[" + row.getStartTime() + "], 结束时间=[" + row.getEndTime() + "]");
+            return null;
+        }
         template.setStartTime(startTime);
         template.setEndTime(endTime);
 
@@ -280,12 +284,10 @@ public class ExcelManager {
                 schedule.setDoctorId(template.getDoctorId());
                 schedule.setRegistrationScheduleTemplateId(template.getId());
                 schedule.setStatus(1);
-                if (remaining - quota < 0) {
-                    schedule.setRemainingQuota(remaining);
-                } else {
-                    schedule.setRemainingQuota(quota);
-                }
-                remaining -= schedule.getRemainingQuota();
+                // 末段分配整除后全部余量，保证各段号源之和 = totalQuota
+                int segmentQuota = (i == hours - 1) ? remaining : quota;
+                schedule.setRemainingQuota(segmentQuota);
+                remaining -= segmentQuota;
                 schedule.setId(IdUtil.getSnowflakeNextId());
                 schedules.add(schedule);
             }
