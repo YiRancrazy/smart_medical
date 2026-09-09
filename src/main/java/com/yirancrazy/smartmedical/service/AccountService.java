@@ -114,4 +114,12 @@ public interface AccountService {
      */
     List<Account> listAdminByUserIds(List<Long> userIds);
 
+    /**
+     * 按手机号模糊 + 角色ID查询账户
+     * @param phone 手机号（模糊，可为空）
+     * @param roleId 角色ID（精确，可为空）
+     * @return 账户列表
+     */
+    List<Account> listAccountsByPhoneLikeAndRole(String phone, Long roleId);
+
 }

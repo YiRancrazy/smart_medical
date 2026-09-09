@@ -202,4 +202,22 @@ public class AccountServiceImpl implements AccountService {
     public List<Account> listAdminByUserIds(List<Long> userIds) {
         return accountMapper.selectList(new LambdaQueryWrapper<Account>().in(Account::getUserId,userIds));
     }
+
+    /**
+     * 按手机号模糊 + 角色ID查询账户
+     * @param phone 手机号（模糊，可为空）
+     * @param roleId 角色ID（精确，可为空）
+     * @return 账户列表
+     */
+    @Override
+    public List<Account> listAccountsByPhoneLikeAndRole(String phone, Long roleId) {
+        LambdaQueryWrapper<Account> wrapper = new LambdaQueryWrapper<>();
+        if (phone != null && !phone.isBlank()) {
+            wrapper.like(Account::getPhone, phone);
+        }
+        if (roleId != null) {
+            wrapper.eq(Account::getRoleId, roleId);
+        }
+        return accountMapper.selectList(wrapper);
+    }
 }

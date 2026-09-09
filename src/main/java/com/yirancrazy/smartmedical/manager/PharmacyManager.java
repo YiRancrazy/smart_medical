@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
@@ -20,9 +21,13 @@ import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.request.DispenseHistoryQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseHistoryVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
@@ -32,16 +37,21 @@ import com.yirancrazy.smartmedical.service.OrderStatusLogService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -63,6 +73,8 @@ public class PharmacyManager {
     private static final int TXN_OUTBOUND = 2;
     /** 库存异动类型:盘点调整 */
     private static final int TXN_ADJUST = 3;
+    /** 药师角色ID */
+    private static final Long PHARMACIST_ROLE_ID = 6L;
 
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
@@ -73,6 +85,9 @@ public class PharmacyManager {
     private final MedicalRecordService medicalRecordService;
     private final OrderService orderService;
     private final OrderStatusLogService orderStatusLogService;
+    private final UserService userService;
+    private final AccountService accountService;
+    private final DoctorService doctorService;
 
     /**
      * 待发药列表（status=1 已支付，F31支持可选分页）
@@ -127,6 +142,124 @@ public class PharmacyManager {
             vos.add(vo);
         }
         return Result.success(new PageResult<>(pageInfo, vos));
+    }
+
+    /**
+     * 药师端 - 发药历史分页（status=2 已发药，按发药时间倒序）
+     * @param request 查询条件（患者姓名 / 发药人手机号 / 处方ID / 订单ID / 发药日期范围）
+     * @return 发药历史分页列表
+     */
+    public Result<PageResult<DispenseHistoryVO>> pageDispenseHistory(DispenseHistoryQueryRequest request) {
+        LambdaQueryWrapper<Prescription> wrapper = new LambdaQueryWrapper<Prescription>()
+                .eq(Prescription::getStatus, PrescriptionStatus.DISPENSED.getCode())
+                .orderByDesc(Prescription::getDispensedAt);
+
+        // 发药人手机号模糊 → 反查药师账号 userId 集合（发药人=处方 pharmacistId=account.userId）
+        if (request.getDispenserPhone() != null && !request.getDispenserPhone().isBlank()) {
+            Set<Long> pharmacistUserIds = accountService.listAccountsByPhoneLikeAndRole(
+                            request.getDispenserPhone(), PHARMACIST_ROLE_ID).stream()
+                    .map(Account::getUserId)
+                    .collect(Collectors.toSet());
+            if (pharmacistUserIds.isEmpty()) {
+                return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
+            }
+            wrapper.in(Prescription::getPharmacistId, pharmacistUserIds);
+        }
+        if (request.getPrescriptionId() != null) {
+            wrapper.eq(Prescription::getId, request.getPrescriptionId());
+        }
+        if (request.getOrderId() != null) {
+            wrapper.eq(Prescription::getOrderId, request.getOrderId());
+        }
+        // 发药日期范围（发药时间）
+        if (request.getStartDate() != null) {
+            wrapper.ge(Prescription::getDispensedAt, request.getStartDate().atStartOfDay());
+        }
+        if (request.getEndDate() != null) {
+            wrapper.le(Prescription::getDispensedAt, request.getEndDate().atTime(LocalTime.MAX));
+        }
+
+        // 患者姓名模糊 → 反查病历 patientId
+        if (request.getPatientName() != null && !request.getPatientName().isBlank()) {
+            List<Long> patientUserIds = userService.listUserIdsByNicknameLike(request.getPatientName());
+            if (patientUserIds.isEmpty()) {
+                return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
+            }
+            List<Long> recordIds = medicalRecordService.list(
+                            new LambdaQueryWrapper<MedicalRecord>()
+                                    .in(MedicalRecord::getPatientId, patientUserIds))
+                    .stream().map(MedicalRecord::getId).collect(Collectors.toList());
+            if (recordIds.isEmpty()) {
+                return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
+            }
+            wrapper.in(Prescription::getMedicalRecordId, recordIds);
+        }
+
+        PageHelper.startPage(request.getPageNum(), request.getPageSize());
+        List<Prescription> prescriptions = prescriptionService.list(wrapper);
+        PageInfo<Prescription> pageInfo = new PageInfo<>(prescriptions);
+        return Result.success(new PageResult<>(pageInfo, buildDispenseHistoryVOs(prescriptions)));
+    }
+
+    /**
+     * 批量组装发药历史 VO：一次查病历/患者/开方医生/发药账号，消除 N+1
+     */
+    private List<DispenseHistoryVO> buildDispenseHistoryVOs(List<Prescription> prescriptions) {
+        if (prescriptions == null || prescriptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // 病历 → 患者 / 开方医生
+        List<Long> recordIds = prescriptions.stream().map(Prescription::getMedicalRecordId)
+                .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        Map<Long, MedicalRecord> recordMap = recordIds.isEmpty() ? Collections.emptyMap() :
+                medicalRecordService.listByIds(recordIds).stream()
+                        .collect(Collectors.toMap(MedicalRecord::getId, r -> r));
+        Set<Long> patientIds = recordMap.values().stream().map(MedicalRecord::getPatientId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> doctorIds = recordMap.values().stream().map(MedicalRecord::getDoctorId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> patientNameMap = patientIds.isEmpty() ? Collections.emptyMap() :
+                userService.listUsersByUserIds(new ArrayList<>(patientIds)).stream()
+                        .collect(Collectors.toMap(u -> u.getId(), u -> u.getNickname(), (a, b) -> a));
+        Map<Long, String> doctorNameMap = doctorIds.isEmpty() ? Collections.emptyMap() :
+                doctorService.listDoctorsByIds(new ArrayList<>(doctorIds)).stream()
+                        .collect(Collectors.toMap(d -> d.getId(), d -> d.getName(), (a, b) -> a));
+
+        // 发药人账号 userId → 手机号
+        Set<Long> pharmacistIds = prescriptions.stream().map(Prescription::getPharmacistId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> pharmacistPhoneMap = pharmacistIds.isEmpty() ? Collections.emptyMap() :
+                accountService.listAccountsByUserIds(new ArrayList<>(pharmacistIds)).stream()
+                        .collect(Collectors.toMap(Account::getUserId, Account::getPhone, (a, b) -> a));
+
+        // 药品明细数
+        Set<Long> rxIds = prescriptions.stream().map(Prescription::getId).collect(Collectors.toSet());
+        Map<Long, Long> itemCountMap = rxIds.isEmpty() ? Collections.emptyMap() :
+                prescriptionItemService.list(new LambdaQueryWrapper<PrescriptionItem>()
+                                .in(PrescriptionItem::getPrescriptionId, rxIds))
+                        .stream().collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
+
+        List<DispenseHistoryVO> vos = new ArrayList<>();
+        for (Prescription rx : prescriptions) {
+            DispenseHistoryVO vo = new DispenseHistoryVO();
+            vo.setPrescriptionId(rx.getId());
+            vo.setOrderId(rx.getOrderId());
+            vo.setMedicalRecordId(rx.getMedicalRecordId());
+            vo.setTotalAmount(rx.getTotalAmount());
+            vo.setDispensedAt(rx.getDispensedAt());
+            vo.setDispenserPhone(pharmacistPhoneMap.getOrDefault(rx.getPharmacistId(), "-"));
+            vo.setItemCount(itemCountMap.getOrDefault(rx.getId(), 0L).intValue());
+            MedicalRecord record = recordMap.get(rx.getMedicalRecordId());
+            if (record != null) {
+                vo.setPatientName(patientNameMap.getOrDefault(record.getPatientId(), "-"));
+                vo.setDoctorName(doctorNameMap.getOrDefault(record.getDoctorId(), "-"));
+            } else {
+                vo.setPatientName("-");
+                vo.setDoctorName("-");
+            }
+            vos.add(vo);
+        }
+        return vos;
     }
 
     /**

@@ -8,6 +8,8 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.request.DispenseHistoryQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseHistoryVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
@@ -45,6 +47,13 @@ public class PharmacyPrescriptionControllerV1 {
     @PostMapping("/page")
     public Result<PageInfo<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
         return Result.success(prescriptionManager.pagePrescriptions(request, null));
+    }
+
+    /** 药师端 - 发药历史分页列表 */
+    @Operation(summary = "药师端 - 发药历史分页列表", description = "已发药处方按发药时间倒序，支持患者姓名/发药人手机号/处方ID/订单ID/发药日期筛选")
+    @PostMapping("/dispense-history/page")
+    public Result<PageResult<DispenseHistoryVO>> pageDispenseHistory(@Valid @RequestBody DispenseHistoryQueryRequest request) {
+        return pharmacyManager.pageDispenseHistory(request);
     }
 
     /** 药师端 - 历史处方详情 */
