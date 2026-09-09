@@ -26,6 +26,7 @@ export interface PrescriptionDetailVO {
   departmentName: string
   totalAmount: number
   status: number
+  orderId: string
   createTime: string
   items: PrescriptionItemDetailVO[]
 }

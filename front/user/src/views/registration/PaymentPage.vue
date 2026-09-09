@@ -123,8 +123,11 @@ async function handlePay() {
     await pay({ orderId: String(orderId), paymentMethodId: selectedMethodId.value, realAmount: Math.round(amount.value) })
     showToast('支付成功')
     regStore.resetFlow()
-    // 支付成功后返回来源页：药品订单回门诊费用，挂号订单回挂号列表
-    const backPath = route.query.type === 'drug' ? '/outpatient-fee' : '/registration'
+    // 支付成功后返回来源页：处方详情回处方列表，门诊费用/挂号分别回各自列表
+    const from = route.query.from as string
+    const backPath = from === 'prescription'
+      ? '/prescription'
+      : route.query.type === 'drug' ? '/outpatient-fee' : '/registration'
     router.replace(backPath)
   } catch {
     // M20: 业务错误已在拦截器统一提示，避免二次 toast
