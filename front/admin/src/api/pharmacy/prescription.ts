@@ -1,5 +1,5 @@
 import request from '../index'
-import type { Result } from '../types'
+import type { Result, PageResult } from '../types'
 
 /**
  * 药师处方管理 API
@@ -34,9 +34,10 @@ export interface DispenseItemVO {
 
 /**
  * 获取待发药列表
+ * 返回分页结构，列表在 data.list
  */
 export function getPendingList() {
-  return request.get<any, Result<PendingPrescriptionVO[]>>('/api/pharmacy/v1/prescription/pending')
+  return request.get<any, Result<PageResult<PendingPrescriptionVO>>>('/api/pharmacy/v1/prescription/pending')
 }
 
 /**

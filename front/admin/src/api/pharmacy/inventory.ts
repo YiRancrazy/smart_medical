@@ -1,5 +1,5 @@
 import request from '../index'
-import type { Result } from '../types'
+import type { Result, PageResult } from '../types'
 
 /**
  * 药师库存预警 API
@@ -21,7 +21,8 @@ export interface DrugInventory {
 
 /**
  * 获取库存预警列表
+ * 返回分页结构，列表在 data.list
  */
 export function getLowStockList() {
-  return request.get<any, Result<DrugInventory[]>>('/api/pharmacy/v1/inventory/low-stock')
+  return request.get<any, Result<PageResult<DrugInventory>>>('/api/pharmacy/v1/inventory/low-stock')
 }
