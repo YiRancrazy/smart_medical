@@ -10,10 +10,10 @@ services:
     image: mysql:8.0
     container_name: smart-medical-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_ROOT_PASSWORD: dazhutizi
       MYSQL_DATABASE: smart_medical
-      MYSQL_USER: smart
-      MYSQL_PASSWORD: smart123456
+      MYSQL_USER: yirancrazy
+      MYSQL_PASSWORD: dazhutizi
       TZ: Asia/Shanghai
     volumes:
       - ./data/mysql:/var/lib/mysql
@@ -51,7 +51,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_PASSWORD: dazhutizi
     volumes:
       - ./data/minio:/data
     ports:
@@ -75,22 +75,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SERVER_PORT: 8080
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_medical?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-      SPRING_DATASOURCE_USERNAME: smart
-      SPRING_DATASOURCE_PASSWORD: smart123456
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_PASSWORD: ""
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_FILE_HOST: http://localhost:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
-      JWT_ACCESS_SECRET_KEY: ${JWT_ACCESS_SECRET_KEY:-change-me-access-secret}
-      JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-change-me-refresh-secret}
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localdev:5173,http://localdev:5174
+    # .env 注入为容器环境变量（不经宿主机 shell 展开），
+    # JWT 密钥 / MinIO bucket / 短信模板等值全部取自 .env。
+    # 注意：仓库内 .env 为 dev 值且密钥已泄漏 git history，
+    #       生产部署请用独立 prod 版 env 文件（勿直接沿用此 .env）。
+    env_file:
+      - .env
     ports:
       - "8080:8080"
     networks:
