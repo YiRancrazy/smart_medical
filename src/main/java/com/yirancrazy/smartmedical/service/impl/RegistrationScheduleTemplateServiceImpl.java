@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -107,12 +108,12 @@ public class RegistrationScheduleTemplateServiceImpl implements RegistrationSche
 
     @Override
     public List<RegistrationScheduleTemplate> getRegistrationScheduleTemplateByDoctorIdAndDate(Long doctorId, LocalDate date) {
-        if (date == null) {
-            return listRegistrationScheduleTemplatesByDoctorId(doctorId);
+        if (doctorId == null || date == null) {
+            return Collections.emptyList();
         }
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
                 .eq(RegistrationScheduleTemplate::getDoctorId, doctorId)
-                .apply("DATE(registration_date) = {0}", date));
+                .eq(RegistrationScheduleTemplate::getRegistrationDate, date));
     }
 
 }
