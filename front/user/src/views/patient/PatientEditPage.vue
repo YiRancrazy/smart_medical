@@ -20,7 +20,7 @@
     </glass-card>
 
     <van-popup v-model:show="showRelationPicker" round position="bottom">
-      <van-picker :columns="relations" @confirm="onRelationConfirm" @cancel="showRelationPicker = false" />
+      <van-picker :columns="relations" :model-value="[form.relation]" @confirm="onRelationConfirm" @cancel="showRelationPicker = false" />
     </van-popup>
   </div>
 </template>
@@ -60,7 +60,14 @@ const phoneRules = [
   { validator: isPhone, message: '手机号格式不正确' }
 ]
 
-const relations = [{ text: '本人' }, { text: '配偶' }, { text: '子女' }, { text: '父母' }, { text: '其他' }]
+// 选项必须带 value：Vant Picker 默认按 value 字段比对选中项，缺失会导致任何选择都回落到第一项
+const relations = [
+  { text: '本人', value: '本人' },
+  { text: '配偶', value: '配偶' },
+  { text: '子女', value: '子女' },
+  { text: '父母', value: '父母' },
+  { text: '其他', value: '其他' }
+]
 
 const form = reactive({
   name: '',
