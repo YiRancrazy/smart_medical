@@ -13,9 +13,10 @@ public interface SmsService {
     /**
      * 生成并发送验证码（带 60s 重发冷却）
      * @param phone 手机号
+     * @return 发送结果提示文案（mock 模式返回可识别提示，便于排查环境混淆）
      * @throws com.yirancrazy.smartmedical.exception.BizException 冷却期内或发送失败时抛出
      */
-    void sendCode(String phone);
+    String sendCode(String phone);
 
     /**
      * 校验验证码，成功后立即失效（一次性使用）

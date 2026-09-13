@@ -46,11 +46,12 @@ public class SmsServiceImpl implements SmsService {
     private final RedisUtil redisUtil;
 
     /**
-     * 生成并发送验证码；冷却期内抛 BizException，发送失败删除已存验证码
+     * 生成并发送验证码；冷却期内抛 BizException，发送失败删除已存验证码与冷却 key
      * @param phone 手机号
+     * @return 发送结果提示文案（mock 模式返回可识别提示）
      */
     @Override
-    public void sendCode(String phone) {
+    public String sendCode(String phone) {
         String cooldownKey = COOLDOWN_KEY_PREFIX + phone;
         if (redisUtil.get(cooldownKey) != null) {
             log.warn("[sms] 发送过于频繁, phone={}", phone);
@@ -64,13 +65,16 @@ public class SmsServiceImpl implements SmsService {
 
         if (isMock()) {
             log.warn("[sms] mock 模式（未配置 SMS_TEMPLATE_CODE），验证码 code={} 仅记录日志, phone={}", code, phone);
-            return;
+            return "验证码已发送（mock 模式：未配置 SMS_TEMPLATE_CODE，验证码见后端日志）";
         }
         if (!doSend(phone, code)) {
+            // 发送失败同时清理冷却 key，避免失败后 60s 内重发被误拦
             redisUtil.delete(CODE_KEY_PREFIX + phone);
+            redisUtil.delete(cooldownKey);
             throw new BizException(BizErrorCode.SMS_CODE_SEND_FAILED);
         }
         log.info("[sms] 验证码已发送, phone={}", phone);
+        return "验证码已发送";
     }
 
     /**

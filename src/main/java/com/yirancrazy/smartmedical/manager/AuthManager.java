@@ -156,8 +156,7 @@ public class AuthManager {
             }
         }
         // 冷却/发送失败由 SmsService 抛 BizException，GlobalExceptionHandler 统一转 Result
-        smsService.sendCode(phone);
-        return Result.success("验证码已发送");
+        return Result.success(smsService.sendCode(phone));
     }
 
     /**
