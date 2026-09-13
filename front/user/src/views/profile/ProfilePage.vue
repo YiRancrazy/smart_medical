@@ -4,8 +4,8 @@
       <div class="user-info">
         <van-icon name="user-o" class="avatar" />
         <div class="user-detail">
-          <div class="user-name">{{ userStore.userInfo?.name || '-' }}</div>
-          <div class="user-card-no">就诊卡号: {{ patientStore.currentPatient?.patientCardSn || '-' }}</div>
+          <div class="user-name">{{ displayName }}</div>
+          <div class="user-card-no">就诊卡号: {{ ownPatientCardSn }}</div>
         </div>
       </div>
     </glass-card>
@@ -24,17 +24,35 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePatientStore } from '@/stores/patient'
+import { getUserBaseInfo } from '@/api/user'
 import { showConfirmDialog } from 'vant'
 import GlassCard from '@/components/GlassCard.vue'
 
 const userStore = useUserStore()
 const patientStore = usePatientStore()
 
+// 展示名与本人卡号：进页实时拉取，优先本人就诊卡姓名，无绑定则回退账号默认昵称
+const displayName = ref('-')
+const ownPatientCardSn = ref('-')
+
+async function loadBaseInfo() {
+  if (!userStore.uid) return
+  try {
+    const res = await getUserBaseInfo(userStore.uid)
+    displayName.value = res.data?.displayName || '-'
+    ownPatientCardSn.value = res.data?.ownPatientCardSn || '-'
+  } catch {
+    // 接口异常时回退到登录缓存的名字，避免展示空白
+    displayName.value = userStore.userInfo?.name || '-'
+  }
+}
+
 onMounted(() => {
   patientStore.init()
+  loadBaseInfo()
 })
 
 async function handleLogout() {

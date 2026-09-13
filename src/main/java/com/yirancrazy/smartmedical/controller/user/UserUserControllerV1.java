@@ -37,8 +37,9 @@ public class UserUserControllerV1 {
     }
 
     @GetMapping("/baseinfo")
-    @Operation(summary = "根据账号ID获取用户基本信息", description = "根据账号ID获取用户基本信息")
-    @Parameter(name = "uid", description = "账号ID", required = true)
+    @Operation(summary = "根据用户ID获取用户基本信息",
+            description = "返回用户基础信息，含展示名 displayName（本人就诊卡姓名 > 账号默认昵称 > \"-\"）与本人就诊卡卡号 ownPatientCardSn")
+    @Parameter(name = "userId", description = "用户ID", required = true)
     public Result<UserBaseInfo> getUserBaseInfoByAccountId(@RequestParam("userId") Long userId) {
         return userManager.getUserBaseInfoByUserId(userId);
     }

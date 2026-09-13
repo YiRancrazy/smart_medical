@@ -15,6 +15,7 @@ import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
+import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
@@ -211,7 +212,7 @@ public class AuthManager {
         // 生成用户
         User user = new User();
         user.setId(IdUtil.getSnowflakeNextId());
-        user.setUsername(NicknameGenerator.generateRandomNickname());  // 生成随机昵称
+        user.setNickname(NicknameGenerator.generateRandomNickname());  // 生成随机昵称（默认展示名）
         user.setAvatar("");   // todo 后续添加随机头像
         userService.insertUser(user);
 
@@ -419,7 +420,13 @@ public class AuthManager {
         // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
         redisUtil.setEx(adminRefreshTokenPrefix + account.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
-        LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), user.getNickname());
+        // 展示名：本人就诊卡姓名 > 账号默认昵称 > "-"，与「我的」页头像右侧保持一致
+        UserBaseInfo baseInfo = userService.getUserBaseInfoByUserId(user.getId());
+        String displayName = (baseInfo != null && baseInfo.getDisplayName() != null)
+                ? baseInfo.getDisplayName()
+                : user.getNickname();
+
+        LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), displayName);
 
         // 统一通过响应头返回access token，前端从Authorization头提取
         response.setHeader("Authorization", "Bearer " + accessJwt);
