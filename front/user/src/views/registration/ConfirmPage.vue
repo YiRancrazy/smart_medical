@@ -121,7 +121,7 @@ onMounted(async () => {
     router.replace('/registration')
     return
   }
-  await Promise.all([loadDoctor(), loadPatients(), loadDefaultPaymentMethod()])
+  await Promise.all([patientStore.init(), loadDoctor(), loadPatients(), loadDefaultPaymentMethod()])
 })
 
 async function loadDefaultPaymentMethod() {
