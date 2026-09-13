@@ -174,10 +174,14 @@ target/smart-medical-<version>.jar
 
 | 配置 | 默认值 | 覆盖方式 |
 | --- | --- | --- |
-| JWT secret | `application.yaml` 中的占位符 | `SM_JWT_SECRET` |
-| MinIO endpoint | `http://localdev:9000` | `SM_MINIO_ENDPOINT` |
-| MinIO access / secret key | 见 `application.yaml` | `SM_MINIO_ACCESS_KEY` / `SM_MINIO_SECRET_KEY` |
-| MySQL JDBC | `jdbc:mysql://localdev:3306/smart_medical` | `SM_DB_URL` |
+| JWT secret | 无默认值，缺失即启动失败 | `JWT_ACCESS_SECRET_KEY` / `JWT_REFRESH_SECRET_KEY` |
+| JWT Redis key 前缀 | `admin-access-token` / `admin-refresh-token` | `JWT_ACCESS_TOKEN_PREFIX` / `JWT_REFRESH_TOKEN_PREFIX` |
+| MinIO endpoint（容器内网） | `http://localdev:9000` | `MINIO_HOST` / `MINIO_PORT` |
+| MinIO 对外访问前缀（浏览器可达） | 无默认值 | `MINIO_PUBLIC_HOST` / `MINIO_PORT` |
+| MinIO access / secret key | 无默认值 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
+| MySQL JDBC | `jdbc:mysql://localdev:3306/smart_medical` | `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DATABASE` |
+| CORS 允许来源 | dev `*`；prod 无默认值，缺失即启动失败 | `CORS_ALLOWED_ORIGINS` |
+| Cookie 安全标记 | `false` | `COOKIE_SECURE`（prod HTTPS 下必须为 `true`） |
 | Knife4j | 启用 | 视生产策略而定 |
 
 ---
