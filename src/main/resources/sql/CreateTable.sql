@@ -47,11 +47,13 @@ CREATE TABLE `account`  (
 -- Records of account
 -- ----------------------------
 INSERT INTO `account` VALUES (2, 1, 2, 1, 'e10adc3949ba59abbe56e057f20f883e', 'lisi@example.com', '13996001338', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (3, 1, 3, 0, 'e10adc3949ba59abbe56e057f20f883e', 'wangwu@example.com', '15808386379', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+-- role_id 修正：以下 4 条原为 0（role 表无此 id）或 1（管理员，但 admin 表无对应 id），
+-- 邮箱均对应同名患者用户，故统一为患者角色 4（RoleEnum.PATIENT）
+INSERT INTO `account` VALUES (3, 1, 3, 4, 'e10adc3949ba59abbe56e057f20f883e', 'wangwu@example.com', '15808386379', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (4, 1, 4, 4, 'e10adc3949ba59abbe56e057f20f883e', 'zhaoliu@example.com', '13702654235', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (5, 1, 5, 1, 'e10adc3949ba59abbe56e057f20f883e', 'qianqi@example.com', '13916155940', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (6, 1, 6, 0, 'e10adc3949ba59abbe56e057f20f883e', 'sunba@example.com', '18278161849', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (7, 1, 7, 0, 'e10adc3949ba59abbe56e057f20f883e', 'zhoujiu@example.com', '18859310341', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (5, 1, 5, 4, 'e10adc3949ba59abbe56e057f20f883e', 'qianqi@example.com', '13916155940', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (6, 1, 6, 4, 'e10adc3949ba59abbe56e057f20f883e', 'sunba@example.com', '18278161849', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (7, 1, 7, 4, 'e10adc3949ba59abbe56e057f20f883e', 'zhoujiu@example.com', '18859310341', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (8, 1, 8, 2, 'e10adc3949ba59abbe56e057f20f883e', 'wushi@example.com', '18731647525', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (10, 1, 2, 2, '123123', 'doctor2@hospital.com', '15264835030', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 INSERT INTO `account` VALUES (11, 1, 1, 1, 'e10adc3949ba59abbe56e057f20f883e', '123123', '19350051049', '2026-03-05 18:50:34', '2026-03-05 18:50:36', 0);
