@@ -137,6 +137,10 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public List<Account> listAccountsByUserIds(List<Long> userIdList) {
+        // MyBatis-Plus in() 收到空集合会生成 "IN ()" 非法 SQL，此处统一兜底
+        if (userIdList == null || userIdList.isEmpty()) {
+            return List.of();
+        }
         return accountMapper.selectList(new QueryWrapper<Account>().in("user_id", userIdList));
     }
 
