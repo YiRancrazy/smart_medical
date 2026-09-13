@@ -79,6 +79,9 @@ public class PaymentRecordServiceImpl implements PaymentRecordService {
      */
     @Override
     public List<PaymentRecord> listAllPaymentRecordsByOrderId(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            return List.of();
+        }
         return paymentRecordMapper.selectList(new QueryWrapper<PaymentRecord>().in("order_id", orderIds));
     }
 

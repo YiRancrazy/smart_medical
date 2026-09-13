@@ -62,6 +62,9 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     @Override
     public List<OrderItem> listOrdersItemByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return orderItemMapper.selectByIds(ids);
     }
 }

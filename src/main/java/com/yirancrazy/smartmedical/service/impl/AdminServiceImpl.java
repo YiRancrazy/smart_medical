@@ -103,6 +103,9 @@ public class AdminServiceImpl implements AdminService {
      */
     @Override
     public List<Admin> listAdminsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return adminMapper.selectList(new LambdaQueryWrapper<Admin>().in(Admin::getId, ids));
     }
 

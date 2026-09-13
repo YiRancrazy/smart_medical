@@ -200,6 +200,9 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public List<Account> listAdminByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
         return accountMapper.selectList(new LambdaQueryWrapper<Account>().in(Account::getUserId,userIds));
     }
 

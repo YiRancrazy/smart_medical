@@ -165,6 +165,10 @@ public class DoctorServiceImpl implements DoctorService {
      */
     @Override
     public List<Doctor> listDoctorsByDoctorIdsAndStatusAndMaxAdvanceDays(List<Long> doctorIds, Integer status, Integer maxAdvanceDays) {
+        // XML 中 foreach 拼 IN 无空集合保护，空集合会产生 IN () 非法 SQL
+        if (doctorIds == null || doctorIds.isEmpty()) {
+            return List.of();
+        }
         return doctorMapper.listDoctorsByDoctorIdsAndStatusAndMaxAdvanceDays(doctorIds, status, maxAdvanceDays);
     }
 

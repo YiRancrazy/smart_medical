@@ -78,6 +78,9 @@ public class PatientServiceImpl implements PatientService {
      */
     @Override
     public List<Patient> getPatientsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return patientMapper.selectByIds(ids);
     }
 

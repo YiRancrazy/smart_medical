@@ -105,6 +105,10 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public List<User> listUsersByUserIds(List<Long> userIds) {
+        // MyBatis-Plus selectByIds 空集合会生成 "IN ()" 非法 SQL，此处统一兜底
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyList();
+        }
         return userMapper.selectByIds(userIds);
     }
 

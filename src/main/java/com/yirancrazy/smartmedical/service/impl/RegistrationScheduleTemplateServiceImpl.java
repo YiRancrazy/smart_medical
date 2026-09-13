@@ -89,12 +89,18 @@ public class RegistrationScheduleTemplateServiceImpl implements RegistrationSche
 
     @Override
     public List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleIdList) {
+        if (registrationScheduleIdList == null || registrationScheduleIdList.isEmpty()) {
+            return Collections.emptyList();
+        }
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
                 .in(RegistrationScheduleTemplate::getId, registrationScheduleIdList));
     }
 
     @Override
     public List<RegistrationScheduleTemplate> listRegistrationScheduleTemplatesByDoctorIdListAndDate(List<Long> doctorIdList, LocalDate startDate, LocalDate endDate) {
+        if (doctorIdList == null || doctorIdList.isEmpty()) {
+            return Collections.emptyList();
+        }
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
                 .in(RegistrationScheduleTemplate::getDoctorId, doctorIdList)
                 .between(RegistrationScheduleTemplate::getRegistrationDate, startDate, endDate));

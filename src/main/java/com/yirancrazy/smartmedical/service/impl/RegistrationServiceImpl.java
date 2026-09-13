@@ -241,6 +241,9 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public List<Registration> listByScheduleIdsAndStatuses(List<Long> scheduleIds, Collection<Integer> statuses) {
+        if (scheduleIds == null || scheduleIds.isEmpty() || statuses == null || statuses.isEmpty()) {
+            return List.of();
+        }
         return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
                 .in(Registration::getRegistrationScheduleId, scheduleIds)
                 .in(Registration::getStatus, statuses)
@@ -252,6 +255,9 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public List<Registration> listByScheduleIdsAndStatus(List<Long> scheduleIds, Integer status) {
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return List.of();
+        }
         return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
                 .in(Registration::getRegistrationScheduleId, scheduleIds)
                 .eq(Registration::getStatus, status)

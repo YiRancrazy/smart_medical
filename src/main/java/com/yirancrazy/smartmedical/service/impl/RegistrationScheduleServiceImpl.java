@@ -117,6 +117,10 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      */
     @Override
     public List<RegistrationScheduleTemplate> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList) {
+        // XML 中 doctorIdList 为空时 <if> 不生效会退化为查询全部排班，此处短路避免越权返回全量
+        if (doctorIdList == null || doctorIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
         return registrationScheduleMapper.getRecentRegistrationListByDoctorIdList(doctorIdList);
     }
 
@@ -141,11 +145,17 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      */
     @Override
     public List<RegistrationSchedule> listRegistrationSchedulesByIds(List<Long> registrationScheduleIdList) {
+        if (registrationScheduleIdList == null || registrationScheduleIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
         return registrationScheduleMapper.selectByIds(registrationScheduleIdList);
     }
 
     @Override
     public List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleIdList(List<Long> registrationScheduleIdList) {
+        if (registrationScheduleIdList == null || registrationScheduleIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
         return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>().in(RegistrationSchedule::getRegistrationScheduleTemplateId, registrationScheduleIdList));
     }
 

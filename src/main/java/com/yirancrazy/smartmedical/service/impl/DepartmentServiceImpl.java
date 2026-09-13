@@ -53,6 +53,9 @@ public class DepartmentServiceImpl implements DepartmentService {
      */
     @Override
     public List<Department> listDepartmentsByIds(List<Long> idList) {
+        if (idList == null || idList.isEmpty()) {
+            return List.of();
+        }
         return departmentMapper.selectByIds(idList);
     }
 

@@ -182,6 +182,9 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public List<Order> listOrdersByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return ordersMapper.selectList(new QueryWrapper<Order>().in("id", ids));
     }
 

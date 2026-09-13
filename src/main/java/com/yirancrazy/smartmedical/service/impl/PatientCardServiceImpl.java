@@ -103,11 +103,17 @@ public class PatientCardServiceImpl implements PatientCardService {
      */
     @Override
     public List<PatientCard> listPatientCardByUserIdList(List<Long> userIdList) {
+        if (userIdList == null || userIdList.isEmpty()) {
+            return List.of();
+        }
         return patientCardMapper.selectList(new QueryWrapper<PatientCard>().in("user_id",userIdList));
     }
 
     @Override
     public List<PatientCard> getPatientCardsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return patientCardMapper.selectByIds(ids);
     }
 
