@@ -45,6 +45,9 @@ public class UserPatientRelationManager {
 
     private static final Long USER_ROLE = 4L;
 
+    /** 本人关系文案，前端 picker 直接提交中文，与库中存量数据保持一致 */
+    private static final String SELF_RELATION = "本人";
+
 
     /**
      * 添加就诊人
@@ -76,12 +79,20 @@ public class UserPatientRelationManager {
             List<Account> accounts = accountService.getAccountByPhone(phone);
             if (accounts != null && !accounts.isEmpty()) {
                 patientUser = userService.getUserById(accounts.get(0).getUserId());
+            } else if (SELF_RELATION.equals(relation)) {
+                // 身份证与手机号都未命中已有账号，说明提交的是他人身份信息，不应为其新建账号并标为本人
+                return Result.fail("本人关系只能绑定当前登录账号");
             } else {
                 patientUser = createPatientUser(name, idCard, phone);
             }
         }
         Long patientUserId = patientUser.getId();
         Integer isAuthorized = 0;
+
+        // 本人关系只能绑定当前登录账号自身，防止把其他账号（子女/父母等）标成本人
+        if (SELF_RELATION.equals(relation) && !currentUserId.equals(patientUserId)) {
+            return Result.fail("本人关系只能绑定当前登录账号");
+        }
 
         // 查询用户关系是否存在
         List<UserPatientRelation> userPatientRelationList = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
@@ -145,6 +156,10 @@ public class UserPatientRelationManager {
         // 校验当前用户是否有权修改
         if (!currentUserId.equals(userPatientRelationById.getUserId())) {
             return Result.fail("无权修改该就诊人");
+        }
+        // 本人关系只能绑定当前登录账号自身，防止把其他账号（子女/父母等）改成本人
+        if (SELF_RELATION.equals(relation) && !currentUserId.equals(userPatientRelationById.getPatientUserId())) {
+            return Result.fail("本人关系只能绑定当前登录账号");
         }
 
         List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
