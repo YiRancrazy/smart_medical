@@ -49,15 +49,21 @@ pagehelper:
 jwt:
   accessSecretKey: ${JWT_ACCESS_SECRET_KEY}
   refreshSecretKey: ${JWT_REFRESH_SECRET_KEY}
-  accessTokenPrefix: admin-access-token
+  # Redis key 前缀，可经环境变量覆盖（默认值与 Java 端 @Value 缺省值保持一致）
+  accessTokenPrefix: ${JWT_ACCESS_TOKEN_PREFIX:admin-access-token}
   admin:
-    adminRefreshTokenPrefix: admin-refresh-token
+    adminRefreshTokenPrefix: ${JWT_REFRESH_TOKEN_PREFIX:admin-refresh-token}
 
 minio:
   endpoint: http://${MINIO_HOST}:${MINIO_PORT}
   bucket-name: ${MINIO_BUCKET_NAME}
-  access-key: ${MINIO_ACCESS_KEY}
-  secret-key: ${MINIO_SECRET_KEY}
+  access-key: ${MINIO_ROOT_USER}
+  secret-key: ${MINIO_ROOT_PASSWORD}
   img-size: ${MINIO_IMG_SIZE:10}                       # 图片大小限制，单位：m
   file-size: ${MINIO_FILE_SIZE:10}                     # 文件大小限制，单位：m
-  file-host: http://${MINIO_HOST}:${MINIO_PORT}
+  # 对外访问前缀：必须是浏览器可达地址，与上面容器内网 endpoint 区分开
+  file-host: http://${MINIO_PUBLIC_HOST}:${MINIO_PORT}
+
+# Cookie 安全标记（dev=false；prod=true 仅 HTTPS 环境下可用，否则 Cookie 不落地）
+cookie:
+  secure: ${COOKIE_SECURE:false}
