@@ -60,3 +60,4 @@ test-*
 .token
 .user-*
 req-admin.json
+front/e2e
