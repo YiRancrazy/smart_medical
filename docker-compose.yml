@@ -3,26 +3,24 @@
 # 启动：docker-compose up -d
 # 停止：docker-compose down
 # 日志：docker-compose logs -f backend
-version: "3.8"
 
 services:
   mysql:
     image: mysql:8.0
     container_name: smart-medical-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: dazhutizi
-      MYSQL_DATABASE: smart_medical
-      MYSQL_USER: yirancrazy
-      MYSQL_PASSWORD: dazhutizi
-      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      TZ: ${TZ}
     volumes:
       - ./data/mysql:/var/lib/mysql
       - ./src/main/resources/sql/CreateTable.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./src/main/resources/sql/TestData.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT}:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      # 密码与上面的 MYSQL_ROOT_PASSWORD 同源，禁止再写死字面量
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -32,13 +30,14 @@ services:
   redis:
     image: redis:7-alpine
     container_name: smart-medical-redis
-    command: redis-server --appendonly yes
+    # requirepass 与 .env 的 REDIS_PASSWORD 同源，否则客户端 AUTH 被拒
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - ./data/redis:/data
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -46,17 +45,18 @@ services:
       - smart-medical-net
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:${MINIO_IMAGE_TAG}
     container_name: smart-medical-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: dazhutizi
+      # MinIO 新版变量名；后端客户端与 MinIO 服务端共用同一对凭证，值取自同目录 .env
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - ./data/minio:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -81,8 +81,15 @@ services:
     #       生产部署请用独立 prod 版 env 文件（勿直接沿用此 .env）。
     env_file:
       - .env
+    environment:
+      # 覆盖 .env 中面向宿主机/本地的 localdev，改为容器网络内的服务名。
+      # environment 优先级高于 env_file，故此处生效。
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+      MINIO_HOST: minio
+      # file-host 必须保持浏览器可达地址，故不覆盖 MINIO_PUBLIC_HOST
     ports:
-      - "8080:8080"
+      - "${SERVER_PORT}:${SERVER_PORT}"
     networks:
       - smart-medical-net
 
@@ -94,7 +101,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "5173:80"
+      - "${ADMIN_PORT}:80"
     networks:
       - smart-medical-net
 
@@ -106,14 +113,9 @@ services:
     depends_on:
       - backend
     ports:
-      - "5174:80"
+      - "${USER_PORT}:80"
     networks:
       - smart-medical-net
-
-volumes:
-  mysql_data:
-  redis_data:
-  minio_data:
 
 networks:
   smart-medical-net:
