@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { getUserProfile, type UserProfile } from '@/api/user'
 import { setToken, setUid, setUserInfo, clearAuth, getToken, getUid, getUserInfo } from '@/utils/storage'
 import { usePatientStore } from '@/stores/patient'
 import { useRegistrationStore } from '@/stores/registration'
@@ -10,6 +11,8 @@ export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(getToken())
   const uid = ref<string | null>(getUid())
   const userInfo = ref<any>(getUserInfo())
+  const profileCompleted = ref<boolean | null>(userInfo.value?.profileCompleted ?? null)
+  let profileRequest: Promise<boolean> | null = null
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -22,9 +25,46 @@ export const useUserStore = defineStore('user', () => {
     }
     token.value = data.token
     uid.value = String(data.uid)
-    userInfo.value = { phone: data.phone, name: data.userName }
+    profileCompleted.value = data.profileCompleted === true
+    userInfo.value = {
+      phone: data.phone,
+      name: data.userName,
+      profileCompleted: profileCompleted.value
+    }
     setToken(data.token)
     setUid(String(data.uid))
+    setUserInfo(userInfo.value)
+  }
+
+  /**
+   * 确保已读取个人信息完善状态，接口异常由调用方处理
+   */
+  async function ensureProfileCompleted(force = false): Promise<boolean> {
+    if (!token.value) return false
+    if (!force && profileCompleted.value !== null) return profileCompleted.value
+    if (profileRequest) return profileRequest
+
+    profileRequest = getUserProfile()
+      .then((res) => {
+        applyProfile(res.data)
+        return profileCompleted.value === true
+      })
+      .finally(() => {
+        profileRequest = null
+      })
+    return profileRequest
+  }
+
+  /**
+   * 同步个人信息页保存结果
+   */
+  function applyProfile(profile: UserProfile) {
+    profileCompleted.value = profile?.profileCompleted === true
+    userInfo.value = {
+      ...(userInfo.value || {}),
+      name: profile?.username || userInfo.value?.name,
+      profileCompleted: profileCompleted.value
+    }
     setUserInfo(userInfo.value)
   }
 
@@ -60,6 +100,7 @@ export const useUserStore = defineStore('user', () => {
     token.value = null
     uid.value = null
     userInfo.value = null
+    profileCompleted.value = null
     clearAuth()
     // U19: 重置 patientStore，避免换账号后残留上一用户的就诊人数据
     usePatientStore().reset()
@@ -81,5 +122,18 @@ export const useUserStore = defineStore('user', () => {
     logout()
   }
 
-  return { token, uid, userInfo, isLoggedIn, login, loginByCode, register, logout, logoutWithApi }
+  return {
+    token,
+    uid,
+    userInfo,
+    profileCompleted,
+    isLoggedIn,
+    login,
+    loginByCode,
+    register,
+    logout,
+    logoutWithApi,
+    ensureProfileCompleted,
+    applyProfile
+  }
 })

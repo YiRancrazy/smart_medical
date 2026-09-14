@@ -31,4 +31,5 @@ export interface LoginVo {
   uid: string
   phone: string
   userName: string
+  profileCompleted: boolean
 }

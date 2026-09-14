@@ -3,8 +3,10 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserProfileRequest;
 import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.UserInfoVo;
+import com.yirancrazy.smartmedical.pojo.vo.UserProfileInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
@@ -15,7 +17,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -101,5 +105,52 @@ class UserManagerTest {
         Result<UserBaseInfo> result = userManager.getUserBaseInfoByUserId(7L);
 
         assertEquals(200, result.getCode());
+    }
+
+    @Test
+    void getUserProfile_marksCompleteOnlyWhenRequiredFieldsPresent() {
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("张三");
+        user.setIdCard("340521200203221034");
+        user.setSex(0);
+        when(userService.getUserById(7L)).thenReturn(user);
+
+        Result<UserProfileInfo> result = userManager.getUserProfile(7L);
+
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertTrue(result.getData().getProfileCompleted());
+    }
+
+    @Test
+    void getUserProfile_marksIncompleteWhenSexMissing() {
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("张三");
+        user.setIdCard("340521200203221034");
+        when(userService.getUserById(7L)).thenReturn(user);
+
+        Result<UserProfileInfo> result = userManager.getUserProfile(7L);
+
+        assertFalse(result.getData().getProfileCompleted());
+    }
+
+    @Test
+    void updateUserProfile_trimsInputAndReturnsCompleteProfile() {
+        User user = new User();
+        user.setId(7L);
+        when(userService.getUserById(7L)).thenReturn(user);
+        when(userService.updateUserById(any(User.class))).thenReturn(1);
+
+        Result<UserProfileInfo> result = userManager.updateUserProfile(
+                7L,
+                new UpdateUserProfileRequest(" 张三 ", "340521200203221034", 1, " 北京市朝阳区 "));
+
+        assertEquals(200, result.getCode());
+        assertEquals("张三", result.getData().getUsername());
+        assertEquals("北京市朝阳区", result.getData().getAddress());
+        assertTrue(result.getData().getProfileCompleted());
+        verify(userService).updateUserById(user);
     }
 }

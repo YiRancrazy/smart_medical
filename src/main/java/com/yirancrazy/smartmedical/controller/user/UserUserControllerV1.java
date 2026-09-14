@@ -3,13 +3,19 @@ package com.yirancrazy.smartmedical.controller.user;
 import com.yirancrazy.smartmedical.manager.UserManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserProfileRequest;
 import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
+import com.yirancrazy.smartmedical.pojo.vo.UserProfileInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,5 +50,18 @@ public class UserUserControllerV1 {
         return userManager.getUserBaseInfoByUserId(userId);
     }
 
-    
+    @GetMapping("/profile")
+    @Operation(summary = "获取当前用户个人信息", description = "获取当前登录用户的姓名、身份证号、性别、住址及完善状态")
+    public Result<UserProfileInfo> getUserProfile(
+            @RequestAttribute("currentUserId") Long userId) {
+        return userManager.getUserProfile(userId);
+    }
+
+    @PutMapping("/profile")
+    @Operation(summary = "完善当前用户个人信息", description = "补充当前登录用户的姓名、身份证号、性别和住址")
+    public Result<UserProfileInfo> updateUserProfile(
+            @RequestAttribute("currentUserId") Long userId,
+            @Valid @RequestBody UpdateUserProfileRequest request) {
+        return userManager.updateUserProfile(userId, request);
+    }
 }

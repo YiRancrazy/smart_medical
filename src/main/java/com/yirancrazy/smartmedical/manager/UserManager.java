@@ -5,13 +5,19 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserProfileRequest;
 import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.UserInfoVo;
+import com.yirancrazy.smartmedical.pojo.vo.UserProfileInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.Locale;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -90,5 +96,55 @@ public class UserManager {
         UserBaseInfo userBaseInfo = userService.getUserBaseInfoByUserId(userId);
         log.info("获取用户基础信息: {}", userBaseInfo);
         return Result.success(userBaseInfo);
+    }
+
+    /**
+     * 获取当前登录用户的个人信息
+     * @param userId 当前登录用户ID
+     * @return 用户个人信息
+     */
+    public Result<UserProfileInfo> getUserProfile(Long userId) {
+        User user = userService.getUserById(userId);
+        if (user == null) {
+            return Result.info(10001, "用户不存在", null);
+        }
+        return Result.success(toUserProfileInfo(user));
+    }
+
+    /**
+     * 更新当前登录用户的个人信息并返回最新完善状态
+     * @param userId 当前登录用户ID
+     * @param request 个人信息请求
+     * @return 更新后的用户个人信息
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Result<UserProfileInfo> updateUserProfile(Long userId, UpdateUserProfileRequest request) {
+        User user = userService.getUserById(userId);
+        if (user == null) {
+            return Result.info(10001, "用户不存在", null);
+        }
+        user.setUsername(request.getUsername().trim());
+        user.setIdCard(request.getIdCard().trim().toUpperCase(Locale.ROOT));
+        user.setSex(request.getSex());
+        user.setAddress(StringUtils.hasText(request.getAddress()) ? request.getAddress().trim() : null);
+        userService.updateUserById(user);
+        return Result.success(toUserProfileInfo(user));
+    }
+
+    /**
+     * 组装用户个人信息并计算完善状态
+     */
+    private UserProfileInfo toUserProfileInfo(User user) {
+        boolean profileCompleted = StringUtils.hasText(user.getUsername())
+                && StringUtils.hasText(user.getIdCard())
+                && user.getSex() != null;
+        return new UserProfileInfo(
+                String.valueOf(user.getId()),
+                user.getUsername(),
+                user.getAvatar(),
+                user.getIdCard(),
+                user.getSex(),
+                user.getAddress(),
+                profileCompleted);
     }
 }

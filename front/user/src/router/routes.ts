@@ -156,6 +156,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '修改密码' }
   },
 
+  // ── 个人信息（无 TabBar，登录态）──────────────────
+  {
+    path: '/profile/edit',
+    name: 'ProfileEdit',
+    component: () => import('@/views/profile/ProfileEditPage.vue'),
+    meta: { requiresAuth: true, title: '个人信息' }
+  },
+
   // ── 404 兜底 ────────────────────────────────────
   {
     path: '/:pathMatch(.*)*',

@@ -426,7 +426,13 @@ public class AuthManager {
                 ? baseInfo.getDisplayName()
                 : user.getNickname();
 
-        LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), displayName);
+        LoginVo loginVo = new LoginVo(
+                String.valueOf(account.getId()),
+                accessJwt,
+                String.valueOf(user.getId()),
+                account.getPhone(),
+                displayName,
+                isProfileCompleted(user));
 
         // 统一通过响应头返回access token，前端从Authorization头提取
         response.setHeader("Authorization", "Bearer " + accessJwt);
@@ -503,6 +509,16 @@ public class AuthManager {
         patient.setUserId(userId);
         patient.setPatientCardId(patientCard.getId());
         patientService.insertPatient(patient);
+    }
+
+    /**
+     * 判断用户个人信息是否已完善
+     */
+    private boolean isProfileCompleted(User user) {
+        return user != null
+                && user.getUsername() != null && !user.getUsername().isBlank()
+                && user.getIdCard() != null && !user.getIdCard().isBlank()
+                && user.getSex() != null;
     }
 
 }

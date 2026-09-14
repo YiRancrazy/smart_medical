@@ -21,6 +21,23 @@ export interface UserBaseInfo {
   ownPatientCardSn: string | null
 }
 
+export interface UserProfile {
+  userId: string
+  username: string
+  avatar: string
+  idCard: string
+  sex: number | null
+  address: string
+  profileCompleted: boolean
+}
+
+export interface UpdateUserProfileRequest {
+  username: string
+  idCard: string
+  sex: number
+  address?: string
+}
+
 /**
  * 用户基础信息（含展示名与本人就诊卡卡号）
  */
@@ -29,4 +46,18 @@ export function getUserBaseInfo(userId: number | string) {
     '/api/user/v1/user/baseinfo',
     { params: { userId } }
   )
+}
+
+/**
+ * 获取当前登录用户个人信息
+ */
+export function getUserProfile() {
+  return request.get<any, ApiResult<UserProfile>>('/api/user/v1/user/profile')
+}
+
+/**
+ * 完善当前登录用户个人信息
+ */
+export function updateUserProfile(data: UpdateUserProfileRequest) {
+  return request.put<any, ApiResult<UserProfile>>('/api/user/v1/user/profile', data)
 }

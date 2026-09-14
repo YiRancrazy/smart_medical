@@ -11,6 +11,7 @@
     </glass-card>
 
     <glass-card class="menu-card" padding="0">
+      <van-cell title="个人信息" :value="profileStatus" is-link to="/profile/edit" icon="contact-o" />
       <van-cell title="我的挂号" is-link to="/registration" icon="records-o" />
       <van-cell title="我的病历" is-link to="/medical-record" icon="description" />
       <van-cell title="我的处方" is-link to="/prescription" icon="bill-o" />
@@ -24,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePatientStore } from '@/stores/patient'
 import { getUserBaseInfo } from '@/api/user'
@@ -37,6 +38,7 @@ const patientStore = usePatientStore()
 // 展示名与本人卡号：进页实时拉取，优先本人就诊卡姓名，无绑定则回退账号默认昵称
 const displayName = ref('-')
 const ownPatientCardSn = ref('-')
+const profileStatus = computed(() => userStore.profileCompleted ? '已完善' : '待补充')
 
 async function loadBaseInfo() {
   if (!userStore.uid) return
@@ -53,6 +55,9 @@ async function loadBaseInfo() {
 onMounted(() => {
   patientStore.init()
   loadBaseInfo()
+  userStore.ensureProfileCompleted().catch(() => {
+    // 页面展示不因资料状态接口异常中断
+  })
 })
 
 async function handleLogout() {
