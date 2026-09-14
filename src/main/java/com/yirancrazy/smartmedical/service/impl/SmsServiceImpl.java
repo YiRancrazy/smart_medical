@@ -117,7 +117,11 @@ public class SmsServiceImpl implements SmsService {
      */
     private boolean doSend(String phone, String code) {
         String url = baseUrl.replaceAll("/+$", "") + "/" + templateCode;
-        String body = JSONUtil.createObj().set("to", phone).set("code", code).toString();
+        String body = JSONUtil.createObj()
+                .set("to", phone)
+                .set("code", code)
+                .set("number", String.valueOf(codeExpireMinutes))
+                .toString();
         try {
             String resp = HttpRequest.post(url)
                     .header("Content-Type", "application/json")
