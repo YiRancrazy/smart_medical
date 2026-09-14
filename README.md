@@ -1,296 +1,340 @@
-<div align="center">
+# Smart Medical
 
-<img src="res/logo.png" alt="Smart Medical Logo" width="120" />
+Smart Medical 是一个医院预约挂号与运营管理平台，采用前后端分离的单仓库结构：
 
-# Smart Medical · 智慧医院预约挂号系统
+| 模块 | 路径 | 技术栈 | 使用角色 |
+| --- | --- | --- | --- |
+| 后端服务 | `src/` | Spring Boot 3.5.9、Java 17、Maven | 全部角色 |
+| 运营管理端 | `front/admin/` | Vue 3、Vite、Ant Design Vue、Pinia | 管理员、医生、药师 |
+| 患者端 | `front/user/` | Vue 3、Vite、Vant、Pinia | 患者 |
+| 基础设施 | `docker-compose.yml` | MySQL、Redis、MinIO、Nginx | 本地开发与部署 |
 
-> 面向医院场景的后端服务：科室 / 排班 / 医生 / 号源管理 + 患者挂号 / 支付 / 就诊人全流程。
+## 核心能力
 
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.9-6DB33F?style=flat-square&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/17/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.x-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![MinIO](https://img.shields.io/badge/MinIO-Object%20Storage-C72E29?style=flat-square&logo=minio&logoColor=white)](https://min.io/)
-[![Knife4j](https://img.shields.io/badge/Knife4j-API%20Docs-1AB6FF?style=flat-square)](https://doc.xiaominfo.com/)
-[![License](https://img.shields.io/badge/license-Internal-blue?style=flat-square)](./LICENSE)
+- 四角色权限隔离：`admin`、`doctor`、`pharmacist`、`user`。
+- JWT + Spring Security 无状态鉴权，支持访问令牌与刷新令牌。
+- AJ-Captcha 行为验证码，登录链路可校验滑块验证码。
+- 科室、医生、排班模板、号源、挂号、订单、支付和就诊状态全流程管理。
+- 患者档案、就诊人、病历、处方、药品、库存和发药流程。
+- 用户端图文问诊接口与医生端待诊、接诊、病历编辑页面。
+- MyBatis-Plus 持久化、PageHelper 分页、Druid 数据源。
+- MinIO 对象存储，支持头像、病历图片和通用文件上传。
+- EasyExcel 导入导出，覆盖挂号模板等批量数据场景。
+- Spug 短信验证码；未配置短信模板时自动进入日志 Mock 模式。
+- Docker Compose 一键启动后端、管理端、患者端、MySQL、Redis 和 MinIO。
 
-</div>
+## 技术栈
 
----
+### 后端
 
-## 📖 项目简介
-
-**Smart Medical** 是一套医院预约挂号与后台管理系统的**后端服务**，基于 Spring Boot 3.5.9 + Java 17 构建。
-
-系统围绕三类角色提供完整的业务流程：
-
-| 角色 | 主要能力 |
-| --- | --- |
-| 🛡️ **Admin（管理员）** | 科室 / 排班 / 医生 / 订单管理 |
-| 🩺 **Doctor（医生）** | 出诊安排 / 诊室管理 |
-| 🧑 **User（患者）** | 挂号 / 支付 / 就诊人维护 |
-
-> 当前仓库为**后端**实现，前端项目另见对应仓库。
-
----
-
-## ✨ 核心特性
-
-- 🔐 **多端鉴权**：基于 JWT + Spring Security，区分 `admin` / `user` / `doctor` 角色。
-- 🏥 **完整挂号链路**：科室 → 排班规则 → 号源 → 订单 → 支付 → 就诊。
-- 📅 **排班规则引擎**：支持按规则类型、状态灵活配置出诊安排。
-- 👨‍⚕️ **就诊人管理**：支持一户多就诊人、默认就诊人切换。
-- 📑 **Excel 导入导出**：基于 EasyExcel 批量维护科室、医生、号源等基础数据。
-- 🖼️ **对象存储**：使用 MinIO 管理头像 / 病历 / 通用图片资源。
-- 📘 **API 文档**：集成 Knife4j，调试体验优于原生 Swagger。
-- 🧩 **Manager 编排层**：通过 `@Manager` 注解 + Spring Bean 组合，避免 Service 间循环依赖。
-
----
-
-## 🧱 技术栈
-
-### 运行环境
-
-| 组件 | 版本 |
+| 组件 | 版本 / 说明 |
 | --- | --- |
 | JDK | 17 |
 | Spring Boot | 3.5.9 |
-| Maven | 3.9+（项目自带 `mvnw`） |
-| MySQL | 8.x |
-| MinIO | 最新稳定版 |
-
-### 关键依赖
-
-| 类别 | 组件 |
-| --- | --- |
-| 持久层 | MyBatis-Plus（`BaseMapper`）、分页插件 PageHelper |
-| 安全 | Spring Security + JWT |
-| API 文档 | Knife4j（OpenAPI 3） |
-| 工具库 | Hutool（雪花 ID、加密、类型转换等） |
+| Maven | 使用仓库内 `mvnw` |
+| Web / Security | Spring MVC、Spring Security |
+| 持久化 | MyBatis-Plus、PageHelper、Druid |
+| 数据库 | MySQL 8 |
+| 缓存 / 会话 | Redis 7 |
+| 对象存储 | MinIO |
+| API 文档 | Knife4j / OpenAPI 3 |
 | Excel | EasyExcel |
-| 对象存储 | MinIO Java SDK |
-| 日志 | SLF4J + Logback（Spring Boot 默认） |
+| 工具库 | Hutool、Lombok |
+| 验证码 | AJ-Captcha |
 
----
+### 前端
 
-## 📂 目录结构
+| 应用 | 主要依赖 |
+| --- | --- |
+| 管理端 | Vue 3、Vite、TypeScript、Ant Design Vue、Pinia、Axios |
+| 患者端 | Vue 3、Vite、TypeScript、Vant、Pinia、Axios |
 
-```
-smart-medical/
+## 目录结构
+
+```text
+.
 ├── src/main/java/com/yirancrazy/smartmedical/
-│   ├── SmartMedicalApplication.java   # Spring Boot 启动类
-│   ├── annotation/                    # 自定义注解（@Manager 等）
-│   ├── config/                        # Web / Swagger / MybatisPlus / MinIO / Security / CORS
-│   ├── constant/                      # 常量 + 枚举（OrderStatus、RegistrationStatus、Role…）
-│   ├── controller/                    # 三套 controller：admin / doctor / user（均 V1 版本化）
-│   ├── filter/                        # JWT / 手机号+密码 过滤器
-│   ├── manager/                       # 业务编排层（@Manager 注解，可注入多个 Service）
-│   ├── mapper/                        # MyBatis-Plus Mapper
-│   ├── pojo/                          # 实体 + dto + vo + result + excel
-│   ├── service/ (+ impl/)             # IService 风格的业务接口与实现
-│   └── utils/                         # 工具类
+│   ├── annotation/       自定义注解，如 @Manager
+│   ├── config/           Web、Security、MyBatis-Plus、MinIO、Knife4j 配置
+│   ├── constant/         常量与枚举
+│   ├── controller/       admin、doctor、pharmacy、user 四套 V1 Controller
+│   ├── exception/        业务异常与全局异常处理
+│   ├── filter/           JWT 与验证码过滤器
+│   ├── manager/          跨 Service 业务编排
+│   ├── mapper/           MyBatis-Plus Mapper
+│   ├── pojo/             Entity、DTO、VO、Result 与 Excel 模型
+│   ├── service/          业务接口与实现
+│   └── utils/            JWT、Redis、MinIO、分页等工具
 ├── src/main/resources/
-│   ├── application.yaml               # 主配置（JWT、MinIO、Knife4j）
-│   ├── application-dev.yaml / -prod.yaml
-│   ├── mapper/                        # MyBatis XML（复杂联表）
-│   ├── sql/CreateTable.sql            # 数据库 DDL（**数据表唯一来源**）
-│   └── static/ templates/             # 静态资源
-├── docs/                              # 项目文档 / 变更记录
-├── res/                               # 设计资源（logo / icon）
-├── pom.xml
-└── README.md
+│   ├── application.yaml
+│   ├── application-dev.yaml
+│   ├── application-prod.yaml
+│   ├── mapper/           MyBatis XML
+│   └── sql/              CreateTable.sql 与 TestData.sql
+├── src/test/             单元测试
+├── front/admin/          运营管理端
+├── front/user/           患者端
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+├── mvnw / mvnw.cmd
+└── pom.xml
 ```
 
----
-
-## 🚀 快速开始
+## 快速开始
 
 ### 前置条件
 
-- JDK 17+
-- Maven 3.9+（可直接使用仓库自带的 `./mvnw`）
-- 已启动 **MySQL 8** 与 **MinIO**，并准备好 bucket
-- 推荐 IDE：IntelliJ IDEA 2024+
+- JDK 17
+- Node.js 20 与 npm
+- Docker 与 Docker Compose，推荐用于完整环境启动
+- 如果不用 Docker，需要自行准备 MySQL 8、Redis 7 与 MinIO
 
-### 1. 克隆 & 初始化数据库
+### 1. 准备环境变量
 
-```bash
-git clone <your-org>/smart-medical.git
-cd smart-medical
+先复制环境变量样例，并填写空值或占位值：
 
-# 创建数据库并导入 DDL
-mysql -uroot -p < src/main/resources/sql/CreateTable.sql
+Windows PowerShell：
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-### 2. 修改配置
-
-编辑 [src/main/resources/application-dev.yaml](src/main/resources/application-dev.yaml)，
-按本机环境调整 MySQL / MinIO / JWT 密钥等字段。
-**生产环境必须通过环境变量覆盖密钥**，详见下方 [⚙️ 配置说明](#-配置说明)。
-
-### 3. 启动
+Linux / macOS：
 
 ```bash
-# 默认使用 dev profile
+cp .env.example .env
+```
+
+至少需要确认以下内容：
+
+- `JWT_ACCESS_SECRET_KEY`、`JWT_REFRESH_SECRET_KEY`
+- `MYSQL_PASSWORD`、`MYSQL_USERNAME`、`MYSQL_DATABASE`
+- `REDIS_PASSWORD`
+- `MINIO_ROOT_USER`、`MINIO_ROOT_PASSWORD`、`MINIO_BUCKET_NAME`
+- `MINIO_HOST`、`MINIO_PORT`、`MINIO_PUBLIC_HOST`
+
+禁止将真实密钥、生产密码或 Token 提交到仓库。
+
+### 2. Docker 一键启动
+
+Windows：
+
+```powershell
+.\start-docker.bat
+```
+
+Linux / macOS：
+
+```bash
+./start-docker.sh
+```
+
+也可以手动执行：
+
+```bash
+docker-compose up -d
+```
+
+默认入口：
+
+| 服务 | 地址 |
+| --- | --- |
+| 后端 API | `http://localhost:8080` |
+| Knife4j API 文档 | `http://localhost:8080/swagger-ui.html` |
+| 运营管理端 | `http://localhost:5173` |
+| 患者端 | `http://localhost:5174` |
+| MinIO 控制台 | `http://localhost:9001` |
+| MySQL | `localhost:3306` |
+| Redis | `localhost:6379` |
+
+停止服务：
+
+```bash
+docker-compose down
+```
+
+### 3. 本地启动后端
+
+确保 `.env` 中的 MySQL、Redis 和 MinIO 地址均可访问，然后执行：
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-启动成功后：
-
-| 入口 | 地址 |
-| --- | --- |
-| 应用服务 | `http://localhost:8080` |
-| Knife4j API 文档 | `http://localhost:8080/swagger-ui.html` |
-
-### 4. 打包
-
-```bash
-# 跳过单测
-./mvnw clean package -DskipTests
-
-# 产物
-target/smart-medical-<version>.jar
-```
-
----
-
-## ⚙️ 配置说明
-
-### Profile
-
-| Profile | 入口配置 | 用途 |
-| --- | --- | --- |
-| `dev` | `application-dev.yaml` | 本地开发，默认启用 |
-| `prod` | `application-prod.yaml` | 生产部署 |
-
-切换：
+默认启用 `dev` Profile。切换生产配置：
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod
 ```
 
-### 关键配置项
+### 4. 本地启动前端
 
-> ⚠️ **生产环境请勿将密钥 / Token 写入 yaml，必须通过环境变量覆盖。**
-
-| 配置 | 默认值 | 覆盖方式 |
-| --- | --- | --- |
-| JWT secret | 无默认值，缺失即启动失败 | `JWT_ACCESS_SECRET_KEY` / `JWT_REFRESH_SECRET_KEY` |
-| JWT Redis key 前缀 | `admin-access-token` / `admin-refresh-token` | `JWT_ACCESS_TOKEN_PREFIX` / `JWT_REFRESH_TOKEN_PREFIX` |
-| MinIO endpoint（容器内网） | `http://localdev:9000` | `MINIO_HOST` / `MINIO_PORT` |
-| MinIO 对外访问前缀（浏览器可达） | 无默认值 | `MINIO_PUBLIC_HOST` / `MINIO_PORT` |
-| MinIO access / secret key | 无默认值 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
-| MySQL JDBC | `jdbc:mysql://localdev:3306/smart_medical` | `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DATABASE` |
-| CORS 允许来源 | dev `*`；prod 无默认值，缺失即启动失败 | `CORS_ALLOWED_ORIGINS` |
-| Cookie 安全标记 | `false` | `COOKIE_SECURE`（prod HTTPS 下必须为 `true`） |
-| Knife4j | 启用 | 视生产策略而定 |
-
----
-
-## 🔑 角色与权限
-
-所有接口均经过 [src/main/java/com/yirancrazy/smartmedical/config/SecurityConfig.java](src/main/java/com/yirancrazy/smartmedical/config/SecurityConfig.java) 控制，
-鉴权链由 [filter/JwtAuthenticationFilter.java](src/main/java/com/yirancrazy/smartmedical/filter/JwtAuthenticationFilter.java) 注入。
-
-| 角色 | Token 标识 | 主要接口前缀 |
-| --- | --- | --- |
-| `ADMIN` | `role=admin` | `/api/admin/v1/**` |
-| `DOCTOR` | `role=doctor` | `/api/doctor/v1/**` |
-| `USER` | `role=user` | `/api/user/v1/**` |
-
-修改权限前请确认接口所属角色与 JWT 过滤器链顺序。
-
----
-
-## 📐 架构与编码约定
-
-层级（自上而下，**严禁反向依赖**）：
-
-```
-Controller  →  Manager  →  Service  →  Mapper
-```
-
-- **Manager**：业务编排层，可注入多个 Service；通过自定义注解 [annotation/Manager.java](src/main/java/com/yirancrazy/smartmedical/annotation/Manager.java) 注册为 Spring Bean。
-- **Service**：单领域业务逻辑，事务边界控制在此层。
-- **Mapper**：基于 MyBatis-Plus `BaseMapper`，**只写数据访问**；仅复杂联表使用 XML（`src/main/resources/mapper/`）。
-- **Controller**：参数校验 + 鉴权 + 返回 `Result<T>`；不直接调用多个 Service。
-
-其它约定：
-
-- 统一返回 [pojo/Result.java](src/main/java/com/yirancrazy/smartmedical/pojo/Result.java)，构造用 `Result.success(data)` / `Result.fail(msg)`。
-- 主键统一使用 Hutool 雪花 ID（见 [utils/IdGenerator.java](src/main/java/com/yirancrazy/smartmedical/utils/IdGenerator.java)）。
-- 表结构以 [src/main/resources/sql/CreateTable.sql](src/main/resources/sql/CreateTable.sql) 为真值源；DDL 与实体不同步是常见 bug 来源。
-- 新增 Java 类请按 [CLAUDE.md → Java 类生成格式](CLAUDE.md) 生成（含 `@Author / @Description / @Datetime / @Version` 四件套 Javadoc）。
-
-完整规范见 [CLAUDE.md](CLAUDE.md)。
-
----
-
-## 🧪 测试
+管理端：
 
 ```bash
-./mvnw test                       # 跑全部单测
-./mvnw test -Dtest=ClassName      # 指定类
-./mvnw verify                     # 含集成校验
+cd front/admin
+npm ci
+npm run dev
 ```
 
-数据库相关修改后强烈建议跑一次完整测试。
+患者端：
 
----
+```bash
+cd front/user
+npm ci
+npm run dev
+```
 
-## 🛠️ 常用脚本
+两个 Vite 开发服务器都会将 `/api` 请求代理到 `http://localhost:8080`。
 
-| 命令 | 用途 |
+## 配置说明
+
+项目通过 `spring-dotenv` 加载工作目录下的 `.env`。Profile 默认值为 `dev`，可由 `SPRING_PROFILES_ACTIVE` 覆盖。
+
+### 基础配置
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | `dev` | 运行 Profile：`dev` 或 `prod` |
+| `SERVER_PORT` | `8080` | 后端端口 |
+| `ADMIN_PORT` | `5173` | 管理端容器映射端口 |
+| `USER_PORT` | `5174` | 患者端容器映射端口 |
+| `TZ` | `Asia/Shanghai` | 容器时区 |
+
+### 数据库与缓存
+
+| 环境变量 | 说明 |
 | --- | --- |
-| `./mvnw spring-boot:run` | 本地启动（默认 dev） |
-| `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod` | 指定 profile 启动 |
-| `./mvnw clean package -DskipTests` | 打包 |
-| `./mvnw compile` | 编译（大量生成后验证用） |
-| `./mvnw test` | 单测 |
+| `MYSQL_HOST` / `MYSQL_PORT` | MySQL 地址与端口 |
+| `MYSQL_USERNAME` / `MYSQL_PASSWORD` | MySQL 账号与密码 |
+| `MYSQL_DATABASE` | 数据库名，默认使用 `smart_medical` |
+| `REDIS_HOST` / `REDIS_PORT` | Redis 地址与端口 |
+| `REDIS_PASSWORD` / `REDIS_DATABASE` | Redis 密码与数据库序号 |
+| `REDIS_TIMEOUT` | Redis 超时时间，默认 `2000ms` |
 
----
+### 对象存储
 
-## 🗺️ 路线图 / TODO
+| 环境变量 | 说明 |
+| --- | --- |
+| `MINIO_HOST` / `MINIO_PORT` | 后端访问 MinIO 的内部地址 |
+| `MINIO_PUBLIC_HOST` | 浏览器可访问的 MinIO 地址，用于拼接文件外链 |
+| `MINIO_CONSOLE_PORT` | MinIO 控制台端口 |
+| `MINIO_IMAGE_TAG` | MinIO 镜像版本 |
+| `MINIO_BUCKET_NAME` | 文件桶名称 |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | MinIO 访问凭证 |
+| `MINIO_IMG_SIZE` / `MINIO_FILE_SIZE` | 上传大小限制，单位 MB |
 
-- [ ] 就诊人模块补完（增 / 改 / 查 / 删除由前端接入）
-- [ ] 支付回调统一封装（`PaymentRecord` 状态机）
-- [ ] Redis 缓存接入（科室 / 排班热点数据）
-- [ ] Docker Compose 一键启动 MySQL + MinIO + 服务
-- [ ] OpenAPI 自动生成客户端 SDK
+### 安全与通知
 
-更多变更见 [docs/CHANGE.md](docs/CHANGE.md)。
+| 环境变量 | 说明 |
+| --- | --- |
+| `JWT_ACCESS_SECRET_KEY` | JWT 访问令牌密钥，必填 |
+| `JWT_REFRESH_SECRET_KEY` | JWT 刷新令牌密钥，必填 |
+| `JWT_ACCESS_TOKEN_PREFIX` | Redis 访问令牌前缀 |
+| `JWT_REFRESH_TOKEN_PREFIX` | Redis 刷新令牌前缀 |
+| `CORS_ALLOWED_ORIGINS` | 允许来源；dev 可用 `*`，prod 必须配置具体域名且禁止 `*` |
+| `COOKIE_SECURE` | Cookie 安全标记；HTTPS 生产环境应设为 `true` |
+| `SMS_BASE_URL` | Spug 短信服务地址 |
+| `SMS_TEMPLATE_CODE` | 短信模板编码；为空时启用日志 Mock 模式 |
 
----
+## 角色与接口
 
-## 🤝 贡献指南
+后端接口统一以 `/api` 开头，并按末端角色划分权限：
 
-1. **小步提交**：按模块拆分，例如 `feat(科室): 新增停诊与启用接口`。
-2. 提交规范遵循 [约定式提交](https://www.conventionalcommits.org/zh-hans/)：`<type>(<scope>): <中文 description>`。
-3. 修改业务代码前先 `Read` 对应 Manager / Service / Mapper，理解现有事务边界。
-4. 大量生成后至少跑一次 `./mvnw compile`，数据库相关改动跑 `./mvnw test`。
-5. 提交前请用 `git status` + `git diff --stat` 复核改动范围。
+| 角色 | Spring Security Role | 接口前缀 | 主要能力 |
+| --- | --- | --- | --- |
+| 管理员 | `admin` | `/api/admin/v1/**` | 科室、医生、排班、账号、订单、统计、文件与 Excel |
+| 医生 | `doctor` | `/api/doctor/v1/**` | 待诊、接诊、病历、处方、排班与药品查询 |
+| 药师 | `pharmacist` | `/api/pharmacy/v1/**` | 处方审核、发药、库存与流水查询 |
+| 患者 | `user` | `/api/user/v1/**` | 注册登录、挂号、支付、就诊人、病历、处方与问诊 |
 
-细则见 [CLAUDE.md → Git 提交规范](CLAUDE.md)。
+登录、刷新令牌、注册、短信验证码、忘记密码、验证码和 Swagger 相关接口位于公开白名单；其余接口均校验 JWT 与角色。
 
----
+## 架构约定
 
-## 📄 许可证
+后端执行严格单向分层：
 
-当前仓库为**内部项目**，默认不对外授权。
-如需开源请补充 [LICENSE](LICENSE) 文件后再行调整。
+```text
+Controller -> Manager -> Service -> Mapper
+```
 
----
+| 层 | 职责 | 约束 |
+| --- | --- | --- |
+| Controller | 接收请求、DTO 参数校验、调用 Manager | 不直接调用 Mapper，不编写跨 Service 编排 |
+| Manager | 业务编排、事务边界、多 Service 数据聚合、DTO 与 Entity 转换 | 不直接调用 Mapper，不调用其他 Manager |
+| Service | 原子业务、业务规则校验、调用自身 Mapper | 返回业务数据，不处理 HTTP 语义 |
+| Mapper | 数据访问与复杂 SQL | 不写业务规则、不控制事务 |
 
-## 🙏 鸣谢
+其他约定：
 
-- [Spring Boot](https://spring.io/projects/spring-boot) · [MyBatis-Plus](https://baomidou.com/)
-- [Hutool](https://hutool.cn/) · [EasyExcel](https://easyexcel.opensphere.alibaba.com/)
-- [Knife4j](https://doc.xiaominfo.com/) · [MinIO](https://min.io/)
-- 设计与图标：[res/](res/) 目录
+- 统一响应对象为 `Result<T>`，成功使用 `Result.success(...)`，失败使用 `Result.fail(...)`。
+- Controller 全部使用 `V1` 后缀，例如 `AdminDepartmentControllerV1`。
+- 依赖注入使用 `@RequiredArgsConstructor` 与 `private final`，禁止字段注入。
+- Entity 使用 Lombok `@Data`，枚举统一放在 `constant/`。
+- 主键使用 Hutool 雪花 ID。
+- 业务表统一保留 `id`、`create_time`、`update_time`、`is_deleted` 四个字段。
+- 建库建表以 `src/main/resources/sql/CreateTable.sql` 为准。
+- 简单 CRUD 使用 MyBatis-Plus；复杂联表才新增 XML。
+- 新建 Java 类必须包含 `@Author`、`@Description`、`@Datetime`、`@Version` Javadoc。
+- Controller 方法必须添加 Knife4j `@Operation(summary = "...")`。
 
----
+## 构建与测试
 
-<div align="center">
+后端：
 
-Made with ❤️ by **YiRanCrazy**
+```bash
+./mvnw clean package -DskipTests
+./mvnw compile
+./mvnw test
+./mvnw verify
+```
 
-</div>
+管理端：
+
+```bash
+cd front/admin
+npm ci
+npm run type-check
+npm run build
+```
+
+患者端：
+
+```bash
+cd front/user
+npm ci
+npm run type-check
+npm run build
+```
+
+数据库或接口行为变更后，至少执行后端编译和测试；涉及前端契约时同时执行对应前端的类型检查与生产构建。
+
+## Git 规范
+
+分支命名：
+
+```text
+feat/<scope>-<description>
+fix/<scope>-<description>
+refactor/<scope>-<description>
+perf/<scope>-<description>
+chore/<scope>-<description>
+release/<version>
+hotfix/<scope>-<description>
+```
+
+提交信息遵循 Conventional Commits，`type` 使用英文，`scope` 与描述使用中文：
+
+```text
+feat(科室): 新增停诊与启用接口
+fix(挂号): 修复同一号源重复下单问题
+refactor(订单): 抽取状态流转逻辑
+docs: 更新项目说明
+```
+
+提交前检查改动范围，按业务模块拆分提交，不要混入密钥或本地环境文件。
+
+## 许可证
+
+当前仓库为内部项目，未提供开源许可证。未经授权不得对外分发或用于商业交付。

@@ -5,7 +5,7 @@
 
 ## Develop
 
-- 改代码前先用 Glob/Grep 定位相关文件，只读必要的几个，不要一次性铺开读。
+- 改代码前先用检索工具定位相关文件，只读必要的几个，不要一次性铺开读。
 - 跨模块改动或根因不明的 bug，**先看目录结构 + 调一遍调用链**再动手，别只盯单个文件。
 - 方案设计类任务（新功能、重构），先理清模块边界再写。
 - .dev 是开发目录，内部存放开发文档、api文档等
@@ -279,36 +279,36 @@ public final class IdGenerator {
 - 新增三方依赖前确认是否已有等价工具（项目已用：Hutool、PageHelper、EasyExcel、Knife4j），避免重复。
 - 安全：`SecurityConfig.java` 控制鉴权规则，改动前先确认接口所属角色（admin / doctor / pharmacist / user）与 JWT filter 链顺序。
 
-## Repo-Specific Claude Behavior
+## 项目级 AI 执行规范
 
-- **每条命令必须用 RTK 封装**：所有通过 Bash 工具执行的命令（git / mvn / find / cat / grep / ls / npm / docker 等）必须写成 `rtk <原命令>` 的形式，例如 `rtk git status`、`rtk ./mvnw test`、`rtk ls src`。RTK（Rust Token Killer）是 token 优化的 CLI 代理，可节省 60-90% 输出 token；不能绕开直接调用底层命令。Meta 命令（`rtk gain`、`rtk gain --history`、`rtk discover`）按 RTK 文档直接使用即可。调试或特殊场景需绕过 RTK 时使用 `rtk proxy <cmd>`，但这是例外，不应作为常规写法。
+- **每条命令必须用 RTK 封装**：所有通过终端或命令执行工具运行的命令（git / mvn / find / cat / grep / ls / npm / docker 等）必须写成 `rtk <原命令>` 的形式，例如 `rtk git status`、`rtk ./mvnw test`、`rtk ls src`。RTK（Rust Token Killer）是 token 优化的 CLI 代理，可节省 60-90% 输出 token；不能绕开直接调用底层命令。Meta 命令（`rtk gain`、`rtk gain --history`、`rtk discover`）按 RTK 文档直接使用即可。调试或特殊场景需绕过 RTK 时使用 `rtk proxy <cmd>`，但这是例外，不应作为常规写法。
 - 默认使用 `./mvnw` 而不是全局 `mvn`，与项目锁定版本一致。
-- 修改业务代码前先 `Read` 对应 Manager / Service / Mapper，理解现有事务边界再动。
+- 修改业务代码前先阅读对应的 Manager / Service / Mapper，理解现有事务边界再动。
 - 报错时优先读 `src/main/resources/sql/CreateTable.sql` + 对应 XML，确认表 / 字段是否仍然存在；很多 `unknown column` 是 DDL 与实体不同步。
 - 涉及前端对接的 API，保持路径与 `AdminXxxControllerV1` / `UserXxxControllerV1` 中 `@Operation` 描述一致，方便前端查 Knife4j。
 - 不要 git commit / push，除非用户明确说"提交"或"推送"；提交时遵循下方"Git 提交规范"。
-- 大量生成后用 `verify`：跑一次 `rtk ./mvnw compile` 确认无编译错误；改动数据库相关时跑 `rtk ./mvnw test`。
+- 准备声明完成前必须验证：跑一次 `rtk ./mvnw compile` 确认无编译错误；改动数据库相关代码时跑 `rtk ./mvnw test`。
 
-### Vibe Coding 规范
+### 轻量任务流程
 
-本项目默认走「**轻流程 / 重手感**」:最小规划、最快迭代、AI 出代码为主。以下 5 个 skill 在对应场景**自动调用**,无需用户点名。
+本项目默认走「**轻流程 / 重手感**」：最小规划、快速迭代、AI 产出代码为主。若当前代理提供下表中的 skill，可在对应场景调用；未提供时按同等流程执行，不要求安装额外工具。
 
-| Skill    | 触发时机                                | 预期产出 / 调用方式                                              |
-| -------- | ----------------------------------- | -------------------------------------------------------- |
-| grill-me | 写代码 / 新增类 / 新接口 / 改语义 前             | 1 轮 AskUserQuestion 对齐意图, 当我现式调用brainstorming时不启用这个skill |
-| ponytail | 每次给出代码方案时(默认 on)                    | 走 ponytail 思路:能少则少、复用优先、不加无意义依赖                          |
-| verify   | 改动涉及运行行为 / API / 配置 / DDL 后,准备声明完成前 | 跑 `mvn compile` + 必要时启动应用 + curl/接口验证                    |
-| simplify | 单次功能 / PR 收尾、提交前                    | 对刚改文件跑 simplify 思路:复用 / 简化 / 删除冗余                        |
-| caveman  | 全程对话输出                              | 用 lite / full / ultra 级别压缩文本,与现有 RTK 互补                  |
+| 阶段 | 触发时机 | 执行要求 |
+| --- | --- | --- |
+| 需求澄清 | 写代码 / 新增类 / 新接口 / 改语义前 | 必要时先向用户确认目标、边界和验收条件；用户明确调用 brainstorming 时不要额外打断 |
+| 最小实现 | 每次给出代码方案时 | 若提供 `ponytail` skill 则调用；否则按“能少则少、复用优先、不加无意义依赖”的原则执行 |
+| 验证 | 改动涉及运行行为 / API / 配置 / DDL 后，准备声明完成前 | 跑 `rtk ./mvnw compile`；必要时启动应用并用接口请求验证 |
+| 收尾简化 | 单次功能 / PR 收尾、提交前 | 若提供 `simplify` skill 则调用；否则复查复用、冗余和删除机会 |
+| 输出压缩 | 用户明确启用时 | 若提供 `caveman` skill 则调用；否则使用简洁、无填充语的回复，不擅自改变沟通风格 |
 
-以下场景**不走 vibe coding**,切换到正式流程(含 writing-plans / TDD / 至少一人复核):
+以下场景**不走轻量流程**，切换到正式流程（含方案评审 / TDD / 至少一人复核）：
 
 - 改动 `CreateTable.sql` 或任何 DDL
 - 改动 `SecurityConfig.java` / JWT 过滤器链
 - 改动跨 ≥ 2 个 Manager / Service 的编排
 - `release/*` 或 `hotfix/*` 分支
 
-> 与 RTK 的关系:RTK 压缩 shell 输出(命令结果),caveman 压缩 Claude 文本(回复内容),二者互补不冲突。
+> 与 RTK 的关系：RTK 压缩命令输出，输出压缩 skill 只影响对话文本，二者互补且互不替代。
 
 ## AI 协作规范
 
@@ -316,27 +316,27 @@ public final class IdGenerator {
 
 | 改动类型 | 级别 | 说明 |
 | --- | --- | --- |
-| 单模块 CRUD、单 Service 内 Bug 修复、单测补充、文档（.dev / CLAUDE.md） | 自主执行 | 直接做；动手前先声明文件清单 + 影响面 + 涉及角色 |
+| 单模块 CRUD、单 Service 内 Bug 修复、单测补充、文档（.dev / README.md / AGENTS.md） | 自主执行 | 直接做；动手前先声明文件清单 + 影响面 + 涉及角色 |
 | 跨 ≥2 个 Manager 编排、任何 DDL、SecurityConfig / JWT filter、新增三方依赖、接口语义变更 | 需用户确认 | 先出方案，确认后再动手 |
-| 密钥 / 凭据入库、强推 `main` / `master`、删除生产数据、绕过 verify | 禁止 | 发现即停止并提示用户 |
+| 密钥 / 凭据入库、强推 `main` / `master`、删除生产数据、绕过验证 | 禁止 | 发现即停止并提示用户 |
 
 - **改动前声明**：文件清单 + 影响面 + 涉及角色（一行摘要），对齐后再动。
-- **AI 不替用户定业务规则**：挂号价格、状态流转、权限归属等只实现已确认规则；新规则必问（走 AskUserQuestion）。
+- **AI 不替用户定业务规则**：挂号价格、状态流转、权限归属等只实现已确认规则；新规则必须先向用户确认。
 
 ### 二、AI 行为准则与决策框架
 
 遇问题按序决策：
-1. CLAUDE.md 既有约定
-2. 代码库现有实现（复用优先，ponytail）
+1. AGENTS.md 既有约定
+2. 代码库现有实现（复用优先、最小实现）
 3. `.dev` 开发文档
-4. AskUserQuestion 问用户
+4. 向用户确认
 
 **必问触发条件**：业务规则、接口契约（路径 / 参数 / 返回结构）、权限归属、状态流转语义。
 
 正向准则：
 - 新功能默认最小实现，禁止投机式抽象（YAGNI）。
 - 每项改动须能回答"为什么"，写入提交 body / 方案说明。
-- **未验证不得声称完成**：运行行为改动必须过 verify（编译 + 必要时启动 / curl 接口验证）。
+- **未验证不得声称完成**：运行行为改动必须完成编译及必要的启动、接口验证。
 
 ### 三、开发目标评估指标体系
 
@@ -359,7 +359,7 @@ PR 前 checklist：跨层违规数、接口契约一致率、未收敛事务数�
 
 ### 四、AI 能力迭代路径
 
-- **经验 → 规则回流**：踩坑 / 新约定先记 memory，功能收尾时同步回 CLAUDE.md 对应章节。
+- **经验 → 规则回流**：踩坑 / 新约定先记录在任务总结或项目约定中，功能收尾时同步回 AGENTS.md 对应章节。
 - **已知债务登记**：IService 混合风格、Manager 层事务收敛清单、`pojo/dto/user/response/` 历史命名——新代码不得继续扩散。
 - **能力三阶段**：
   1. 执行者：按规范写码（默认）
@@ -370,9 +370,9 @@ PR 前 checklist：跨层违规数、接口契约一致率、未收敛事务数�
 
 **异常处理流程**：复现 → 读 `CreateTable.sql` + XML 验表结构 → 顺调用链定位根因 → 修复 → 回归验证。
 
-**卡住标准**：同一问题 2 次尝试未解决 → 停止重试，换方案或用 AskUserQuestion，禁止无脑重试。
+**卡住标准**：同一问题 2 次尝试未解决 → 停止重试，换方案或向用户确认，禁止无脑重试。
 
-**风险升级**：涉及安全 / 数据 / 生产 / DDL → 先说明风险与回滚预案，获确认再动手（对齐"不走 vibe coding"场景清单）。
+**风险升级**：涉及安全 / 数据 / 生产 / DDL → 先说明风险与回滚预案，获确认再动手。
 
 **回滚预案**：按提交边界小步提交（见 Git 提交规范），异常时按模块回滚。
 
@@ -427,7 +427,7 @@ rtk git merge --no-ff feat/科室-新增停诊接口
 - PR 描述里写「关联 issue / 改动点 / 影响面」，便于 review。
 - 涉及数据库 DDL / 配置文件 / 安全规则的改动，PR 必须至少一人复核。
 
-### 与 Claude 协作
+### 与 AI 编码代理协作
 
 - 动手前先 `rtk git status` + `rtk git branch --show-current`，确认在主题分支上；不要在 `master` / `main` 留未提交改动。
 - 不要直推 `master` / `main`；若用户要求推送，先用 PR 流程。
@@ -453,7 +453,7 @@ rtk git merge --no-ff feat/科室-新增停诊接口
 | ---------- | ---------------- | ------------------------ |
 | `feat`     | 新功能              | 新增 controller / 接口       |
 | `fix`      | 修复 bug           | 修下单 500、字段映射错            |
-| `docs`     | 文档变更             | 仅修改 `CLAUDE.md` / README |
+| `docs`     | 文档变更             | 修改项目说明或协作规范文件 |
 | `style`    | 格式调整（无逻辑变化）      | 调 import、格式化             |
 | `refactor` | 重构（非新功能、非修 bug）  | 抽公共 Manager 方法           |
 | `perf`     | 性能优化             | 加缓存、改分页                  |
@@ -486,13 +486,13 @@ feat(科室): 新增停诊与启用接口
 fix(挂号): 修复同一号源重复下单问题
 refactor(订单): 抽取状态流转到 OrderStatusMachine
 perf(科室): 列表查询加 Redis 缓存(5min)
-docs: 补充 CLAUDE.md 提交规范
+docs: 补充 AGENTS.md 提交规范
 build: 升级 Spring Boot 至 3.5.9
 feat(api)!: 统一 Result.code 语义
 BREAKING CHANGE: code=200 改为 0 表示成功，500 改为业务异常
 ```
 
-### 与 Claude 协作
+### 与 AI 编码代理协作
 
 - 单次任务可能产生多条 commit，按逻辑边界**小步提交**，而非一坨提交。
 - 提交前先 `rtk git status` + `rtk git diff --stat` 让用户复核改动范围。
