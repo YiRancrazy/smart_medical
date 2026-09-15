@@ -59,6 +59,7 @@ minio:
   bucket-name: ${MINIO_BUCKET_NAME}
   access-key: ${MINIO_ROOT_USER}
   secret-key: ${MINIO_ROOT_PASSWORD}
+  region: ${MINIO_REGION:us-east-1}
   img-size: ${MINIO_IMG_SIZE:10}                       # 图片大小限制，单位：m
   file-size: ${MINIO_FILE_SIZE:10}                     # 文件大小限制，单位：m
   # 对外访问前缀：必须是浏览器可达地址，与上面容器内网 endpoint 区分开

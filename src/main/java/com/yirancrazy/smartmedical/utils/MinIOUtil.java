@@ -55,11 +55,15 @@ public class MinIOUtil {
     /** volatile 防止并发首次初始化读到半构造对象（P1） */
     private static volatile MinioClient minioClient;
 
+    /** 预签名使用浏览器可达地址，避免签名 Host 指向容器内网或 localdev */
+    private static volatile MinioClient presignMinioClient;
+
     private static String endpoint;
     private static String fileHost;
     private static String bucketName;
     private static String accessKey;
     private static String secretKey;
+    private static String region;
     private static Integer imgSize;
     private static Integer fileSize;
 
@@ -69,12 +73,14 @@ public class MinIOUtil {
     public MinIOUtil() {
     }
 
-    public MinIOUtil(String endpoint, String fileHost, String bucketName, String accessKey, String secretKey, Integer imgSize, Integer fileSize) {
+    public MinIOUtil(String endpoint, String fileHost, String bucketName, String accessKey, String secretKey,
+                     String region, Integer imgSize, Integer fileSize) {
         MinIOUtil.endpoint = endpoint;
         MinIOUtil.fileHost = fileHost;
         MinIOUtil.bucketName = bucketName;
         MinIOUtil.accessKey = accessKey;
         MinIOUtil.secretKey = secretKey;
+        MinIOUtil.region = region;
         MinIOUtil.imgSize = imgSize;
         MinIOUtil.fileSize = fileSize;
         createMinioClient();
@@ -89,11 +95,9 @@ public class MinIOUtil {
                 if (null == minioClient) {
                     try {
                         log.info("开始创建 MinioClient...");
-                        minioClient = MinioClient
-                                .builder()
-                                .endpoint(endpoint)
-                                .credentials(accessKey, secretKey)
-                                .build();
+                        minioClient = buildMinioClient(endpoint);
+                        String presignEndpoint = (fileHost == null || fileHost.isBlank()) ? endpoint : fileHost;
+                        presignMinioClient = buildMinioClient(presignEndpoint);
                         log.info("创建完毕 MinioClient...");
                     } catch (Exception e) {
                         log.error("MinIO服务器异常：{}", e);
@@ -446,8 +450,13 @@ public class MinIOUtil {
      * @throws Exception
      */
     public static String getPresignedObjectUrl(String bucketName, String objectName, Integer expires) throws Exception {
-        GetPresignedObjectUrlArgs args = GetPresignedObjectUrlArgs.builder().expiry(expires).bucket(bucketName).object(objectName).build();
-        return minioClient.getPresignedObjectUrl(args);
+        GetPresignedObjectUrlArgs args = GetPresignedObjectUrlArgs.builder()
+                .method(Method.GET)
+                .expiry(expires)
+                .bucket(bucketName)
+                .object(objectName)
+                .build();
+        return getPresignClient().getPresignedObjectUrl(args);
     }
 
     /**
@@ -463,7 +472,7 @@ public class MinIOUtil {
                 .object(objectName)
                 .method(Method.GET)
                 .build();
-        return minioClient.getPresignedObjectUrl(args);
+        return getPresignClient().getPresignedObjectUrl(args);
     }
 
     /**
@@ -481,7 +490,21 @@ public class MinIOUtil {
                 .method(Method.GET)
                 .expiry(expires, TimeUnit.SECONDS)
                 .build();
-        return minioClient.getPresignedObjectUrl(args);
+        return getPresignClient().getPresignedObjectUrl(args);
+    }
+
+    private static MinioClient buildMinioClient(String url) {
+        MinioClient.Builder builder = MinioClient.builder()
+                .endpoint(url)
+                .credentials(accessKey, secretKey);
+        if (region != null && !region.isBlank()) {
+            builder.region(region);
+        }
+        return builder.build();
+    }
+
+    private static MinioClient getPresignClient() {
+        return presignMinioClient == null ? minioClient : presignMinioClient;
     }
 
     /**
@@ -519,5 +542,3 @@ public class MinIOUtil {
         return size;
     }
 }
-
-

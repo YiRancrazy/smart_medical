@@ -25,8 +25,14 @@ public class UserProfileInfo {
     @Schema(description = "姓名")
     private String username;
 
+    @Schema(description = "昵称")
+    private String nickname;
+
     @Schema(description = "头像")
     private String avatar;
+
+    @Schema(description = "手机号")
+    private String phone;
 
     @Schema(description = "身份证号")
     private String idCard;

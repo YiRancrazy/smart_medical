@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 /**
  * 更新用户个人信息请求
  * @Author: YiRanCrazy@gmail.com
- * @Description: 用户补充姓名、身份证号、性别和家庭住址
+ * @Description: 用户补充姓名、昵称、身份证号、性别和家庭住址
  * @Datetime: 2026-09-14 00:00
  * @Version: 1.0
  */
@@ -29,6 +29,10 @@ public class UpdateUserProfileRequest {
     @NotBlank(message = "姓名不能为空")
     @Size(max = 64, message = "姓名长度不能超过64个字符")
     private String username;
+
+    @Schema(description = "昵称")
+    @Size(max = 64, message = "昵称长度不能超过64个字符")
+    private String nickname;
 
     @Schema(description = "身份证号")
     @NotBlank(message = "身份证号不能为空")

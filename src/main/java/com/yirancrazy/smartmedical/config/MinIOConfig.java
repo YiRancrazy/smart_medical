@@ -27,12 +27,13 @@ public class MinIOConfig {
     private String bucketName;
     private String accessKey;
     private String secretKey;
+    private String region;
     private Integer imgSize;
     private Integer fileSize;
 
     @Bean
     public MinIOUtil createMinioClient() {
-        return new MinIOUtil(endpoint, fileHost, bucketName, accessKey, secretKey, imgSize, fileSize);
+        return new MinIOUtil(endpoint, fileHost, bucketName, accessKey, secretKey, region, imgSize, fileSize);
     }
 
     /**

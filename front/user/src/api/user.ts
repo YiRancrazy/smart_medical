@@ -24,7 +24,9 @@ export interface UserBaseInfo {
 export interface UserProfile {
   userId: string
   username: string
+  nickname: string
   avatar: string
+  phone: string
   idCard: string
   sex: number | null
   address: string
@@ -33,9 +35,21 @@ export interface UserProfile {
 
 export interface UpdateUserProfileRequest {
   username: string
+  nickname?: string
   idCard: string
   sex: number
   address?: string
+}
+
+export interface UserPhoneSmsCodeRequest {
+  phone: string
+  scene: 'old' | 'new'
+}
+
+export interface UpdateUserPhoneRequest {
+  oldPhoneCode: string
+  newPhone: string
+  newPhoneCode: string
 }
 
 /**
@@ -60,4 +74,29 @@ export function getUserProfile() {
  */
 export function updateUserProfile(data: UpdateUserProfileRequest) {
   return request.put<any, ApiResult<UserProfile>>('/api/user/v1/user/profile', data)
+}
+
+/**
+ * 上传并更新当前用户头像
+ */
+export function uploadUserAvatar(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post<any, ApiResult<string>>('/api/user/v1/user/profile/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+/**
+ * 发送手机号换绑验证码
+ */
+export function sendPhoneChangeCode(data: UserPhoneSmsCodeRequest) {
+  return request.post<any, ApiResult<string>>('/api/user/v1/user/profile/phone/sms-code', data)
+}
+
+/**
+ * 校验旧号和新号验证码并换绑手机号
+ */
+export function changePhone(data: UpdateUserPhoneRequest) {
+  return request.put<any, ApiResult<string>>('/api/user/v1/user/profile/phone', data)
 }

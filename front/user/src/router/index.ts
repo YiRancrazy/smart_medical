@@ -14,6 +14,7 @@ const GATE_EXEMPT_PATHS = new Set([
   '/forgot-password',
   '/profile',
   '/profile/edit',
+  '/profile/change-phone',
   '/change-password'
 ])
 let profileDialogVisible = false

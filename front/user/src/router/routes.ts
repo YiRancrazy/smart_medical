@@ -163,6 +163,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/profile/ProfileEditPage.vue'),
     meta: { requiresAuth: true, title: '个人信息' }
   },
+  {
+    path: '/profile/change-phone',
+    name: 'ChangePhone',
+    component: () => import('@/views/profile/ChangePhonePage.vue'),
+    meta: { requiresAuth: true, title: '更换手机号' }
+  },
 
   // ── 404 兜底 ────────────────────────────────────
   {

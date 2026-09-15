@@ -28,3 +28,44 @@ export function maskPhone(phone?: string): string {
   if (!phone || phone.length !== 11) return phone || ''
   return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
 }
+
+/**
+ * 根据 18 位或 15 位身份证号计算当前完整周岁
+ */
+export function calculateAgeByIdCard(idCard?: string): number | null {
+  const value = (idCard || '').trim()
+  let birthText = ''
+  if (/^\d{17}[\dXx]$/.test(value)) {
+    birthText = value.slice(6, 14)
+  } else if (/^\d{15}$/.test(value)) {
+    birthText = `19${value.slice(6, 12)}`
+  } else {
+    return null
+  }
+
+  const year = Number(birthText.slice(0, 4))
+  const month = Number(birthText.slice(4, 6))
+  const day = Number(birthText.slice(6, 8))
+  const birthDate = new Date(year, month - 1, day)
+  if (
+    birthDate.getFullYear() !== year ||
+    birthDate.getMonth() !== month - 1 ||
+    birthDate.getDate() !== day
+  ) {
+    return null
+  }
+
+  const today = new Date()
+  if (birthDate.getTime() > today.getTime()) {
+    return null
+  }
+
+  let age = today.getFullYear() - year
+  const birthdayPassed =
+    today.getMonth() > month - 1 ||
+    (today.getMonth() === month - 1 && today.getDate() >= day)
+  if (!birthdayPassed) {
+    age -= 1
+  }
+  return age
+}

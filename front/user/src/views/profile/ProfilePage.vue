@@ -2,7 +2,14 @@
   <div class="page">
     <glass-card class="user-card">
       <div class="user-info">
-        <van-icon name="user-o" class="avatar" />
+        <van-image
+          v-if="userStore.profile?.avatar"
+          round
+          width="56"
+          height="56"
+          :src="userStore.profile.avatar"
+        />
+        <van-icon v-else name="user-o" class="avatar" />
         <div class="user-detail">
           <div class="user-name">{{ displayName }}</div>
           <div class="user-card-no">就诊卡号: {{ ownPatientCardSn }}</div>
@@ -35,27 +42,30 @@ import GlassCard from '@/components/GlassCard.vue'
 const userStore = useUserStore()
 const patientStore = usePatientStore()
 
-// 展示名与本人卡号：进页实时拉取，优先本人就诊卡姓名，无绑定则回退账号默认昵称
-const displayName = ref('-')
+// 本人卡号实时拉取；昵称、头像、手机号等资料从用户 store 读取
+const fallbackName = ref('-')
 const ownPatientCardSn = ref('-')
 const profileStatus = computed(() => userStore.profileCompleted ? '已完善' : '待补充')
+const displayName = computed(() =>
+  userStore.profile?.nickname || userStore.profile?.username || fallbackName.value || '-'
+)
 
 async function loadBaseInfo() {
   if (!userStore.uid) return
   try {
     const res = await getUserBaseInfo(userStore.uid)
-    displayName.value = res.data?.displayName || '-'
+    fallbackName.value = res.data?.displayName || '-'
     ownPatientCardSn.value = res.data?.ownPatientCardSn || '-'
   } catch {
     // 接口异常时回退到登录缓存的名字，避免展示空白
-    displayName.value = userStore.userInfo?.name || '-'
+    fallbackName.value = userStore.userInfo?.name || '-'
   }
 }
 
 onMounted(() => {
   patientStore.init()
   loadBaseInfo()
-  userStore.ensureProfileCompleted().catch(() => {
+  userStore.ensureProfileCompleted(true).catch(() => {
     // 页面展示不因资料状态接口异常中断
   })
 })
