@@ -64,6 +64,10 @@ minio:
   # 对外访问前缀：必须是浏览器可达地址，与上面容器内网 endpoint 区分开
   file-host: http://${MINIO_PUBLIC_HOST}:${MINIO_PORT}
 
+smart-medical:
+  captcha:
+    login-required: true
+
 # Cookie 安全标记（dev=false；prod=true 仅 HTTPS 环境下可用，否则 Cookie 不落地）
 cookie:
   secure: ${COOKIE_SECURE:false}

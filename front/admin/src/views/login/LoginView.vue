@@ -20,11 +20,11 @@
         <a-form-item>
           <a-checkbox v-model:checked="form.remember">记住登录</a-checkbox>
         </a-form-item>
-        <a-form-item>
+        <a-form-item v-if="captchaRequired">
           <CaptchaSlider @verified="captchaVerified = true" />
         </a-form-item>
         <a-form-item>
-          <a-button type="primary" html-type="submit" size="large" block :loading="loading" :disabled="!captchaVerified">
+          <a-button type="primary" html-type="submit" size="large" block :loading="loading" :disabled="captchaRequired && !captchaVerified">
             登录
           </a-button>
         </a-form-item>
@@ -43,6 +43,7 @@ import { message } from 'ant-design-vue'
 const authStore = useAuthStore()
 const loading = ref(false)
 const captchaVerified = ref(false)
+const captchaRequired = import.meta.env.VITE_LOGIN_CAPTCHA_REQUIRED !== 'false'
 const form = reactive({ phone: '', password: '', remember: false, role: '1' })
 
 async function handleLogin() {

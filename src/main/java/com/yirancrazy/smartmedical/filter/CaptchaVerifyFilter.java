@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -46,12 +47,18 @@ public class CaptchaVerifyFilter extends OncePerRequestFilter {
 
     private final CaptchaSupport captchaSupport;
 
+    /**
+     * 登录是否强制校验滑块；配置缺失时保持校验，避免误放行
+     */
+    @Value("${smart-medical.captcha.login-required:true}")
+    private boolean loginCaptchaRequired;
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         String uri = request.getRequestURI();
-        if (!isGuarded(uri)) {
+        if (!loginCaptchaRequired || !isGuarded(uri)) {
             filterChain.doFilter(request, response);
             return;
         }
