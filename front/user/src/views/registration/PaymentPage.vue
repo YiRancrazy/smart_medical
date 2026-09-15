@@ -3,17 +3,17 @@
     <van-nav-bar title="支付" left-arrow @click-left="$router.back()" />
 
     <!-- 金额 -->
-    <glass-card class="card">
+    <div class="card surface-card">
       <div class="amount">{{ formatMoney(amount) }}</div>
       <div class="desc">{{ feeDesc }}</div>
-    </glass-card>
+    </div>
 
     <!-- 支付方式 -->
-    <glass-card class="card">
+    <div class="card surface-card">
       <div class="section-title">支付方式</div>
       <van-loading v-if="methodLoading" size="24px" />
       <van-radio-group v-else v-model="selectedMethodId">
-        <van-cell-group inset>
+        <van-cell-group>
           <van-cell
             v-for="m in methods"
             :key="m.id"
@@ -27,7 +27,7 @@
           </van-cell>
         </van-cell-group>
       </van-radio-group>
-    </glass-card>
+    </div>
 
     <!-- 底部 -->
     <van-action-bar>
@@ -45,7 +45,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import GlassCard from '@/components/GlassCard.vue'
 import { getAllPaymentMethods, getDefaultPaymentMethod, pay } from '@/api/payment'
 import type { PaymentMethod } from '@/api/payment'
 import { useRegistrationStore } from '@/stores/registration'
@@ -141,9 +140,9 @@ async function handlePay() {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
-  padding-bottom: 60px;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .card {

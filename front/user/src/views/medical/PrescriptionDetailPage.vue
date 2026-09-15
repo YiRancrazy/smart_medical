@@ -100,14 +100,14 @@ function handlePay() {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
   padding-bottom: 24px;
 }
 
 /* action-bar 底部固定，页面预留高度防止遮挡内容 */
 .has-action-bar {
-  padding-bottom: 60px;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .card {
@@ -127,7 +127,7 @@ function handlePay() {
   color: $color-text-secondary;
 
   .price {
-    color: #f56c6c;
+    color: $color-danger;
     font-weight: 500;
     margin-top: 2px;
   }

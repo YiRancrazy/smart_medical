@@ -9,7 +9,7 @@
         finished-text="没有更多了"
         @load="onLoad"
       >
-        <van-cell-group inset>
+        <van-cell-group class="fee-list surface-card" :border="false">
           <van-cell v-for="item in list" :key="item.orderId">
             <template #title>
               <div class="cell-title">
@@ -110,8 +110,12 @@ function statusTagType(status: number) {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
+}
+
+.fee-list {
+  margin: 16px;
 }
 
 .cell-title {
@@ -127,7 +131,7 @@ function statusTagType(status: number) {
 
 .cell-label {
   font-size: 12px;
-  color: #999;
+  color: $color-text-tertiary;
   margin-top: 4px;
   line-height: 1.6;
 }
@@ -139,7 +143,7 @@ function statusTagType(status: number) {
   gap: 6px;
 
   .amount {
-    color: #f56c6c;
+    color: $color-danger;
     font-weight: 500;
     font-size: 14px;
   }

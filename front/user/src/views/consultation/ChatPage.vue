@@ -111,11 +111,13 @@ onMounted(loadHistory)
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f5f5;
+  height: 100dvh;
+  background: $color-bg-page;
 }
 
 .message-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
 
@@ -143,8 +145,8 @@ onMounted(loadHistory)
     border-radius: 8px;
     line-height: 1.5;
     word-break: break-word;
-    background: #fff;
-    color: #333;
+    background: $color-bg-card-solid;
+    color: $color-text-primary;
 
     .img {
       display: block;
@@ -160,23 +162,24 @@ onMounted(loadHistory)
 
   .time {
     font-size: 11px;
-    color: #999;
+    color: $color-text-tertiary;
     margin-top: 4px;
   }
 }
 
 .input-bar {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: #fff;
-  border-top: 1px solid #eee;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  background: $color-bg-card-solid;
+  border-top: 1px solid $color-border;
 
   .input {
     flex: 1;
     height: 36px;
-    border: 1px solid #ddd;
+    border: 1px solid $color-border;
     border-radius: 18px;
     padding: 0 14px;
     outline: none;

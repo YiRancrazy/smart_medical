@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <van-nav-bar title="个人信息" left-arrow @click-left="$router.back()" />
-    <glass-card class="card">
+    <div class="card surface-card">
       <van-form @submit="onSubmit">
         <van-field
           v-model="form.username"
@@ -39,7 +39,7 @@
           </van-button>
         </div>
       </van-form>
-    </glass-card>
+    </div>
   </div>
 </template>
 
@@ -47,7 +47,6 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import GlassCard from '@/components/GlassCard.vue'
 import { getUserProfile, updateUserProfile } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 import { isIdCard } from '@/utils/validator'
@@ -111,7 +110,7 @@ async function onSubmit() {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
 }
 

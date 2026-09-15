@@ -96,8 +96,8 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
 }
 
 .dept-header {
@@ -126,7 +126,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid $color-divider;
 
   &:last-child {
     border-bottom: none;
@@ -142,14 +142,14 @@ onMounted(async () => {
 
       .position {
         font-size: 13px;
-        color: #666;
+        color: $color-text-secondary;
         font-weight: normal;
       }
     }
 
     .department {
       font-size: 13px;
-      color: #999;
+      color: $color-text-tertiary;
       margin-top: 4px;
     }
   }

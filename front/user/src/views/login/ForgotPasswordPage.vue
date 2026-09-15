@@ -117,7 +117,7 @@ async function handleSubmit() {
 
 <style scoped lang="scss">
 .forgot-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 80px 24px 24px;
   background: $gradient-primary;
 }

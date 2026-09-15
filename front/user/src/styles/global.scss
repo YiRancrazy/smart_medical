@@ -1,16 +1,57 @@
 @import './glassmorphism.scss';
 @import './reset.scss';
-@import './transitions.scss';
 
 :root {
   --van-primary-color: #{$color-primary};
+  --van-success-color: #{$color-success};
+  --van-warning-color: #{$color-warning};
+  --van-danger-color: #{$color-danger};
+  --van-text-color: #{$color-text-primary};
+  --van-text-color-2: #{$color-text-secondary};
+  --van-text-color-3: #{$color-text-tertiary};
+  --van-background: #{$color-bg-page};
+  --van-background-2: #{$color-bg-card-solid};
+  --van-background-3: #{$color-bg-page};
+  --van-border-color: #{$color-border};
+  --van-active-color: rgba(16, 185, 129, 0.08);
+  --van-nav-bar-background: #{$color-bg-card-solid};
+  --van-nav-bar-title-text-color: #{$color-text-primary};
+  --van-nav-bar-icon-color: #{$color-text-primary};
+  --van-tabs-bottom-bar-color: #{$color-primary};
   --van-tabbar-item-active-color: #{$color-primary};
+  --van-tabbar-item-active-background: rgba(16, 185, 129, 0.08);
+  --van-tabbar-background: #{$color-bg-card-solid};
+  --van-action-bar-background: #{$color-bg-card-solid};
+  --van-sidebar-background: #{$color-bg-card-solid};
+  --van-sidebar-selected-text-color: #{$color-primary};
+  --van-sidebar-selected-background: rgba(16, 185, 129, 0.08);
+  --van-sidebar-selected-border-color: #{$color-primary};
+  --van-cell-background: #{$color-bg-card-solid};
+  --van-cell-border-color: #{$color-divider};
+  --van-cell-value-color: #{$color-text-secondary};
+  --van-radio-checked-icon-color: #{$color-primary};
+  --van-switch-on-background: #{$color-primary};
   --van-button-primary-background: #{$color-primary};
   --van-button-primary-border-color: #{$color-primary};
 }
 
 .page {
-  padding: $page-padding;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: $color-bg-page;
+}
+
+.surface-card {
+  overflow: hidden;
+  background: $color-bg-card-solid;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+}
+
+.van-action-bar {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .safe-area-top {

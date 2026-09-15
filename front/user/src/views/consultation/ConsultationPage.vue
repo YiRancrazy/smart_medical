@@ -9,7 +9,7 @@
         <div
           v-for="doc in doctors"
           :key="doc.doctorId"
-          class="doctor-item"
+          class="doctor-item surface-card"
           @click="router.push(`/chat/${doc.doctorId}?doctorName=${encodeURIComponent(doc.doctorName)}`)"
         >
           <van-image round width="48" height="48" :src="doc.avatar || undefined" />
@@ -65,8 +65,8 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .consultation-page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
 }
 
 .loading {
@@ -81,8 +81,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   padding: 12px;
-  background: #fff;
-  border-radius: 8px;
   margin-bottom: 12px;
 
   .doctor-info {
@@ -95,14 +93,14 @@ onMounted(async () => {
 
       .position {
         font-size: 13px;
-        color: #666;
+        color: $color-text-secondary;
         font-weight: normal;
       }
     }
 
     .department {
       font-size: 13px;
-      color: #999;
+      color: $color-text-tertiary;
       margin-top: 4px;
     }
   }

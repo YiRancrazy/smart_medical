@@ -95,7 +95,7 @@ async function onCancel(id: string) {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
 }
 </style>

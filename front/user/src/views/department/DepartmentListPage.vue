@@ -36,7 +36,7 @@
                 @click="router.push(`/department/${dept.id}`)"
               >
                 <template #icon>
-                  <van-icon name="wap-home-o" size="24" color="#1989fa" />
+                  <van-icon name="wap-home-o" size="24" color="var(--van-primary-color)" />
                 </template>
               </van-grid-item>
             </van-grid>
@@ -47,7 +47,7 @@
               <div
                 v-for="d in doctorList"
                 :key="d.doctorId"
-                class="doctor-item"
+                class="doctor-item surface-card"
                 @click="router.push(`/doctor/${d.doctorId}`)"
               >
                 <van-image v-if="d.avatar" round width="44" height="44" :src="d.avatar" />
@@ -69,7 +69,7 @@
             @click="router.push(`/department/${dept.id}`)"
           >
             <template #icon>
-              <van-icon name="wap-home-o" size="24" color="#1989fa" />
+              <van-icon name="wap-home-o" size="24" color="var(--van-primary-color)" />
             </template>
           </van-grid-item>
         </van-grid>
@@ -169,13 +169,17 @@ watch(() => route.query.keyword, (k) => {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: $color-bg-page;
 }
 
 .search-wrap {
   padding: 8px 12px;
-  background: #fff;
+  background: $color-bg-card-solid;
 
   :deep(.van-search) {
     padding: 0;
@@ -184,18 +188,21 @@ watch(() => route.query.keyword, (k) => {
 
 .dept-layout {
   display: flex;
-  height: calc(100vh - 46px - 58px);
+  flex: 1;
+  min-height: 0;
 }
 
 .sidebar {
   width: 90px;
   flex-shrink: 0;
-  background: #f7f8fa;
+  background: $color-bg-page;
+  border-right: 1px solid $color-divider;
   overflow-y: auto;
 }
 
 .child-area {
   flex: 1;
+  min-width: 0;
   padding: 12px;
   overflow-y: auto;
 }
@@ -203,7 +210,7 @@ watch(() => route.query.keyword, (k) => {
 .section-title {
   margin: 4px 0 8px;
   font-size: 13px;
-  color: #969799;
+  color: $color-text-tertiary;
 }
 
 .doctor-list {
@@ -217,8 +224,6 @@ watch(() => route.query.keyword, (k) => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #fff;
-  border-radius: 8px;
   cursor: pointer;
 
   .doctor-info {
@@ -229,13 +234,13 @@ watch(() => route.query.keyword, (k) => {
   .doctor-name {
     font-size: 15px;
     font-weight: 600;
-    color: #323233;
+    color: $color-text-primary;
   }
 
   .doctor-dept {
     margin-top: 2px;
     font-size: 12px;
-    color: #969799;
+    color: $color-text-tertiary;
   }
 }
 </style>

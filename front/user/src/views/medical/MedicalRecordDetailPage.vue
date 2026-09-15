@@ -12,12 +12,12 @@
     <template v-else-if="record">
       <glass-card class="card">
         <div class="section-title">病历信息</div>
-        <van-cell title="主诉" :value="record.chiefComplaint" />
-        <van-cell title="现病史" :value="record.presentIllness" />
-        <van-cell title="既往史" :value="record.pastHistory" />
-        <van-cell title="体格检查" :value="record.physicalExam" />
-        <van-cell title="诊断" :value="record.diagnosis" />
-        <van-cell title="治疗方案" :value="record.treatmentPlan" />
+        <van-cell class="record-cell" title="主诉" :value="record.chiefComplaint" />
+        <van-cell class="record-cell" title="现病史" :value="record.presentIllness" />
+        <van-cell class="record-cell" title="既往史" :value="record.pastHistory" />
+        <van-cell class="record-cell" title="体格检查" :value="record.physicalExam" />
+        <van-cell class="record-cell" title="诊断" :value="record.diagnosis" />
+        <van-cell class="record-cell" title="治疗方案" :value="record.treatmentPlan" />
       </glass-card>
 
       <glass-card v-if="record.prescriptionId" class="card" is-link @click="$router.push(`/prescription/${record.prescriptionId}`)">
@@ -65,7 +65,7 @@ onMounted(async () => {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
   padding-bottom: 24px;
 }
@@ -83,7 +83,24 @@ onMounted(async () => {
 
 .link-text {
   font-size: $font-size-sm;
-  color: #1989fa;
+  color: $color-primary;
+}
+
+.record-cell {
+  display: block;
+  padding: 12px 0;
+
+  :deep(.van-cell__title) {
+    flex: none;
+  }
+
+  :deep(.van-cell__value) {
+    margin-top: 6px;
+    text-align: left;
+    color: $color-text-primary;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
 }
 
 .empty-back {

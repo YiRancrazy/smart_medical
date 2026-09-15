@@ -183,9 +183,9 @@ function formatShortDate(dateStr: string) {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
-  padding-bottom: 60px;
+  min-height: 100dvh;
+  background: $color-bg-page;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .doctor-card {
@@ -200,15 +200,15 @@ function formatShortDate(dateStr: string) {
       flex: 1;
 
       .name { font-size: 20px; font-weight: 600; }
-      .meta { font-size: 14px; color: #666; margin-top: 4px; }
-      .dept { font-size: 14px; color: #999; margin-top: 4px; }
+      .meta { font-size: 14px; color: $color-text-secondary; margin-top: 4px; }
+      .dept { font-size: 14px; color: $color-text-tertiary; margin-top: 4px; }
     }
   }
 
   .desc {
     margin-top: 12px;
     font-size: 14px;
-    color: #666;
+    color: $color-text-secondary;
     line-height: 1.6;
   }
 
@@ -243,11 +243,11 @@ function formatShortDate(dateStr: string) {
   text-align: center;
   padding: 10px 4px;
   border-radius: 8px;
-  background: #f7f8fa;
+  background: $color-bg-page;
   cursor: pointer;
 
   &.active {
-    background: #1989fa;
+    background: $color-primary;
     color: #fff;
 
     .quota { color: #fff; }
@@ -258,16 +258,16 @@ function formatShortDate(dateStr: string) {
   }
 
   .date-label { font-size: 14px; }
-  .quota { font-size: 12px; color: #999; margin-top: 4px; }
+  .quota { font-size: 12px; color: $color-text-tertiary; margin-top: 4px; }
 }
 
 .time-card {
-  .slot-time { font-size: 14px; color: #333; }
-  .slot-quota { font-size: 12px; color: #999; margin-top: 4px; }
+  .slot-time { font-size: 14px; color: $color-text-primary; }
+  .slot-quota { font-size: 12px; color: $color-text-tertiary; margin-top: 4px; }
 
   :deep(.van-grid-item.active) {
     .van-grid-item__content {
-      background: #1989fa;
+      background: $color-primary;
       .slot-time, .slot-quota { color: #fff; }
     }
   }

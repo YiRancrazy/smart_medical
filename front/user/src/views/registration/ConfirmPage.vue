@@ -3,19 +3,19 @@
     <van-nav-bar title="预约确认" left-arrow @click-left="onBack" />
 
     <!-- 医生信息 -->
-    <glass-card v-if="doctor" class="card">
+    <div v-if="doctor" class="card surface-card">
       <div class="section-title">医生信息</div>
-      <van-cell-group inset>
+      <van-cell-group>
         <van-cell title="就诊科室" :value="doctor.departmentName" />
         <van-cell title="就诊医生" :value="doctor.name" />
         <van-cell title="医生职称" :value="doctor.positionName" />
       </van-cell-group>
-    </glass-card>
+    </div>
 
     <!-- 挂号信息 -->
-    <glass-card v-if="schedule" class="card">
+    <div v-if="schedule" class="card surface-card">
       <div class="section-title">挂号信息</div>
-      <van-cell-group inset>
+      <van-cell-group>
         <van-cell title="就诊日期" :value="formatDate(schedule.startTime)" />
         <van-cell title="就诊时段" :value="`${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`" />
         <van-cell title="挂号费用">
@@ -24,15 +24,15 @@
           </template>
         </van-cell>
       </van-cell-group>
-    </glass-card>
+    </div>
 
     <!-- 就诊人选择 -->
-    <glass-card class="card">
+    <div class="card surface-card">
       <div class="section-title">选择就诊人</div>
       <van-loading v-if="patientLoading" size="24px" />
       <van-empty v-else-if="!patients.length" description="暂无就诊人" />
       <van-radio-group v-else v-model="selectedPatientId">
-        <van-cell-group inset>
+        <van-cell-group>
           <van-cell
             v-for="p in patients"
             :key="p.patientCardNo"
@@ -47,7 +47,7 @@
           </van-cell>
         </van-cell-group>
       </van-radio-group>
-    </glass-card>
+    </div>
 
     <!-- 底部 -->
     <van-action-bar>
@@ -65,7 +65,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import GlassCard from '@/components/GlassCard.vue'
 import { submitRegistration } from '@/api/registration'
 import { getDoctorRegistrationConfirm } from '@/api/doctor'
 import { getConfirmPatientBaseInfo } from '@/api/patient'
@@ -217,9 +216,9 @@ function onBack() {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
-  padding-bottom: 60px;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .card {
@@ -234,7 +233,7 @@ function onBack() {
 }
 
 .price {
-  color: #ff5722;
+  color: $color-danger;
   font-size: 18px;
   font-weight: 600;
 }

@@ -4,7 +4,7 @@
 
     <van-loading v-if="loading" size="24px" />
     <empty-state v-else-if="!list.length" description="暂无病历记录" />
-    <van-cell-group v-else inset>
+    <div v-else class="record-list surface-card">
       <van-cell
         v-for="item in list"
         :key="item.id"
@@ -23,7 +23,7 @@
           </div>
         </template>
       </van-cell>
-    </van-cell-group>
+    </div>
   </div>
 </template>
 
@@ -62,8 +62,12 @@ async function loadRecords() {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
+}
+
+.record-list {
+  margin: 16px;
 }
 
 .cell-title {
@@ -72,7 +76,7 @@ async function loadRecords() {
 
 .cell-label {
   font-size: 12px;
-  color: #999;
+  color: $color-text-tertiary;
   margin-top: 4px;
 
   .diagnosis {

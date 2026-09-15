@@ -1,28 +1,32 @@
 <template>
   <div class="page">
-    <glass-card padding="0">
-      <van-cell-group inset>
-        <van-field v-model="form.oldPassword" type="password" label="原密码" placeholder="请输入原密码" />
-        <van-field
-          v-model="form.newPassword"
-          type="password"
-          label="新密码"
-          placeholder="至少6位"
-          :rules="[{ required: true, message: '请输入新密码' }]"
-        />
-        <van-field
-          v-model="form.confirm"
-          type="password"
-          label="确认新密码"
-          placeholder="再次输入新密码"
-          :rules="[{ validator: isValid, message: '两次输入不一致' }]"
-        />
-      </van-cell-group>
-    </glass-card>
+    <van-nav-bar title="修改密码" left-arrow @click-left="$router.back()" />
 
-    <van-button round block type="primary" class="submit-btn" :loading="loading" @click="handleSubmit">
-      确认修改
-    </van-button>
+    <div class="content">
+      <div class="password-card surface-card">
+        <van-cell-group>
+          <van-field v-model="form.oldPassword" type="password" label="原密码" placeholder="请输入原密码" />
+          <van-field
+            v-model="form.newPassword"
+            type="password"
+            label="新密码"
+            placeholder="至少6位"
+            :rules="[{ required: true, message: '请输入新密码' }]"
+          />
+          <van-field
+            v-model="form.confirm"
+            type="password"
+            label="确认新密码"
+            placeholder="再次输入新密码"
+            :rules="[{ validator: isValid, message: '两次输入不一致' }]"
+          />
+        </van-cell-group>
+      </div>
+
+      <van-button round block type="primary" class="submit-btn" :loading="loading" @click="handleSubmit">
+        确认修改
+      </van-button>
+    </div>
   </div>
 </template>
 
@@ -31,7 +35,6 @@ import { reactive, ref } from 'vue'
 import { showSuccessToast, showToast } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api/auth'
-import GlassCard from '@/components/GlassCard.vue'
 
 const userStore = useUserStore()
 const loading = ref(false)
@@ -66,6 +69,11 @@ async function handleSubmit() {
 
 <style scoped lang="scss">
 .page {
+  min-height: 100dvh;
+  background: $color-bg-page;
+}
+
+.content {
   padding: 16px;
   display: flex;
   flex-direction: column;

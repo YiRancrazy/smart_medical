@@ -21,8 +21,8 @@ const router = useRouter()
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
 }
 
 .back-btn {

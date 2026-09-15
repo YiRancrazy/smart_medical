@@ -4,7 +4,7 @@
 
     <van-loading v-if="loading" size="24px" />
     <empty-state v-else-if="!list.length" description="暂无处方记录" />
-    <van-cell-group v-else inset>
+    <div v-else class="prescription-list surface-card">
       <van-cell
         v-for="item in list"
         :key="item.id"
@@ -24,7 +24,7 @@
           </div>
         </template>
       </van-cell>
-    </van-cell-group>
+    </div>
   </div>
 </template>
 
@@ -66,8 +66,12 @@ async function loadPrescriptions() {
 
 <style scoped lang="scss">
 .page {
-  min-height: 100vh;
-  background: #f5f5f5;
+  min-height: 100dvh;
+  background: $color-bg-page;
+}
+
+.prescription-list {
+  margin: 16px;
 }
 
 .cell-title {
@@ -79,11 +83,11 @@ async function loadPrescriptions() {
 
 .cell-label {
   font-size: 12px;
-  color: #999;
+  color: $color-text-tertiary;
   margin-top: 4px;
 
   .amount {
-    color: #f56c6c;
+    color: $color-danger;
     font-weight: 500;
   }
 }

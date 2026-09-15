@@ -74,7 +74,7 @@ async function onCheckIn() {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
   padding-bottom: 24px;
 }

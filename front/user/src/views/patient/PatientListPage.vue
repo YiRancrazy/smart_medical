@@ -128,7 +128,7 @@ async function onDelete(p: PatientCardSimpleResponse) {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
   padding-bottom: 80px;
 }
@@ -236,7 +236,7 @@ async function onDelete(p: PatientCardSimpleResponse) {
 
 .add-btn {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(50px + env(safe-area-inset-bottom) + 12px);
   left: 16px;
   right: 16px;
   width: auto;

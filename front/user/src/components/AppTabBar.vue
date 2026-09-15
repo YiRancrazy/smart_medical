@@ -39,10 +39,12 @@ function switchTab(path: string) {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-content {
   flex: 1;
+  min-height: 0;
   padding-bottom: calc(50px + env(safe-area-inset-bottom));
 }
 

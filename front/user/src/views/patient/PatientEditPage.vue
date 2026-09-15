@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <van-nav-bar :title="pageTitle" left-arrow @click-left="$router.back()" />
-    <glass-card class="card">
+    <div class="card surface-card">
       <van-form @submit="onSubmit">
         <van-field v-model="form.name" label="姓名" placeholder="请输入姓名" :rules="nameRules" />
         <van-field v-model="form.idCard" label="身份证号" placeholder="请输入身份证号" :rules="idCardRules" />
@@ -26,7 +26,7 @@
           <van-button round block type="primary" native-type="submit" :loading="submitting">保存</van-button>
         </div>
       </van-form>
-    </glass-card>
+    </div>
 
     <van-popup v-model:show="showRelationPicker" round position="bottom">
       <van-picker :columns="relations" :model-value="[form.relation]" @confirm="onRelationConfirm" @cancel="showRelationPicker = false" />
@@ -40,7 +40,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { usePatientStore } from '@/stores/patient'
 import { addPatient, updatePatient, getPatientDetail, getSelfPatientCardStatus } from '@/api/patient'
-import GlassCard from '@/components/GlassCard.vue'
 import { showToast } from 'vant'
 import { isPhone, isIdCard } from '@/utils/validator'
 
@@ -189,7 +188,7 @@ async function onSubmit() {
 @import '@/styles/variables.scss';
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $color-bg-page;
   padding-bottom: 24px;
 }
