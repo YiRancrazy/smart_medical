@@ -169,4 +169,77 @@ class PaymentRecordManagerTest {
         verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.SUCCESS.getCode()),
                 eq(0L), eq("system"), eq("支付成功(补同步)"));
     }
+
+    @Test
+    void paySuccess_authorizedProxy_canPayAnotherUsersOrder() {
+        Long orderId = 5001L;
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(2002L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        order.setTotalAmount(5000);
+
+        when(orderService.getOrderById(orderId)).thenReturn(order);
+        when(userPatientRelationService.hasAuthorization(1001L, 2002L)).thenReturn(true);
+        when(orderService.markOrderPaid(orderId)).thenReturn(1);
+        when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
+        doNothing().when(prescriptionService).markAsPaid(orderId);
+
+        Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
+
+        assertEquals(200, result.getCode());
+        verify(userPatientRelationService).hasAuthorization(1001L, 2002L);
+        verify(paymentRecordService).insertPaymentRecord(any());
+        verify(orderStatusLogService).addOrderStatusLog(any(OrderStatusLog.class));
+    }
+
+    @Test
+    void paySuccess_concurrentOrderUpdate_skipsOrderLogAndContinuesSideEffects() {
+        Long orderId = 5001L;
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(1001L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        order.setTotalAmount(5000);
+
+        when(orderService.getOrderById(orderId)).thenReturn(order);
+        when(orderService.markOrderPaid(orderId)).thenReturn(0);
+        when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
+        doNothing().when(prescriptionService).markAsPaid(orderId);
+
+        Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
+
+        assertEquals(200, result.getCode());
+        verify(orderStatusLogService, never()).addOrderStatusLog(any());
+        verify(prescriptionService).markAsPaid(orderId);
+    }
+
+    @Test
+    void paySuccess_waitingRegistration_syncsPaidStatusWithPaymentRemark() {
+        Long orderId = 5001L;
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(1001L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        order.setTotalAmount(5000);
+
+        Registration registration = new Registration();
+        registration.setId(8001L);
+        registration.setStatus(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode());
+
+        when(orderService.getOrderById(orderId)).thenReturn(order);
+        when(orderService.markOrderPaid(orderId)).thenReturn(1);
+        when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(registration);
+        doNothing().when(prescriptionService).markAsPaid(orderId);
+
+        Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
+
+        assertEquals(200, result.getCode());
+        verify(registrationService).updateStatusWithLog(
+                registration,
+                RegistrationStatusEnum.SUCCESS.getCode(),
+                0L,
+                "system",
+                "支付成功");
+    }
 }

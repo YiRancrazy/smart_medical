@@ -9,9 +9,14 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -148,5 +153,45 @@ class RegistrationServiceImplTest {
         // Then: 抛出 REGISTRATION_STATUS_INVALID，且不应写日志
         assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
         verify(registrationStatusLogService, never()).writeLog(any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @MethodSource("allowedTransitions")
+    void updateStatusWithLog_allowsEveryDocumentedTransition(
+            RegistrationStatusEnum fromStatus, RegistrationStatusEnum toStatus) {
+        Registration reg = new Registration();
+        reg.setId(200L);
+        reg.setUserId(1L);
+        reg.setStatus(fromStatus.getCode());
+
+        when(registrationMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(1);
+
+        registrationService.updateStatusWithLog(
+                reg, toStatus.getCode(), 1L, "tester", "状态迁移");
+
+        assertEquals(toStatus.getCode(), reg.getStatus());
+        verify(registrationStatusLogService).writeLog(
+                200L,
+                fromStatus.getCode(),
+                toStatus.getCode(),
+                1L,
+                "tester",
+                "状态迁移");
+    }
+
+    private static Stream<Arguments> allowedTransitions() {
+        return Stream.of(
+                Arguments.of(RegistrationStatusEnum.WAITING_FOR_PAYMENT, RegistrationStatusEnum.SUCCESS),
+                Arguments.of(RegistrationStatusEnum.WAITING_FOR_PAYMENT, RegistrationStatusEnum.FAILED),
+                Arguments.of(RegistrationStatusEnum.WAITING_FOR_PAYMENT, RegistrationStatusEnum.CANCELED),
+                Arguments.of(RegistrationStatusEnum.SUCCESS, RegistrationStatusEnum.REPORTED),
+                Arguments.of(RegistrationStatusEnum.SUCCESS, RegistrationStatusEnum.CANCELED),
+                Arguments.of(RegistrationStatusEnum.FAILED, RegistrationStatusEnum.WAITING_FOR_PAYMENT),
+                Arguments.of(RegistrationStatusEnum.FAILED, RegistrationStatusEnum.CANCELED),
+                Arguments.of(RegistrationStatusEnum.REPORTED, RegistrationStatusEnum.IN_TREATMENT),
+                Arguments.of(RegistrationStatusEnum.IN_TREATMENT, RegistrationStatusEnum.PENDING_PAYMENT),
+                Arguments.of(RegistrationStatusEnum.IN_TREATMENT, RegistrationStatusEnum.COMPLETED),
+                Arguments.of(RegistrationStatusEnum.PENDING_PAYMENT, RegistrationStatusEnum.IN_TREATMENT),
+                Arguments.of(RegistrationStatusEnum.PENDING_PAYMENT, RegistrationStatusEnum.COMPLETED));
     }
 }

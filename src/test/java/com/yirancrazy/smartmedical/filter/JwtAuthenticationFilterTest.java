@@ -15,6 +15,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.PrintWriter;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -192,6 +195,135 @@ class JwtAuthenticationFilterTest {
 
         verify(request, never()).setAttribute(eq("currentDoctorId"), any());
         verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_missingToken_shouldReturn401() throws Exception {
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(writer).write(any(char[].class), anyInt(), anyInt());
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_malformedToken_shouldReturn401() throws Exception {
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer not-a-jwt");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_invalidSignature_shouldReturn401() throws Exception {
+        String token = JWT.create()
+                .setPayload("sub", "123456789")
+                .setPayload("userId", "123456789")
+                .setPayload("role", 4)
+                .setPayload("exp", System.currentTimeMillis() / 1000 + 3600)
+                .setKey("another-secret-key".getBytes())
+                .sign();
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(redisUtil, never()).get(anyString());
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_expiredToken_shouldReturn401() throws Exception {
+        Long accountId = 123456789L;
+        String token = JWT.create()
+                .setPayload("sub", accountId.toString())
+                .setPayload("userId", accountId.toString())
+                .setPayload("role", 4)
+                .setPayload("exp", System.currentTimeMillis() / 1000 - 1)
+                .setKey(accessSecretKey.getBytes())
+                .sign();
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(redisUtil, never()).get(anyString());
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_revokedToken_shouldReturn401() throws Exception {
+        Long accountId = 123456789L;
+        String token = buildToken(accountId, 4);
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(redisUtil.get(anyString())).thenReturn("different-token");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_validAdminToken_shouldSetAuthenticationAndContext() throws Exception {
+        Long accountId = 123456789L;
+        String token = buildToken(accountId, 1L);
+        when(request.getRequestURI()).thenReturn("/api/admin/v1/user/profile");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(redisUtil.get(anyString())).thenReturn(token);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertEquals(accountId.toString(), SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_admin".equals(authority.getAuthority())));
+        verify(request).setAttribute("currentUserId", accountId);
+        verify(request).setAttribute("currentAccountId", accountId);
+        verify(request).setAttribute("currentPharmacistId", accountId);
+        verify(request, never()).setAttribute(eq("currentDoctorId"), any());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_unknownRole_shouldAuthenticateWithoutAuthorities() throws Exception {
+        Long accountId = 123456789L;
+        String token = buildToken(accountId, 99L);
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(redisUtil.get(anyString())).thenReturn(token);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().isEmpty());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_invalidAccountIdClaim_shouldReturn401() throws Exception {
+        String token = JWT.create()
+                .setPayload("sub", "not-a-number")
+                .setPayload("userId", "also-not-a-number")
+                .setPayload("role", 4)
+                .setPayload("exp", System.currentTimeMillis() / 1000 + 3600)
+                .setKey(accessSecretKey.getBytes())
+                .sign();
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(filterChain, never()).doFilter(request, response);
     }
 
     /**
