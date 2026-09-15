@@ -124,6 +124,8 @@ request.interceptors.response.use(
       clearAuth()
       router.push('/login')
       showToast(data?.msg || '无权访问')
+    } else if (status === 413) {
+      showToast(data?.message || '图片大小不能超过 5MB')
     } else if (!status) {
       showToast('网络异常，请检查网络连接')
     }

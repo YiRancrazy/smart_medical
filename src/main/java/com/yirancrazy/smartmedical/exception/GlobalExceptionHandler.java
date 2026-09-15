@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -84,6 +85,12 @@ public class GlobalExceptionHandler {
     public Result<Void> handleNoResource(NoResourceFoundException e) {
         log.warn("[404] {}", e.getMessage());
         return Result.fail(404, "接口不存在");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("[Upload] 上传文件超过大小限制");
+        return Result.fail(400, "图片大小不能超过 5MB");
     }
 
     @ExceptionHandler(Exception.class)
