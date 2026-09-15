@@ -149,6 +149,7 @@ class UserManagerTest {
 
         assertEquals(200, result.getCode());
         assertEquals("张三", result.getData().getUsername());
+        assertEquals("张三", user.getNickname());
         assertEquals("北京市朝阳区", result.getData().getAddress());
         assertTrue(result.getData().getProfileCompleted());
         verify(userService).updateUserById(user);

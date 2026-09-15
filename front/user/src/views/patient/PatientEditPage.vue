@@ -5,8 +5,17 @@
       <van-form @submit="onSubmit">
         <van-field v-model="form.name" label="姓名" placeholder="请输入姓名" :rules="nameRules" />
         <van-field v-model="form.idCard" label="身份证号" placeholder="请输入身份证号" :rules="idCardRules" />
+        <van-cell v-if="isSelf && cardSn" title="就诊卡号" :value="cardSn" />
         <van-field v-model="form.phone" label="手机号" placeholder="请输入手机号" :rules="phoneRules" />
-        <van-field v-model="relationText" label="关系" placeholder="请选择关系" is-link readonly @click="showRelationPicker = true" :rules="[{ required: true, message: '请选择关系' }]" />
+        <van-field
+          v-model="relationText"
+          label="关系"
+          placeholder="请选择关系"
+          :is-link="!isSelf"
+          readonly
+          @click="!isSelf && (showRelationPicker = true)"
+          :rules="[{ required: true, message: '请选择关系' }]"
+        />
         <van-field v-model="form.remark" label="备注" placeholder="请输入备注" />
         <van-field label="设为默认">
           <template #input>
@@ -30,7 +39,7 @@ import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { usePatientStore } from '@/stores/patient'
-import { addPatient, updatePatient, getPatientDetail } from '@/api/patient'
+import { addPatient, updatePatient, getPatientDetail, getSelfPatientCardStatus } from '@/api/patient'
 import GlassCard from '@/components/GlassCard.vue'
 import { showToast } from 'vant'
 import { isPhone, isIdCard } from '@/utils/validator'
@@ -47,7 +56,11 @@ const relationId = ref<string | null>(
   Array.isArray(rawId) ? (rawId[0] || null) : (typeof rawId === 'string' ? rawId : null)
 )
 const isEdit = computed(() => !!relationId.value)
-const pageTitle = computed(() => (isEdit.value ? '编辑就诊人' : '添加就诊人'))
+const isSelf = computed(() => route.query.self === '1')
+const pageTitle = computed(() => (
+  isSelf.value ? '完善本人就诊卡信息' : (isEdit.value ? '编辑就诊人' : '添加就诊人')
+))
+const cardSn = ref('')
 
 const nameRules = [{ required: true, message: '请输入姓名' }]
 // U06: 补身份证与手机号格式校验，避免脏数据提交后端
@@ -81,10 +94,30 @@ const form = reactive({
 const relationText = computed(() => form.relation)
 
 onMounted(() => {
-  if (isEdit.value) {
+  if (isSelf.value) {
+    loadSelfPatientCard()
+  } else if (isEdit.value) {
     loadPatient()
   }
 })
+
+async function loadSelfPatientCard() {
+  try {
+    const res = await getSelfPatientCardStatus()
+    const item = res.data
+    if (!item) return
+    relationId.value = item.relationId
+    form.name = item.patientName || userStore.userInfo?.name || ''
+    form.idCard = item.patientIdCard || ''
+    form.phone = item.patientPhone || userStore.userInfo?.phone || ''
+    form.relation = '本人'
+    form.remark = item.remark || ''
+    form.defaulted = item.defaultPatient
+    cardSn.value = item.patientCardSn || ''
+  } catch {
+    showToast('本人就诊卡信息加载失败')
+  }
+}
 
 async function loadPatient() {
   try {
@@ -125,8 +158,6 @@ async function onSubmit() {
         remark: form.remark,
         defaulted: form.defaulted ? '1' : '0'
       })
-      showToast('保存成功')
-      await patientStore.loadPatients()
     } else {
       await addPatient({
         name: form.name,
@@ -136,9 +167,15 @@ async function onSubmit() {
         remark: form.remark,
         defaulted: form.defaulted ? '1' : '0'
       })
-      showToast('添加成功')
-      await patientStore.loadPatients()
     }
+    await patientStore.loadPatients()
+    if (isSelf.value) {
+      await userStore.ensureOwnPatientCardCompleted(true)
+      showToast('本人就诊卡信息已保存')
+      await router.replace('/profile')
+      return
+    }
+    showToast(isEdit.value ? '保存成功' : '添加成功')
     router.back()
   } catch (e: any) {
     showToast(e?.message || (isEdit.value ? '保存失败' : '添加失败'))

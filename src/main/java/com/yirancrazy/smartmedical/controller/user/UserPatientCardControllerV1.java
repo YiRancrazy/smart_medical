@@ -4,6 +4,7 @@ import com.yirancrazy.smartmedical.manager.PatientCardManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PatientCardSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
+import com.yirancrazy.smartmedical.pojo.vo.SelfPatientCardStatus;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmPatientCardVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -76,5 +77,17 @@ public class UserPatientCardControllerV1 {
             @RequestAttribute("currentUserId") Long userId,
             @PathVariable Long relationId) {
         return patientCardManager.getPatientCardDetailByRelationId(userId, relationId);
+    }
+
+    /**
+     * 获取当前用户本人就诊卡状态
+     * @param userId 当前登录用户ID
+     * @return 本人就诊卡状态
+     */
+    @GetMapping("/self/status")
+    @Operation(summary = "用户端 - 获取本人就诊卡状态", description = "返回当前用户本人就诊卡完善状态与表单回填信息")
+    public Result<SelfPatientCardStatus> getSelfPatientCardStatus(
+            @RequestAttribute("currentUserId") Long userId) {
+        return patientCardManager.getSelfPatientCardStatus(userId);
     }
 }

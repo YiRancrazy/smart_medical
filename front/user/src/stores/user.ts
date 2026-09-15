@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { getSelfPatientCardStatus } from '@/api/patient'
 import { getUserProfile, type UserProfile } from '@/api/user'
 import { setToken, setUid, setUserInfo, clearAuth, getToken, getUid, getUserInfo } from '@/utils/storage'
 import { usePatientStore } from '@/stores/patient'
@@ -12,7 +13,9 @@ export const useUserStore = defineStore('user', () => {
   const uid = ref<string | null>(getUid())
   const userInfo = ref<any>(getUserInfo())
   const profileCompleted = ref<boolean | null>(userInfo.value?.profileCompleted ?? null)
+  const ownPatientCardCompleted = ref<boolean | null>(null)
   let profileRequest: Promise<boolean> | null = null
+  let ownPatientCardRequest: Promise<boolean> | null = null
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -53,6 +56,25 @@ export const useUserStore = defineStore('user', () => {
         profileRequest = null
       })
     return profileRequest
+  }
+
+  /**
+   * 确保已读取本人就诊卡完善状态，接口异常由调用方处理
+   */
+  async function ensureOwnPatientCardCompleted(force = false): Promise<boolean> {
+    if (!token.value) return false
+    if (!force && ownPatientCardCompleted.value !== null) return ownPatientCardCompleted.value
+    if (ownPatientCardRequest) return ownPatientCardRequest
+
+    ownPatientCardRequest = getSelfPatientCardStatus()
+      .then((res) => {
+        ownPatientCardCompleted.value = res.data?.completed === true
+        return ownPatientCardCompleted.value
+      })
+      .finally(() => {
+        ownPatientCardRequest = null
+      })
+    return ownPatientCardRequest
   }
 
   /**
@@ -101,6 +123,7 @@ export const useUserStore = defineStore('user', () => {
     uid.value = null
     userInfo.value = null
     profileCompleted.value = null
+    ownPatientCardCompleted.value = null
     clearAuth()
     // U19: 重置 patientStore，避免换账号后残留上一用户的就诊人数据
     usePatientStore().reset()
@@ -127,6 +150,7 @@ export const useUserStore = defineStore('user', () => {
     uid,
     userInfo,
     profileCompleted,
+    ownPatientCardCompleted,
     isLoggedIn,
     login,
     loginByCode,
@@ -134,6 +158,7 @@ export const useUserStore = defineStore('user', () => {
     logout,
     logoutWithApi,
     ensureProfileCompleted,
+    ensureOwnPatientCardCompleted,
     applyProfile
   }
 })

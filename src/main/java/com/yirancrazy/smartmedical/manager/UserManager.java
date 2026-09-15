@@ -124,6 +124,7 @@ public class UserManager {
             return Result.info(10001, "用户不存在", null);
         }
         user.setUsername(request.getUsername().trim());
+        user.setNickname(request.getUsername().trim());
         user.setIdCard(request.getIdCard().trim().toUpperCase(Locale.ROOT));
         user.setSex(request.getSex());
         user.setAddress(StringUtils.hasText(request.getAddress()) ? request.getAddress().trim() : null);

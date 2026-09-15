@@ -39,6 +39,17 @@ export interface RegistrationConfirmPatientCardVo {
   defaultPatientCard: boolean
 }
 
+export interface SelfPatientCardStatus {
+  completed: boolean
+  relationId: string | null
+  patientName: string | null
+  patientIdCard: string | null
+  patientPhone: string | null
+  patientCardSn: string | null
+  remark: string | null
+  defaultPatient: boolean
+}
+
 /**
  * 默认就诊人信息
  */
@@ -72,6 +83,15 @@ export function getPatientSimpleList() {
 export function getPatientDetail(relationId: number | string) {
   return request.get<any, ApiResult<PatientCardSimpleResponse>>(
     `/api/user/v1/patient/card/detail/${relationId}`
+  )
+}
+
+/**
+ * 本人就诊卡完善状态与表单回填信息
+ */
+export function getSelfPatientCardStatus() {
+  return request.get<any, ApiResult<SelfPatientCardStatus>>(
+    '/api/user/v1/patient/card/self/status'
   )
 }
 

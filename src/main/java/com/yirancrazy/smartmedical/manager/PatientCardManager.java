@@ -12,6 +12,7 @@ import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.UserPatientRelation;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PatientCardSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
+import com.yirancrazy.smartmedical.pojo.vo.SelfPatientCardStatus;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmPatientCardVo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
@@ -303,12 +304,52 @@ public class PatientCardManager {
         result.setPatientId(String.valueOf(patient.getId()));
         result.setPatientName(patientUser.getNickname());
         result.setPatientIdCard(patientUser.getIdCard());
-        result.setPatientPhone(DesensitizedUtil.mobilePhone(patientAccount.getPhone()));
+        result.setPatientPhone(patientAccount.getPhone());
         result.setPatientCardSn(String.valueOf(patientCard.getSn()));
         result.setPatientCardId(String.valueOf(patientCard.getId()));
         result.setRelation(relation.getRelation());
         result.setDefaultPatient(relation.getDefaulted());
         result.setRemark(relation.getRemark());
+        return Result.success(result);
+    }
+
+    /**
+     * 获取当前用户本人就诊卡完善状态与回填信息
+     * @param currentUserId 当前登录用户ID
+     * @return 本人就诊卡状态
+     */
+    public Result<SelfPatientCardStatus> getSelfPatientCardStatus(Long currentUserId) {
+        User currentUser = userService.getUserById(currentUserId);
+        if (currentUser == null) {
+            return Result.fail("用户不存在");
+        }
+
+        Account currentAccount = accountService.getAccountByUserId(currentUserId);
+        List<UserPatientRelation> relations =
+                userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
+        UserPatientRelation selfRelation = relations.stream()
+                .filter(relation -> currentUserId.equals(relation.getPatientUserId()))
+                .filter(relation -> "本人".equals(relation.getRelation()))
+                .findFirst()
+                .orElse(null);
+
+        Patient patient = patientService.getPatientByUserId(currentUserId);
+        PatientCard patientCard = patient == null
+                ? null
+                : patientCardService.getPatientCardById(patient.getPatientCardId());
+        boolean completed = selfRelation != null && patient != null && patientCard != null;
+
+        SelfPatientCardStatus result = new SelfPatientCardStatus();
+        result.setCompleted(completed);
+        result.setRelationId(selfRelation == null ? null : String.valueOf(selfRelation.getId()));
+        result.setPatientName(currentUser.getUsername() != null && !currentUser.getUsername().isBlank()
+                ? currentUser.getUsername()
+                : currentUser.getNickname());
+        result.setPatientIdCard(currentUser.getIdCard());
+        result.setPatientPhone(currentAccount == null ? null : currentAccount.getPhone());
+        result.setPatientCardSn(patientCard == null ? null : String.valueOf(patientCard.getSn()));
+        result.setRemark(selfRelation == null ? null : selfRelation.getRemark());
+        result.setDefaultPatient(selfRelation == null || Boolean.TRUE.equals(selfRelation.getDefaulted()));
         return Result.success(result);
     }
 }
