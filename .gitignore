@@ -62,3 +62,6 @@ test-*
 .user-*
 req-admin.json
 front/e2e
+test/jmeter/registration-load-*.csv
+test/jmeter/results/registration-*.jtl
+test/jmeter/results/html-registration-*/
