@@ -10,3 +10,8 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+# 登录限流开关：生产默认开启，开发 / 测试环境可在 application-dev.yaml 关闭
+auth:
+  login-rate:
+    enabled: true

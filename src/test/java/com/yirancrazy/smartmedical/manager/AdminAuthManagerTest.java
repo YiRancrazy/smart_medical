@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -139,5 +140,24 @@ class AdminAuthManagerTest {
         when(accountService.getAccountByPhone("none")).thenReturn(List.of());
         Result<String> result = manager.loginByPhoneAndPassword("none", "x", false, request, response);
         assertEquals(500, result.getCode());
+    }
+
+    @Test
+    void login_rateLimitDisabled_skipsRedisCounter() {
+        ReflectionTestUtils.setField(manager, "loginRateEnabled", false);
+        Account account = new Account();
+        account.setId(42L);
+        account.setPhone("13800000000");
+        account.setPassword(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("raw"));
+        account.setRoleId(1L);
+        when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(account));
+        org.mockito.Mockito.lenient().doNothing()
+                .when(redisUtil).setEx(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+
+        Result<String> result = manager.loginByPhoneAndPassword("13800000000", "raw", true, request, response);
+
+        assertEquals(200, result.getCode());
+        verify(redisUtil, never()).incrAndExpireOnFirst(
+                anyString(), anyLong(), anyLong(), any(TimeUnit.class));
     }
 }

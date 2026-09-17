@@ -61,6 +61,8 @@ public class AuthManager {
     private String adminRefreshTokenPrefix;                // 管理员 jwt 刷新加密密钥
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;                          // 决定 cookie 是否只允许通过 https 传输
+    @Value("${auth.login-rate.enabled:true}")
+    private boolean loginRateEnabled = true;               // 开发 / 测试环境可关闭登录限流
     private final AccountService accountService;
     private final UserService userService;
     private final RedisUtil redisUtil;
@@ -78,6 +80,9 @@ public class AuthManager {
      * @param phone 手机号
      */
     private void checkLoginRate(String phone) {
+        if (!loginRateEnabled) {
+            return;
+        }
         String key = "login:rate:user:" + phone;
         Long count = redisUtil.incrAndExpireOnFirst(key, 1L, LOGIN_RATE_WINDOW_MINUTES, TimeUnit.MINUTES);
         if (count != null && count > LOGIN_RATE_MAX) {

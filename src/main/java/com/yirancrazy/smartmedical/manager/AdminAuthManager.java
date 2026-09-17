@@ -57,6 +57,8 @@ public class AdminAuthManager {
     private String refreshSecretKey;
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
+    @Value("${auth.login-rate.enabled:true}")
+    private boolean loginRateEnabled = true;               // 开发 / 测试环境可关闭登录限流
 
     private final AccountService accountService;
     private final AdminService adminService;
@@ -77,6 +79,9 @@ public class AdminAuthManager {
      * @param phone 手机号
      */
     private void checkLoginRate(String phone) {
+        if (!loginRateEnabled) {
+            return;
+        }
         String key = "login:rate:admin:" + phone;
         Long count = redisUtil.incrAndExpireOnFirst(key, 1L, LOGIN_RATE_WINDOW_MINUTES, TimeUnit.MINUTES);
         if (count != null && count > LOGIN_RATE_MAX) {

@@ -190,6 +190,25 @@ class AuthManagerTest {
     }
 
     @Test
+    void login_rateLimitDisabled_skipsRedisCounter() {
+        AuthManager m = buildManager();
+        ReflectionTestUtils.setField(m, "loginRateEnabled", false);
+        User user = new User();
+        user.setId(7L);
+        Account account = userAccount(42L, 7L);
+
+        when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of(account));
+        when(userService.getUserById(7L)).thenReturn(user);
+        lenient().doNothing().when(redisUtil).setEx(anyString(), anyString(), anyLong(), any());
+
+        Result<LoginVo> result = m.login("13800000000", "raw", response);
+
+        assertEquals(200, result.getCode());
+        verify(redisUtil, never()).incrAndExpireOnFirst(
+                anyString(), anyLong(), anyLong(), any(TimeUnit.class));
+    }
+
+    @Test
     void loginByCode_validCode_returnsLoginVo() {
         AuthManager m = buildManager();
         User user = new User();

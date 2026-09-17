@@ -93,3 +93,8 @@ smart-medical:
 # Cookie 安全标记（dev=false；prod=true 仅 HTTPS 环境下可用，否则 Cookie 不落地）
 cookie:
   secure: ${COOKIE_SECURE:false}
+
+# 测试环境关闭登录限流，避免 JMeter 压测被 5 分钟 / 5 次限制拦截
+auth:
+  login-rate:
+    enabled: false
