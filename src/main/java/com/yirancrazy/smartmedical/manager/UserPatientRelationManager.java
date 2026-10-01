@@ -58,7 +58,7 @@ public class UserPatientRelationManager {
      * @param defaulted 是否默认就诊人
      * @return 添加结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> insertUserPatientRelation(Long currentUserId,String name, String idCard, String phone, String relation, String remark, String defaulted) {
 
         Long id = IdUtil.getSnowflakeNextId();
@@ -145,7 +145,7 @@ public class UserPatientRelationManager {
      * @param defaulted 是否默认就诊人
      * @return 修改结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> updateUserPatientRelationById(Long currentUserId, Long id,
                                                          String name, String phone, String idCard,
                                                          String relation, String remark, String defaulted) {
@@ -222,7 +222,7 @@ public class UserPatientRelationManager {
      * @param id 就诊人关系id
      * @return 设置结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> setDefaultUserPatientRelation(Long currentUserId, Long id) {
         UserPatientRelation userPatientRelation = null;
         List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
@@ -249,7 +249,7 @@ public class UserPatientRelationManager {
      * @param id 就诊人关系id
      * @return 删除结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result<Integer> deleteUserPatientRelationById(Long currentUserId, Long id) {
         UserPatientRelation relation = userPatientRelationService.getUserPatientRelationById(id);
         if (relation == null || !currentUserId.equals(relation.getUserId())) {

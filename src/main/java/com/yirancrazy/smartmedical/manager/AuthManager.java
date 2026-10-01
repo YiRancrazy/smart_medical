@@ -199,7 +199,7 @@ public class AuthManager {
      * @param response HttpServletResponse 响应对象（用于签发 token）
      * @return 注册结果（自动登录返回 LoginVo）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result<LoginVo> register(String phone, String code, HttpServletResponse response) {
         // 手机号格式校验
         if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
