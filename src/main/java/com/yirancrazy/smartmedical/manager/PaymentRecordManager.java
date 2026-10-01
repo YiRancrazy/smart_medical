@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PayMethodConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
@@ -229,7 +230,7 @@ public class PaymentRecordManager {
         orderLog.setFromStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         orderLog.setToStatus(OrderStatus.PAID.getCode());
         orderLog.setOperatorId(0L);
-        orderLog.setOperatorRole("system");
+        orderLog.setOperatorRole(RoleEnum.SYSTEM.getRole());
         orderLog.setRemark("支付成功");
         orderStatusLogService.addOrderStatusLog(orderLog);
     }
@@ -243,7 +244,7 @@ public class PaymentRecordManager {
         if (registration != null) {
             registrationService.updateStatusWithLog(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
-                    0L, "system", "支付成功");
+                    0L, RoleEnum.SYSTEM.getRole(), "支付成功");
         }
         // 联动处方:标记处方为已支付
         prescriptionService.markAsPaid(orderId);
@@ -260,7 +261,7 @@ public class PaymentRecordManager {
                 && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
             registrationService.updateStatusWithLog(registration,
                     RegistrationStatusEnum.SUCCESS.getCode(),
-                    0L, "system", "支付成功(补同步)");
+                    0L, RoleEnum.SYSTEM.getRole(), "支付成功(补同步)");
         }
     }
 }

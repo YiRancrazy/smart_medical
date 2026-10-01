@@ -8,6 +8,7 @@ import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Department;
@@ -180,7 +181,7 @@ public class RegistrationManager {
                 null,
                 RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
                 userId,
-                "user",
+                RoleEnum.PATIENT.getRole(),
                 "挂号创建");
         orderService.insertOrder(order);
 

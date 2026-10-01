@@ -9,6 +9,7 @@ import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -146,7 +147,7 @@ public class PrescriptionManager {
         // 6. registration 状态迁移:就诊中 → 完成
         registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.COMPLETED.getCode(),
-                doctorId, "doctor", "提交病历开方");
+                doctorId, RoleEnum.DOCTOR.getRole(), "提交病历开方");
 
         // 7. 构造返回 VO
         PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
@@ -252,7 +253,7 @@ public class PrescriptionManager {
     private PrescriptionSubmitVO handleNoPrescription(Registration reg, MedicalRecord record, Long doctorId) {
         registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.COMPLETED.getCode(),
-                doctorId, "doctor", "就诊完成(无处方)");
+                doctorId, RoleEnum.DOCTOR.getRole(), "就诊完成(无处方)");
         PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
         vo.setMedicalRecordId(record.getId());
         vo.setTotalAmount(0);
@@ -347,7 +348,7 @@ public class PrescriptionManager {
             txn.setQuantityBefore(qtyBeforeReal);
             txn.setQuantityAfter(qtyAfter);
             txn.setOperatorId(doctorId);
-            txn.setOperatorName("doctor");
+            txn.setOperatorName(RoleEnum.DOCTOR.getRole());
             inventoryTransactionService.insertInventoryTransaction(txn);
         }
     }
@@ -437,7 +438,7 @@ public class PrescriptionManager {
         }
 
         // 1. 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁 + 状态守卫，防并发双释放）
-        prescriptionService.releaseLockedStock(rx, userId, "user", "处方退款释放库存");
+        prescriptionService.releaseLockedStock(rx, userId, RoleEnum.PATIENT.getRole(), "处方退款释放库存");
 
         // 2. 订单退款（已支付才退），写退款记录 + 原支付记录置为已退款 + 订单置为已退款
         if (rx.getOrderId() != null) {
@@ -471,7 +472,7 @@ public class PrescriptionManager {
                 orderLog.setFromStatus(fromStatus);
                 orderLog.setToStatus(OrderStatus.REFUNDED.getCode());
                 orderLog.setOperatorId(userId);
-                orderLog.setOperatorRole("user");
+                orderLog.setOperatorRole(RoleEnum.PATIENT.getRole());
                 orderLog.setRemark("处方退款");
                 orderStatusLogService.addOrderStatusLog(orderLog);
             }
@@ -512,10 +513,10 @@ public class PrescriptionManager {
         }
 
         // 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁，防并发双释放）
-        prescriptionService.releaseLockedStock(rx, doctorId, "doctor", "作废处方释放库存");
+        prescriptionService.releaseLockedStock(rx, doctorId, RoleEnum.DOCTOR.getRole(), "作废处方释放库存");
 
         // 关闭订单
-        closeOrderForCancel(rx, doctorId, "doctor", "作废处方关闭订单");
+        closeOrderForCancel(rx, doctorId, RoleEnum.DOCTOR.getRole(), "作废处方关闭订单");
 
         // 处方置为已取消：条件更新仅当仍处于待支付才生效，并发作废只有一个成功，失败方抛异常回滚库存释放
         boolean rxUpdated = prescriptionService.update(
@@ -534,7 +535,7 @@ public class PrescriptionManager {
             if (reg != null && reg.getStatus() == RegistrationStatusEnum.PENDING_PAYMENT.getCode()) {
                 registrationService.updateStatusWithLog(reg,
                         RegistrationStatusEnum.IN_TREATMENT.getCode(),
-                        doctorId, "doctor", "作废处方");
+                        doctorId, RoleEnum.DOCTOR.getRole(), "作废处方");
             }
         }
     }

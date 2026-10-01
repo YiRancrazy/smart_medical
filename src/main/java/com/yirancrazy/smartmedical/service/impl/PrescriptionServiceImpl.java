@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.PrescriptionMapper;
@@ -116,7 +117,7 @@ public class PrescriptionServiceImpl
         }
         log.info("[prescription-timeout] 处方 prescriptionId={} 已作废（{}）", prescriptionId, remark);
         // 释放锁定库存并写解锁流水（行锁防并发双释放；先作废处方再解锁，作废失败不触碰库存）
-        releaseLockedStock(rx, 0L, "system", remark);
+        releaseLockedStock(rx, 0L, RoleEnum.SYSTEM.getRole(), remark);
         return true;
     }
 

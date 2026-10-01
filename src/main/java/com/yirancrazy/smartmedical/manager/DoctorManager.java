@@ -7,6 +7,7 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.type.RegistrationShiftTypeEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -507,7 +508,7 @@ public class DoctorManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "该挂号未报到");
         }
         registrationService.updateStatusWithLog(reg, RegistrationStatusEnum.IN_TREATMENT.getCode(),
-                doctorId, "doctor", "叫号接诊");
+                doctorId, RoleEnum.DOCTOR.getRole(), "叫号接诊");
     }
 
     /**

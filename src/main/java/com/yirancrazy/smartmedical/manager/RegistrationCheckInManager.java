@@ -4,6 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Order;
@@ -101,7 +102,7 @@ public class RegistrationCheckInManager {
         }
         registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.REPORTED.getCode(),
-                userId, "user", "用户报到");
+                userId, RoleEnum.PATIENT.getRole(), "用户报到");
     }
 
     /**
@@ -128,7 +129,7 @@ public class RegistrationCheckInManager {
         // 5. 状态迁移 → 已取消
         registrationService.updateStatusWithLog(reg,
                 RegistrationStatusEnum.CANCELED.getCode(),
-                userId, "user",
+                userId, RoleEnum.PATIENT.getRole(),
                 reason != null && !reason.isEmpty() ? reason : "用户取消");
     }
 
@@ -205,7 +206,7 @@ public class RegistrationCheckInManager {
         orderLog.setFromStatus(fromStatus);
         orderLog.setToStatus(OrderStatus.CANCELED.getCode());
         orderLog.setOperatorId(userId);
-        orderLog.setOperatorRole("user");
+        orderLog.setOperatorRole(RoleEnum.PATIENT.getRole());
         orderLog.setRemark("取消预约关闭订单");
         orderStatusLogService.addOrderStatusLog(orderLog);
     }
@@ -252,7 +253,7 @@ public class RegistrationCheckInManager {
         orderLog.setFromStatus(fromStatus);
         orderLog.setToStatus(OrderStatus.REFUNDED.getCode());
         orderLog.setOperatorId(userId);
-        orderLog.setOperatorRole("user");
+        orderLog.setOperatorRole(RoleEnum.PATIENT.getRole());
         orderLog.setRemark("取消预约退款");
         orderStatusLogService.addOrderStatusLog(orderLog);
     }

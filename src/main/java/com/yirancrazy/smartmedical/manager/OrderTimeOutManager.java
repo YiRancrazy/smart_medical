@@ -4,6 +4,7 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Prescription;
@@ -40,7 +41,7 @@ public class OrderTimeOutManager {
 
     /** 系统操作人 ID/角色（写入状态日志） */
     private static final long SYSTEM_OPERATOR_ID = 0L;
-    private static final String SYSTEM_OPERATOR_ROLE = "system";
+    private static final String SYSTEM_OPERATOR_ROLE = RoleEnum.SYSTEM.getRole();
 
     /** 订单支付超时时间：从订单创建时间起 30 分钟未支付自动作废 */
     private static final long PAYMENT_TIMEOUT_MINUTES = 30;
