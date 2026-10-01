@@ -384,38 +384,6 @@ public class PrescriptionManager {
     }
 
     /**
-     * 支付成功回调:标记处方为已支付(由 PaymentRecordManager 调用)
-     * @param orderId 订单ID
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public void markAsPaid(Long orderId) {
-        Prescription rx = prescriptionService.getOne(
-                new LambdaQueryWrapper<Prescription>()
-                        .eq(Prescription::getOrderId, orderId)
-                        .last("LIMIT 1"));
-        if (rx == null) {
-            log.warn("[prescription-paid] no prescription for orderId={}", orderId);
-            return;
-        }
-        // 状态守卫：仅待支付可置为已支付，已支付幂等跳过，其他状态拒绝
-        if (rx.getStatus() != null
-                && rx.getStatus() == PrescriptionStatus.PAID.getCode()) {
-            log.info("[prescription-paid] orderId={} already paid, skip", orderId);
-            return;
-        }
-        if (rx.getStatus() == null
-                || rx.getStatus() != PrescriptionStatus.PENDING_PAYMENT.getCode()) {
-            throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED,
-                    "处方状态非待支付，无法标记已支付");
-        }
-        rx.setStatus(PrescriptionStatus.PAID.getCode());
-        prescriptionService.updateById(rx);
-
-        // S28: 删除 from=to 的冗余挂号状态日志（无状态变化），改为 info 日志即可
-        log.info("[prescription-paid] prescriptionId={}, orderId={}", rx.getId(), orderId);
-    }
-
-    /**
      * 用户退款已支付处方(仅 status=1 已支付、未发药):释放锁定库存 + 写退款记录 + 订单置为已退款 + 处方置为已取消
      * @param prescriptionId 处方ID
      * @param userId 当前用户ID
