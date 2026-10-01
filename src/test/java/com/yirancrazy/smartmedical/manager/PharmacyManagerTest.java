@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Prescription;
@@ -17,6 +16,7 @@ import com.yirancrazy.smartmedical.service.OrderStatusLogService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
@@ -64,6 +64,7 @@ class PharmacyManagerTest {
     @Mock private DrugInventoryService drugInventoryService;
     @Mock private InventoryTransactionService inventoryTransactionService;
     @Mock private RegistrationService registrationService;
+    @Mock private RegistrationStatusLogService registrationStatusLogService;
     @Mock private MedicalRecordService medicalRecordService;
     @Mock private OrderService orderService;
     @Mock private OrderStatusLogService orderStatusLogService;
@@ -91,7 +92,7 @@ class PharmacyManagerTest {
         reg.setId(4001L);
         reg.setUserId(5001L);
 
-        when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(rx));
+        when(prescriptionService.listByStatus(PrescriptionStatus.PAID.getCode())).thenReturn(List.of(rx));
         when(medicalRecordService.listByIds(List.of(3001L))).thenReturn(List.of(record));
         when(registrationService.listRegistrationsByIds(List.of(4001L))).thenReturn(List.of(reg));
 
@@ -115,7 +116,7 @@ class PharmacyManagerTest {
      */
     @Test
     void listPending_empty_returnsEmptyPageResult() {
-        when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+        when(prescriptionService.listByStatus(PrescriptionStatus.PAID.getCode())).thenReturn(List.of());
 
         Result<PageResult<PendingPrescriptionVO>> result = pharmacyManager.listPending(null, null);
 
@@ -134,7 +135,7 @@ class PharmacyManagerTest {
         rx.setTotalAmount(3000);
         // medicalRecordId 留 null
 
-        when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(rx));
+        when(prescriptionService.listByStatus(PrescriptionStatus.PAID.getCode())).thenReturn(List.of(rx));
 
         Result<PageResult<PendingPrescriptionVO>> result = pharmacyManager.listPending(null, null);
 
@@ -221,12 +222,14 @@ class PharmacyManagerTest {
         order.setStatus(OrderStatus.PAID.getCode());
 
         when(prescriptionService.getById(1001L)).thenReturn(rx);
-        when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
+        when(prescriptionItemService.listByPrescriptionId(1001L)).thenReturn(List.of(item));
         when(drugService.listDrugsByIds(List.of(5001L))).thenReturn(List.of(drug));
         when(drugInventoryService.selectForUpdate(5001L)).thenReturn(inv);
         when(medicalRecordService.getById(2001L)).thenReturn(record);
         when(registrationService.getRegistrationById(8001L)).thenReturn(reg);
         when(orderService.getOrderById(4001L)).thenReturn(order);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode()))
+                .thenReturn(true);
 
         DispenseVO vo = pharmacyManager.dispense(1001L, pharmacistId);
 
@@ -243,7 +246,11 @@ class PharmacyManagerTest {
         verify(drugInventoryService).updateDrugInventoryById(inv);
         verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
         verify(prescriptionService).updateById(rx);
-        verify(registrationService).updateStatusWithLog(eq(reg), anyInt(), eq(pharmacistId), eq("pharmacist"), eq("发药完成"));
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(reg.getId()), eq(RegistrationStatusEnum.SUCCESS.getCode()),
+                eq(RegistrationStatusEnum.COMPLETED.getCode()),
+                eq(pharmacistId), eq("pharmacist"), eq("发药完成"));
         verify(orderService).updateOrderById(order);
         verify(orderStatusLogService).addOrderStatusLog(any(OrderStatusLog.class));
     }

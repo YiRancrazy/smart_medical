@@ -52,6 +52,8 @@ class PaymentRecordManagerTest {
     @Mock
     private RegistrationService registrationService;
     @Mock
+    private RegistrationStatusLogService registrationStatusLogService;
+    @Mock
     private OrderStatusLogService orderStatusLogService;
     @Mock
     private UserPatientRelationService userPatientRelationService;
@@ -161,12 +163,17 @@ class PaymentRecordManagerTest {
 
         when(orderService.getOrderById(orderId)).thenReturn(order);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(reg);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.SUCCESS.getCode()))
+                .thenReturn(true);
 
         Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
 
         assertEquals(200, result.getCode());
         verify(orderService, never()).markOrderPaid(anyLong());
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.SUCCESS.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.SUCCESS.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(reg.getId()), eq(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()),
+                eq(RegistrationStatusEnum.SUCCESS.getCode()),
                 eq(0L), eq("system"), eq("支付成功(补同步)"));
     }
 
@@ -230,16 +237,19 @@ class PaymentRecordManagerTest {
         when(orderService.getOrderById(orderId)).thenReturn(order);
         when(orderService.markOrderPaid(orderId)).thenReturn(1);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(registration);
+        when(registrationService.updateStatusIfCurrent(registration, RegistrationStatusEnum.SUCCESS.getCode()))
+                .thenReturn(true);
         doNothing().when(prescriptionService).markAsPaid(orderId);
 
         Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
 
         assertEquals(200, result.getCode());
-        verify(registrationService).updateStatusWithLog(
-                registration,
+        verify(registrationService).updateStatusIfCurrent(
+                registration, RegistrationStatusEnum.SUCCESS.getCode());
+        verify(registrationStatusLogService).writeLog(
+                registration.getId(),
+                RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
                 RegistrationStatusEnum.SUCCESS.getCode(),
-                0L,
-                "system",
-                "支付成功");
+                0L, "system", "支付成功");
     }
 }

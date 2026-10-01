@@ -172,13 +172,11 @@ public interface RegistrationService {
     List<Registration> listByScheduleIdsAndStatus(List<Long> scheduleIds, Integer status);
 
     /**
-     * 挂号状态迁移：原子更新 registration.status（带 status=fromStatus 乐观守门）+ 写状态日志
+     * 挂号状态迁移：按状态白名单原子更新 registration.status（带 status=fromStatus 乐观守门）
      * @param reg 已加载的挂号实体
      * @param toStatus 目标状态
-     * @param operatorId 操作人ID(0=系统)
-     * @param operatorRole 操作人角色(user/doctor/pharmacist/system)
-     * @param remark 备注
-     * @throws BizException 非法状态流转或乐观守门失败时抛出 REGISTRATION_STATUS_INVALID
+     * @return true=更新成功；false=状态已被并发变更，未做任何修改
+     * @throws BizException 非法状态流转时抛出 REGISTRATION_STATUS_INVALID
      */
-    void updateStatusWithLog(Registration reg, int toStatus, Long operatorId, String operatorRole, String remark);
+    boolean updateStatusIfCurrent(Registration reg, int toStatus);
 }

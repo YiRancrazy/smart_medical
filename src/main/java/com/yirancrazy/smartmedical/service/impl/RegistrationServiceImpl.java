@@ -11,11 +11,9 @@ import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.RegistrationService;
-import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,7 +35,6 @@ import java.util.Set;
 public class RegistrationServiceImpl implements RegistrationService {
 
     private final RegistrationMapper registrationMapper;
-    private final RegistrationStatusLogService registrationStatusLogService;
 
     /**
      * 允许的状态转移白名单（from -> 可达 to 集合）
@@ -268,9 +265,7 @@ public class RegistrationServiceImpl implements RegistrationService {
      * {@inheritDoc}
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void updateStatusWithLog(Registration reg, int toStatus,
-                                    Long operatorId, String operatorRole, String remark) {
+    public boolean updateStatusIfCurrent(Registration reg, int toStatus) {
         Integer fromStatus = reg.getStatus();
         if (fromStatus == null) {
             fromStatus = -1;
@@ -300,17 +295,13 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
         int rows = registrationMapper.update(null, uw);
         if (rows == 0) {
-            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
-                    "状态已变更，请刷新");
+            return false;
         }
 
         // 同步内存中状态，便于后续可能继续使用 reg
         reg.setStatus(toStatus);
-
-        // 写状态日志
-        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
-                operatorId, operatorRole, remark);
-        log.info("[registration-status] regId={} {}->{} by {}({})",
-                reg.getId(), fromStatus, toStatus, operatorRole, operatorId);
+        log.info("[registration-status] regId={} {}->{}",
+                reg.getId(), fromStatus, toStatus);
+        return true;
     }
 }

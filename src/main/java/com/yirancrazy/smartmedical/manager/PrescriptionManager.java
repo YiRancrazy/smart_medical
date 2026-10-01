@@ -1,8 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
@@ -29,7 +27,6 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.User;
-import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
@@ -84,6 +81,8 @@ public class PrescriptionManager {
 
     /** 库存异动类型:锁定 */
     private static final int TXN_LOCK = 4;
+    /** 库存异动类型:解锁 */
+    private static final int TXN_UNLOCK = 5;
     /** 支付记录状态:已退款 */
     private static final int PAYMENT_STATUS_REFUNDED = 4;
     /** 默认支付方式:4 现金 */
@@ -145,8 +144,12 @@ public class PrescriptionManager {
                 drugResult.drugCache, drugResult.inventoryCache);
 
         // 6. registration 状态迁移:就诊中 → 完成
-        registrationService.updateStatusWithLog(reg,
-                RegistrationStatusEnum.COMPLETED.getCode(),
+        Integer fromStatus = reg.getStatus();
+        int toStatus = RegistrationStatusEnum.COMPLETED.getCode();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                 doctorId, RoleEnum.DOCTOR.getRole(), "提交病历开方");
 
         // 7. 构造返回 VO
@@ -221,10 +224,7 @@ public class PrescriptionManager {
      */
     private MedicalRecord saveMedicalRecord(Registration reg, Long doctorId, SubmitPrescriptionRequest req) {
         Long regId = reg.getId();
-        MedicalRecord record = medicalRecordService.getOne(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getRegistrationId, regId)
-                        .last("LIMIT 1"));
+        MedicalRecord record = medicalRecordService.getByRegistrationId(regId);
         if (record == null) {
             record = new MedicalRecord();
             // ponytail: 不预填 id，@TableId(ASSIGN_ID) 在 save 时自动生成雪花 id；预填会导致下方 getId()==null 判断失效，新病历误走 updateById 静默失败
@@ -251,8 +251,12 @@ public class PrescriptionManager {
      * 无处方药品时直接完成就诊
      */
     private PrescriptionSubmitVO handleNoPrescription(Registration reg, MedicalRecord record, Long doctorId) {
-        registrationService.updateStatusWithLog(reg,
-                RegistrationStatusEnum.COMPLETED.getCode(),
+        Integer fromStatus = reg.getStatus();
+        int toStatus = RegistrationStatusEnum.COMPLETED.getCode();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                 doctorId, RoleEnum.DOCTOR.getRole(), "就诊完成(无处方)");
         PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
         vo.setMedicalRecordId(record.getId());
@@ -397,7 +401,7 @@ public class PrescriptionManager {
         }
         MedicalRecord record = rx.getMedicalRecordId() == null
                 ? null : medicalRecordService.getById(rx.getMedicalRecordId());
-        if (record == null || !userPatientRelationService.getAccessiblePatientUserIds(userId, null).contains(record.getPatientId())) {
+        if (record == null || !userPatientRelationService.listAccessiblePatientUserIds(userId).contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
         }
         // 仅已支付可退，已取消/已发药拒绝（已发药应走药师逆向）
@@ -405,10 +409,7 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "仅已支付未发药的处方可退款");
         }
 
-        // 1. 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁 + 状态守卫，防并发双释放）
-        prescriptionService.releaseLockedStock(rx, userId, RoleEnum.PATIENT.getRole(), "处方退款释放库存");
-
-        // 2. 订单退款（已支付才退），写退款记录 + 原支付记录置为已退款 + 订单置为已退款
+        // 1. 订单退款（已支付才退），写退款记录 + 原支付记录置为已退款 + 订单置为已退款
         if (rx.getOrderId() != null) {
             Order order = orderService.getOrderById(rx.getOrderId());
             if (order != null && order.getStatus() != null
@@ -446,15 +447,13 @@ public class PrescriptionManager {
             }
         }
 
-        // 3. 处方置为已取消：条件更新仅当仍处于已支付才生效，并发退款只有一个成功，失败方抛异常回滚库存释放
-        boolean rxUpdated = prescriptionService.update(
-                new UpdateWrapper<Prescription>()
-                        .eq("id", rx.getId())
-                        .eq("status", PrescriptionStatus.PAID.getCode())
-                        .set("status", PrescriptionStatus.CANCELLED.getCode()));
+        // 2. 处方置为已取消：条件更新仅当仍处于已支付才生效，并发退款只有一个成功，失败方抛异常回滚
+        boolean rxUpdated = prescriptionService.applyRefundIfCurrent(rx.getId());
         if (!rxUpdated) {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_CANCELLED, "处方已被处理，请刷新");
         }
+        // 3. 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁 + 状态守卫，防并发双释放）
+        releaseLockedStock(rx, userId, RoleEnum.PATIENT.getRole(), "处方退款释放库存");
         log.info("[prescription-refund] prescriptionId={}, orderId={}, userId={}", prescriptionId, rx.getOrderId(), userId);
     }
 
@@ -480,29 +479,29 @@ public class PrescriptionManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "只能作废待支付处方");
         }
 
-        // 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁，防并发双释放）
-        prescriptionService.releaseLockedStock(rx, doctorId, RoleEnum.DOCTOR.getRole(), "作废处方释放库存");
-
-        // 关闭订单
-        closeOrderForCancel(rx, doctorId, RoleEnum.DOCTOR.getRole(), "作废处方关闭订单");
-
-        // 处方置为已取消：条件更新仅当仍处于待支付才生效，并发作废只有一个成功，失败方抛异常回滚库存释放
-        boolean rxUpdated = prescriptionService.update(
-                new UpdateWrapper<Prescription>()
-                        .eq("id", rx.getId())
-                        .eq("status", PrescriptionStatus.PENDING_PAYMENT.getCode())
-                        .set("status", PrescriptionStatus.CANCELLED.getCode()));
+        // 处方置为已取消：条件更新仅当仍处于待支付才生效，先抢到者生效，失败方抛异常回滚
+        boolean rxUpdated = prescriptionService.cancelPendingIfCurrent(rx.getId());
         if (!rxUpdated) {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_CANCELLED, "处方已被处理，请刷新");
         }
+
+        // 释放锁定库存：locked -= q, available += q（FOR UPDATE 行锁，防并发双释放）
+        releaseLockedStock(rx, doctorId, RoleEnum.DOCTOR.getRole(), "作废处方释放库存");
+
+        // 关闭订单
+        closeOrderForCancel(rx, doctorId, RoleEnum.DOCTOR.getRole(), "作废处方关闭订单");
 
         // registration 状态回退：仅旧流程产生的 PENDING_PAYMENT 回退到就诊中；
         // 新流程提交后挂号已完成，作废处方不再回退挂号状态
         if (record != null) {
             Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
             if (reg != null && reg.getStatus() == RegistrationStatusEnum.PENDING_PAYMENT.getCode()) {
-                registrationService.updateStatusWithLog(reg,
-                        RegistrationStatusEnum.IN_TREATMENT.getCode(),
+                Integer fromStatus = reg.getStatus();
+                int toStatus = RegistrationStatusEnum.IN_TREATMENT.getCode();
+                if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+                    throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+                }
+                registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                         doctorId, RoleEnum.DOCTOR.getRole(), "作废处方");
             }
         }
@@ -533,6 +532,56 @@ public class PrescriptionManager {
     }
 
     /**
+     * 释放处方锁定的库存并写解锁流水（FOR UPDATE 行锁串行化防并发双释放）
+     * @param rx 处方
+     * @param operatorId 操作人ID（系统传 0L）
+     * @param operatorName 操作人角色（doctor/user/system）
+     * @param remark 流水备注
+     */
+    private void releaseLockedStock(Prescription rx, Long operatorId, String operatorName, String remark) {
+        List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(rx.getId());
+        List<Long> drugIds = items.stream()
+                .map(PrescriptionItem::getDrugId)
+                .distinct()
+                .collect(Collectors.toList());
+        if (drugIds.isEmpty()) {
+            return;
+        }
+        Map<Long, DrugInventory> inventoryMap = drugInventoryService.listByDrugIdsForUpdate(drugIds)
+                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
+        for (PrescriptionItem item : items) {
+            DrugInventory inv = inventoryMap.get(item.getDrugId());
+            if (inv == null) {
+                continue;
+            }
+            int lockedBefore = inv.getLockedQuantity() == null ? 0 : inv.getLockedQuantity();
+            if (lockedBefore < item.getQuantity()) {
+                log.warn("[inventory-release] drugId={} locked={} < qty={}，已释放过，跳过",
+                        item.getDrugId(), lockedBefore, item.getQuantity());
+                continue;
+            }
+            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
+            drugInventoryService.releaseInventory(inv.getId(), item.getQuantity());
+            InventoryTransaction txn = new InventoryTransaction();
+            txn.setId(IdUtil.getSnowflakeNextId());
+            txn.setDrugId(item.getDrugId());
+            txn.setWarehouseId(inv.getWarehouseId());
+            txn.setTransactionType(TXN_UNLOCK);
+            txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
+            txn.setQuantityChange(-item.getQuantity());
+            txn.setQuantityBefore(qtyBefore);
+            txn.setQuantityAfter(qtyBefore + item.getQuantity());
+            txn.setRemark(remark);
+            txn.setOperatorId(operatorId);
+            txn.setOperatorName(operatorName);
+            inventoryTransactionService.insertInventoryTransaction(txn);
+            // 更新本地值，同一处方多明细同药时后续判断准确
+            inv.setLockedQuantity(lockedBefore - item.getQuantity());
+            inv.setAvailableQuantity(qtyBefore + item.getQuantity());
+        }
+    }
+
+    /**
      * 医生端 - 处方列表（按当前医生过滤）
      * @param doctorId 医生ID
      * @return 处方列表 VO
@@ -541,9 +590,8 @@ public class PrescriptionManager {
         if (doctorId == null) {
             return Collections.emptyList();
         }
-        List<MedicalRecord> records = medicalRecordService.list(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getDoctorId, doctorId));
+        List<MedicalRecord> records = medicalRecordService
+                .listMedicalRecordsByDoctorIdAndPatientUserIds(doctorId, null);
         if (records.isEmpty()) {
             return Collections.emptyList();
         }
@@ -554,11 +602,7 @@ public class PrescriptionManager {
                 .map(MedicalRecord::getId)
                 .collect(Collectors.toList());
 
-        List<Prescription> prescriptions = prescriptionService.list(
-                new LambdaQueryWrapper<Prescription>()
-                        .in(Prescription::getMedicalRecordId, recordIds)
-                        .eq(Prescription::getDeleted, false)
-                        .orderByDesc(Prescription::getCreateTime));
+        List<Prescription> prescriptions = prescriptionService.listByMedicalRecordIds(recordIds);
         if (prescriptions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -573,9 +617,7 @@ public class PrescriptionManager {
         List<Long> prescriptionIds = prescriptions.stream()
                 .map(Prescription::getId)
                 .collect(Collectors.toList());
-        Map<Long, Long> itemCountMap = prescriptionItemService.list(
-                        new LambdaQueryWrapper<PrescriptionItem>()
-                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+        Map<Long, Long> itemCountMap = prescriptionItemService.listByPrescriptionIds(prescriptionIds)
                 .stream()
                 .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
 
@@ -624,9 +666,7 @@ public class PrescriptionManager {
         User user = record.getPatientId() == null
                 ? null : userService.getUserById(record.getPatientId());
 
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(prescriptionId);
         List<Long> drugIds = items.stream()
                 .map(PrescriptionItem::getDrugId)
                 .distinct()
@@ -677,9 +717,7 @@ public class PrescriptionManager {
         if (patientUserIds == null || patientUserIds.isEmpty()) {
             return Collections.emptyList();
         }
-        List<MedicalRecord> records = medicalRecordService.list(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .in(MedicalRecord::getPatientId, patientUserIds));
+        List<MedicalRecord> records = medicalRecordService.listByPatientUserIds(patientUserIds);
         if (records.isEmpty()) {
             return Collections.emptyList();
         }
@@ -687,11 +725,7 @@ public class PrescriptionManager {
                 .map(MedicalRecord::getId)
                 .collect(Collectors.toList());
 
-        List<Prescription> prescriptions = prescriptionService.list(
-                new LambdaQueryWrapper<Prescription>()
-                        .in(Prescription::getMedicalRecordId, recordIds)
-                        .eq(Prescription::getDeleted, false)
-                        .orderByDesc(Prescription::getCreateTime));
+        List<Prescription> prescriptions = prescriptionService.listByMedicalRecordIds(recordIds);
         if (prescriptions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -699,9 +733,7 @@ public class PrescriptionManager {
         List<Long> prescriptionIds = prescriptions.stream()
                 .map(Prescription::getId)
                 .collect(Collectors.toList());
-        Map<Long, Long> itemCountMap = prescriptionItemService.list(
-                        new LambdaQueryWrapper<PrescriptionItem>()
-                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+        Map<Long, Long> itemCountMap = prescriptionItemService.listByPrescriptionIds(prescriptionIds)
                 .stream()
                 .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
 
@@ -736,14 +768,12 @@ public class PrescriptionManager {
             if (record == null) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
-            List<Long> accessibleUserIds = userPatientRelationService.getAccessiblePatientUserIds(userId, null);
+            List<Long> accessibleUserIds = userPatientRelationService.listAccessiblePatientUserIds(userId);
             if (!accessibleUserIds.contains(record.getPatientId())) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
         }
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(prescriptionId);
         List<Long> drugIds = items.stream()
                 .map(PrescriptionItem::getDrugId)
                 .distinct()
@@ -808,28 +838,22 @@ public class PrescriptionManager {
             return new PageInfo<>(Collections.emptyList());
         }
 
-        LambdaQueryWrapper<Prescription> wrapper = new LambdaQueryWrapper<Prescription>()
-                .eq(Prescription::getDeleted, false)
-                .orderByDesc(Prescription::getCreateTime);
-
-        if (restrictByMedicalRecord) {
-            wrapper.in(Prescription::getMedicalRecordId, allowedMedicalRecordIds);
-        }
-        if (request.getStatus() != null) {
-            wrapper.eq(Prescription::getStatus, request.getStatus());
-        }
-        if (request.getStartDate() != null) {
-            wrapper.ge(Prescription::getCreateTime, request.getStartDate().atStartOfDay());
-        }
-        if (request.getEndDate() != null) {
-            wrapper.le(Prescription::getCreateTime, request.getEndDate().atTime(LocalTime.MAX));
-        }
-
+        LocalDateTime createTimeStart = request.getStartDate() == null
+                ? null : request.getStartDate().atStartOfDay();
+        LocalDateTime createTimeEnd = request.getEndDate() == null
+                ? null : request.getEndDate().atTime(LocalTime.MAX);
         int pageNum = request.getPageNum() == null || request.getPageNum() < 1 ? 1 : request.getPageNum();
         int pageSize = request.getPageSize() == null || request.getPageSize() < 1 ? 10 : request.getPageSize();
-        PageHelper.startPage(pageNum, pageSize);
-        List<Prescription> prescriptions = prescriptionService.list(wrapper);
-        return new PageInfo<>(toAdminPageItemVOs(prescriptions));
+        PageInfo<Prescription> prescriptionPage = prescriptionService
+                .listPrescriptionsByMedicalRecordIdsAndStatusAndCreateTimePage(
+                        allowedMedicalRecordIds, request.getStatus(), createTimeStart, createTimeEnd,
+                        pageNum, pageSize);
+        PageInfo<com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO> result =
+                new PageInfo<>(toAdminPageItemVOs(prescriptionPage.getList()));
+        result.setTotal(prescriptionPage.getTotal());
+        result.setPageNum(prescriptionPage.getPageNum());
+        result.setPageSize(prescriptionPage.getPageSize());
+        return result;
     }
 
     /**
@@ -839,29 +863,20 @@ public class PrescriptionManager {
      * @return 允许的病历ID集合；null 表示无限制
      */
     private List<Long> resolveAllowedMedicalRecordIds(Long doctorId, String patientName) {
-        LambdaQueryWrapper<MedicalRecord> wrapper = new LambdaQueryWrapper<MedicalRecord>()
-                .eq(MedicalRecord::getDeleted, false);
-
-        boolean restricted = false;
-        if (doctorId != null) {
-            wrapper.eq(MedicalRecord::getDoctorId, doctorId);
-            restricted = true;
-        }
-
         List<Long> patientUserIds = null;
         if (patientName != null && !patientName.trim().isEmpty()) {
             patientUserIds = userService.listUserIdsByNicknameLike(patientName.trim());
             if (patientUserIds.isEmpty()) {
                 return Collections.emptyList();
             }
-            wrapper.in(MedicalRecord::getPatientId, patientUserIds);
-            restricted = true;
         }
 
-        if (!restricted) {
+        if (doctorId == null && patientUserIds == null) {
             return null;
         }
-        return medicalRecordService.list(wrapper).stream()
+        return medicalRecordService
+                .listMedicalRecordsByDoctorIdAndPatientUserIds(doctorId, patientUserIds)
+                .stream()
                 .map(MedicalRecord::getId)
                 .collect(Collectors.toList());
     }
@@ -881,8 +896,7 @@ public class PrescriptionManager {
                 .map(Prescription::getMedicalRecordId)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<Long, MedicalRecord> recordMap = medicalRecordService.list(
-                        new LambdaQueryWrapper<MedicalRecord>().in(MedicalRecord::getId, medicalRecordIds))
+        Map<Long, MedicalRecord> recordMap = medicalRecordService.listByIds(medicalRecordIds)
                 .stream()
                 .collect(Collectors.toMap(MedicalRecord::getId, r -> r));
 
@@ -903,9 +917,7 @@ public class PrescriptionManager {
         List<Long> prescriptionIds = prescriptions.stream()
                 .map(Prescription::getId)
                 .collect(Collectors.toList());
-        Map<Long, Long> itemCountMap = prescriptionItemService.list(
-                        new LambdaQueryWrapper<PrescriptionItem>()
-                                .in(PrescriptionItem::getPrescriptionId, prescriptionIds))
+        Map<Long, Long> itemCountMap = prescriptionItemService.listByPrescriptionIds(prescriptionIds)
                 .stream()
                 .collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
 
@@ -973,9 +985,7 @@ public class PrescriptionManager {
             }
         }
 
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, id));
+        List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(id);
         List<Long> drugIds = items.stream()
                 .map(PrescriptionItem::getDrugId)
                 .distinct()

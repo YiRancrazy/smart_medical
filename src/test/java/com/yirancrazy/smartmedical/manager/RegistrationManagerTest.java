@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.DoctorPosition;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
@@ -38,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -67,7 +69,7 @@ class RegistrationManagerTest {
 
     @BeforeEach
     void setUp() {
-        when(userPatientRelationService.getAccessiblePatientUserIds(7L, null)).thenReturn(List.of(7L));
+        lenient().when(userPatientRelationService.listAccessiblePatientUserIds(7L)).thenReturn(List.of(7L));
     }
 
     @Test
@@ -182,5 +184,23 @@ class RegistrationManagerTest {
 
         assertEquals(200, result.getCode());
         assertTrue(result.getData().getList().isEmpty());
+    }
+
+    @Test
+    void getRegistrationByUid_patientCardId_resolvesAuthorizedPatientUserId() {
+        Patient patient = new Patient();
+        patient.setUserId(8L);
+
+        when(patientService.getPatientByPatientCardId(100L)).thenReturn(patient);
+        when(userPatientRelationService.hasAuthorization(7L, 8L)).thenReturn(true);
+        when(registrationService.listRegistrationsByUserIds(List.of(8L))).thenReturn(Collections.emptyList());
+
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(
+                7L, 100L, null, null);
+
+        assertEquals(200, result.getCode());
+        assertTrue(result.getData().getList().isEmpty());
+        verify(registrationService).listRegistrationsByUserIds(List.of(8L));
+        verify(userPatientRelationService).hasAuthorization(7L, 8L);
     }
 }

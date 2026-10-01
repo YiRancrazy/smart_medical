@@ -65,10 +65,9 @@ public interface UserPatientRelationService {
     boolean hasAuthorization(Long userId, Long patientUserId);
 
     /**
-     * 获取当前账号下可访问的患者 userId 列表（所有已添加就诊人，含本人）
+     * 获取当前账号下可访问的患者 userId 列表（所有已添加就诊人，含本人，已去重）
      * @param currentUserId 当前登录用户id
-     * @param patientCardId 就诊卡id（为 null 时返回全部关联患者）
-     * @return 患者 userId 列表；patientCardId 不合法或无访问关系时返回空列表
+     * @return 患者 userId 列表；无关系时返回空列表
      */
-    List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId);
+    List<Long> listAccessiblePatientUserIds(Long currentUserId);
 }

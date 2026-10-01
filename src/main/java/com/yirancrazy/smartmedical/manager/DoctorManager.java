@@ -44,6 +44,7 @@ import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.utils.DoctorInitPasswordUtil;
@@ -89,6 +90,7 @@ public class DoctorManager {
     private final AppointmentRuleService appointmentRuleService;
     private final DegreeService degreeService;
     private final RegistrationService registrationService;
+    private final RegistrationStatusLogService registrationStatusLogService;
     private final UserService userService;
     private final AccountService accountService;
     private final ConsultationRoomService consultationRoomService;
@@ -507,7 +509,12 @@ public class DoctorManager {
         if (!Integer.valueOf(RegistrationStatusEnum.REPORTED.getCode()).equals(reg.getStatus())) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "该挂号未报到");
         }
-        registrationService.updateStatusWithLog(reg, RegistrationStatusEnum.IN_TREATMENT.getCode(),
+        Integer fromStatus = reg.getStatus();
+        int toStatus = RegistrationStatusEnum.IN_TREATMENT.getCode();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                 doctorId, RoleEnum.DOCTOR.getRole(), "叫号接诊");
     }
 

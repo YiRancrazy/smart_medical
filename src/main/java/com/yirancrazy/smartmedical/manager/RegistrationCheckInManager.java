@@ -20,6 +20,7 @@ import com.yirancrazy.smartmedical.service.PaymentRecordService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,7 @@ public class RegistrationCheckInManager {
     private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
 
     private final RegistrationService registrationService;
+    private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
     private final PatientService patientService;
     private final UserPatientRelationService userPatientRelationService;
@@ -100,8 +102,12 @@ public class RegistrationCheckInManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "仅预约当天可报到");
         }
-        registrationService.updateStatusWithLog(reg,
-                RegistrationStatusEnum.REPORTED.getCode(),
+        Integer fromStatus = reg.getStatus();
+        int toStatus = RegistrationStatusEnum.REPORTED.getCode();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                 userId, RoleEnum.PATIENT.getRole(), "用户报到");
     }
 
@@ -127,8 +133,12 @@ public class RegistrationCheckInManager {
         handleOrderForCancel(reg, userId);
 
         // 5. 状态迁移 → 已取消
-        registrationService.updateStatusWithLog(reg,
-                RegistrationStatusEnum.CANCELED.getCode(),
+        Integer fromStatus = reg.getStatus();
+        int toStatus = RegistrationStatusEnum.CANCELED.getCode();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                 userId, RoleEnum.PATIENT.getRole(),
                 reason != null && !reason.isEmpty() ? reason : "用户取消");
     }

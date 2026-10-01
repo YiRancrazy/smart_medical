@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -14,7 +13,6 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.User;
-import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
@@ -36,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
@@ -85,10 +84,7 @@ public class MedicalRecordManager {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
                     "仅就诊中状态可编辑病历");
         }
-        MedicalRecord record = medicalRecordService.getOne(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getRegistrationId, req.getRegistrationId())
-                        .last("LIMIT 1"));
+        MedicalRecord record = medicalRecordService.getByRegistrationId(req.getRegistrationId());
         if (record == null) {
             record = new MedicalRecord();
             // ponytail: 不预填 id，@TableId(ASSIGN_ID) 在 save 时自动生成雪花 id；预填会导致下方 getId()==null 判断失效，新病历误走 updateById 静默失败
@@ -184,8 +180,8 @@ public class MedicalRecordManager {
                 .map(Registration::getRegistrationScheduleId).distinct().collect(Collectors.toList());
         Map<Long, RegistrationSchedule> scheduleMap = registrationScheduleService.listRegistrationSchedulesByIds(scheduleIds).stream()
                 .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s));
-        Map<Long, Prescription> prescriptionMap = prescriptionService.list(
-                new LambdaQueryWrapper<Prescription>().in(Prescription::getMedicalRecordId, recordIds))
+        Map<Long, Prescription> prescriptionMap = prescriptionService
+                .listByMedicalRecordIds(recordIds)
                 .stream().collect(Collectors.toMap(Prescription::getMedicalRecordId, p -> p, (p1, p2) -> p1));
 
         return records.stream().map(record -> {
@@ -240,10 +236,7 @@ public class MedicalRecordManager {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
         assertDoctorOwnsRegistration(reg, doctorId);
-        MedicalRecord record = medicalRecordService.getOne(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getRegistrationId, registrationId)
-                        .last("LIMIT 1"));
+        MedicalRecord record = medicalRecordService.getByRegistrationId(registrationId);
         return toDetailVO(record);
     }
 
@@ -276,13 +269,7 @@ public class MedicalRecordManager {
      * @return 病历实体列表（按创建时间倒序）
      */
     public List<MedicalRecord> listByPatientIds(List<Long> patientUserIds) {
-        if (patientUserIds == null || patientUserIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return medicalRecordService.list(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .in(MedicalRecord::getPatientId, patientUserIds)
-                        .orderByDesc(MedicalRecord::getCreateTime));
+        return medicalRecordService.listByPatientUserIds(patientUserIds);
     }
 
     /**
@@ -298,7 +285,7 @@ public class MedicalRecordManager {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }
         // 复用列表端点的可访问患者集合，确保家属代查场景一致
-        List<Long> accessibleUserIds = userPatientRelationService.getAccessiblePatientUserIds(userId, null);
+        List<Long> accessibleUserIds = userPatientRelationService.listAccessiblePatientUserIds(userId);
         if (!accessibleUserIds.contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.MEDICAL_RECORD_NOT_FOUND, "无权查看该病历");
         }
@@ -373,10 +360,7 @@ public class MedicalRecordManager {
                 }
             }
         }
-        Prescription prescription = prescriptionService.getOne(
-                new LambdaQueryWrapper<Prescription>()
-                        .eq(Prescription::getMedicalRecordId, record.getId())
-                        .last("LIMIT 1"));
+        Prescription prescription = prescriptionService.getByMedicalRecordId(record.getId());
         if (prescription != null) {
             vo.setPrescriptionId(prescription.getId());
         }
@@ -389,22 +373,10 @@ public class MedicalRecordManager {
      * @return 病历分页列表
      */
     public PageInfo<MedicalRecordPageItemVO> pageMedicalRecords(MedicalRecordQueryRequest request, Long doctorId) {
-        LambdaQueryWrapper<MedicalRecord> wrapper = new LambdaQueryWrapper<MedicalRecord>()
-                .eq(MedicalRecord::getDeleted, false)
-                .orderByDesc(MedicalRecord::getCreateTime);
-
-        if (doctorId != null) {
-            wrapper.eq(MedicalRecord::getDoctorId, doctorId);
-        }
-
         LocalDate startDate = request.getStartDate();
         LocalDate endDate = request.getEndDate();
-        if (startDate != null) {
-            wrapper.ge(MedicalRecord::getCreateTime, startDate.atStartOfDay());
-        }
-        if (endDate != null) {
-            wrapper.le(MedicalRecord::getCreateTime, endDate.atTime(LocalTime.MAX));
-        }
+        LocalDateTime createTimeStart = startDate == null ? null : startDate.atStartOfDay();
+        LocalDateTime createTimeEnd = endDate == null ? null : endDate.atTime(LocalTime.MAX);
 
         List<Long> patientUserIds = null;
         if (request.getPatientName() != null && !request.getPatientName().trim().isEmpty()) {
@@ -412,14 +384,18 @@ public class MedicalRecordManager {
             if (patientUserIds.isEmpty()) {
                 return new PageInfo<>(Collections.emptyList());
             }
-            wrapper.in(MedicalRecord::getPatientId, patientUserIds);
         }
 
         int pageNum = request.getPageNum() == null || request.getPageNum() < 1 ? 1 : request.getPageNum();
         int pageSize = request.getPageSize() == null || request.getPageSize() < 1 ? 10 : request.getPageSize();
-        PageHelper.startPage(pageNum, pageSize);
-        List<MedicalRecord> records = medicalRecordService.list(wrapper);
-        return new PageInfo<>(toAdminPageItemVOs(records));
+        PageInfo<MedicalRecord> records = medicalRecordService
+                .listMedicalRecordsByPatientUserIdsAndDoctorIdPage(
+                        patientUserIds, doctorId, createTimeStart, createTimeEnd, pageNum, pageSize);
+        PageInfo<MedicalRecordPageItemVO> result = new PageInfo<>(toAdminPageItemVOs(records.getList()));
+        result.setTotal(records.getTotal());
+        result.setPageNum(records.getPageNum());
+        result.setPageSize(records.getPageSize());
+        return result;
     }
 
     /**

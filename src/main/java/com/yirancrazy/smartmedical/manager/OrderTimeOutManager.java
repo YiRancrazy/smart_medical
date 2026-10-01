@@ -1,26 +1,37 @@
 package com.yirancrazy.smartmedical.manager;
 
+import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
+import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
+import com.yirancrazy.smartmedical.pojo.DrugInventory;
+import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.Prescription;
+import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.properties.ScheduledTaskProperties;
+import com.yirancrazy.smartmedical.service.DrugInventoryService;
+import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.OrderStatusLogService;
+import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,11 +57,18 @@ public class OrderTimeOutManager {
     /** 订单支付超时时间：从订单创建时间起 30 分钟未支付自动作废 */
     private static final long PAYMENT_TIMEOUT_MINUTES = 30;
 
+    /** 库存异动类型:解锁 */
+    private static final int TXN_UNLOCK = 5;
+
     private final OrderService orderService;
     private final OrderStatusLogService orderStatusLogService;
     private final PrescriptionService prescriptionService;
+    private final PrescriptionItemService prescriptionItemService;
+    private final DrugInventoryService drugInventoryService;
+    private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationService registrationService;
     private final RegistrationScheduleService registrationScheduleService;
+    private final RegistrationStatusLogService registrationStatusLogService;
     private final ScheduledTaskProperties scheduledTaskProperties;
 
     @Scheduled(
@@ -137,8 +155,15 @@ public class OrderTimeOutManager {
                     order.getId(), reg.getId(), reg.getStatus());
             return;
         }
-        // updateStatusWithLog 内部带状态白名单守卫 + 乐观更新，非法流转抛异常触发整体回滚
-        registrationService.updateStatusWithLog(reg, RegistrationStatusEnum.CANCELED.getCode(),
+        // 状态白名单守卫 + 乐观更新；被并发抢占时跳过该挂号，不重复释放号源
+        int toStatus = RegistrationStatusEnum.CANCELED.getCode();
+        Integer fromStatus = reg.getStatus();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            log.warn("[order-timeout] 挂号订单 orderId={} 关联挂号 regId={} 状态已变更，跳过作废",
+                    order.getId(), reg.getId());
+            return;
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                 SYSTEM_OPERATOR_ID, SYSTEM_OPERATOR_ROLE, "订单支付超时自动取消");
         if (reg.getRegistrationScheduleId() != null) {
             registrationScheduleService.releaseQuota(reg.getRegistrationScheduleId());
@@ -155,13 +180,70 @@ public class OrderTimeOutManager {
             log.warn("[order-timeout] 药品订单 orderId={} 未关联处方，仅关闭订单", order.getId());
             return;
         }
-        boolean cancelled = prescriptionService.cancelExpiredPendingPrescription(rx.getId(),
-                "订单支付超时自动作废");
+        // 状态守卫：仅待支付处方可作废，已被支付/取消的处方跳过
+        if (rx.getStatus() == null
+                || rx.getStatus() != PrescriptionStatus.PENDING_PAYMENT.getCode()) {
+            log.info("[order-timeout] 药品订单 orderId={} 关联处方 rxId={} 状态={}，非待支付跳过",
+                    order.getId(), rx.getId(), rx.getStatus());
+            return;
+        }
+        boolean cancelled = prescriptionService.cancelPendingIfCurrent(rx.getId());
         if (cancelled) {
+            releaseLockedStock(rx, SYSTEM_OPERATOR_ID, SYSTEM_OPERATOR_ROLE, "订单支付超时自动作废");
             log.info("[order-timeout] 处方 orderId={} 关联处方 rxId={} 已作废并释放库存",
                     order.getId(), rx.getId());
         } else {
             log.warn("[order-timeout] 药品订单 orderId={} 关联处方 rxId={} 状态已变更，跳过", order.getId(), rx.getId());
+        }
+    }
+
+    /**
+     * 释放处方锁定的库存并写解锁流水（FOR UPDATE 行锁串行化防并发双释放）
+     * @param rx 处方
+     * @param operatorId 操作人ID（系统传 0L）
+     * @param operatorName 操作人角色（系统传 system）
+     * @param remark 流水备注
+     */
+    private void releaseLockedStock(Prescription rx, Long operatorId, String operatorName, String remark) {
+        List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(rx.getId());
+        List<Long> drugIds = items.stream()
+                .map(PrescriptionItem::getDrugId)
+                .distinct()
+                .collect(Collectors.toList());
+        if (drugIds.isEmpty()) {
+            return;
+        }
+        Map<Long, DrugInventory> inventoryMap = drugInventoryService.listByDrugIdsForUpdate(drugIds)
+                .stream().collect(Collectors.toMap(DrugInventory::getDrugId, inv -> inv, (i1, i2) -> i1));
+        for (PrescriptionItem item : items) {
+            DrugInventory inv = inventoryMap.get(item.getDrugId());
+            if (inv == null) {
+                continue;
+            }
+            int lockedBefore = inv.getLockedQuantity() == null ? 0 : inv.getLockedQuantity();
+            if (lockedBefore < item.getQuantity()) {
+                log.warn("[inventory-release] drugId={} locked={} < qty={}，已释放过，跳过",
+                        item.getDrugId(), lockedBefore, item.getQuantity());
+                continue;
+            }
+            int qtyBefore = inv.getAvailableQuantity() == null ? 0 : inv.getAvailableQuantity();
+            drugInventoryService.releaseInventory(inv.getId(), item.getQuantity());
+            InventoryTransaction txn = new InventoryTransaction();
+            txn.setId(IdUtil.getSnowflakeNextId());
+            txn.setDrugId(item.getDrugId());
+            txn.setWarehouseId(inv.getWarehouseId());
+            txn.setTransactionType(TXN_UNLOCK);
+            txn.setRelatedOrder(String.valueOf(rx.getOrderId()));
+            txn.setQuantityChange(-item.getQuantity());
+            txn.setQuantityBefore(qtyBefore);
+            txn.setQuantityAfter(qtyBefore + item.getQuantity());
+            txn.setRemark(remark);
+            txn.setOperatorId(operatorId);
+            txn.setOperatorName(operatorName);
+            inventoryTransactionService.insertInventoryTransaction(txn);
+            // 更新本地值，同一处方多明细同药时后续判断准确
+            inv.setLockedQuantity(lockedBefore - item.getQuantity());
+            inv.setAvailableQuantity(qtyBefore + item.getQuantity());
         }
     }
 }

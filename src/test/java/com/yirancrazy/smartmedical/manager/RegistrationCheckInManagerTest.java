@@ -16,6 +16,7 @@ import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,7 @@ import static org.mockito.Mockito.when;
 class RegistrationCheckInManagerTest {
 
     @Mock private RegistrationService registrationService;
+    @Mock private RegistrationStatusLogService registrationStatusLogService;
     @Mock private RegistrationScheduleService registrationScheduleService;
     @Mock private PatientService patientService;
     @Mock private UserPatientRelationService userPatientRelationService;
@@ -67,7 +69,7 @@ class RegistrationCheckInManagerTest {
     private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Shanghai"));
 
     /**
-     * checkIn happy path：status=SUCCESS + 当天排班 → 调 updateStatusWithLog 到 REPORTED
+     * checkIn happy path：status=SUCCESS + 当天排班 → 调 updateStatusIfCurrent 到 REPORTED
      */
     @Test
     void checkIn_happyPath_transitionsToReported() {
@@ -78,10 +80,15 @@ class RegistrationCheckInManagerTest {
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
         when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(schedule);
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(TEMPLATE_ID)).thenReturn(template);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.REPORTED.getCode()))
+                .thenReturn(true);
 
         registrationCheckInManager.checkIn(REG_ID, USER_ID);
 
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.REPORTED.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.REPORTED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.SUCCESS.getCode()),
+                eq(RegistrationStatusEnum.REPORTED.getCode()),
                 eq(USER_ID), eq("user"), eq("用户报到"));
     }
 
@@ -136,10 +143,15 @@ class RegistrationCheckInManagerTest {
         when(userPatientRelationService.hasAuthorization(USER_ID, 888L)).thenReturn(true);
         when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(schedule);
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(TEMPLATE_ID)).thenReturn(template);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.REPORTED.getCode()))
+                .thenReturn(true);
 
         registrationCheckInManager.checkIn(REG_ID, USER_ID);
 
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.REPORTED.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.REPORTED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.SUCCESS.getCode()),
+                eq(RegistrationStatusEnum.REPORTED.getCode()),
                 eq(USER_ID), eq("user"), eq("用户报到"));
     }
 
@@ -160,7 +172,7 @@ class RegistrationCheckInManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> registrationCheckInManager.checkIn(REG_ID, USER_ID));
         assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
-        verify(registrationService, never()).updateStatusWithLog(any(), anyInt(), anyLong(), any(), any());
+        verify(registrationService, never()).updateStatusIfCurrent(any(), anyInt());
     }
 
     /**
@@ -204,6 +216,8 @@ class RegistrationCheckInManagerTest {
 
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
         when(orderService.getOrderById(5001L)).thenReturn(order);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode()))
+                .thenReturn(true);
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, "测试取消");
 
@@ -214,7 +228,10 @@ class RegistrationCheckInManagerTest {
         // 验证写订单日志
         verify(orderStatusLogService).addOrderStatusLog(any());
         // 验证挂号状态迁移
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()),
+                eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("测试取消"));
     }
 
@@ -240,6 +257,8 @@ class RegistrationCheckInManagerTest {
         when(orderService.getOrderById(5002L)).thenReturn(order);
         when(paymentRecordService.getSuccessPaymentRecordByOrderId(5002L)).thenReturn(origPay);
         when(paymentRecordService.listRefundedRecordsByOrderId(5002L)).thenReturn(List.of());
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode()))
+                .thenReturn(true);
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, null);
 
@@ -250,7 +269,10 @@ class RegistrationCheckInManagerTest {
         // 验证原支付记录置为已退款
         assertEquals(4, origPay.getStatus());
         // 验证挂号状态迁移（reason 为空时用默认文案）
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.SUCCESS.getCode()),
+                eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("用户取消"));
     }
 
@@ -262,10 +284,15 @@ class RegistrationCheckInManagerTest {
         Registration reg = buildRegistration(REG_ID, 888L, RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), SCHEDULE_ID);
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
         when(userPatientRelationService.hasAuthorization(USER_ID, 888L)).thenReturn(true);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode()))
+                .thenReturn(true);
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, "代取消");
 
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()),
+                eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("代取消"));
     }
 
@@ -277,13 +304,34 @@ class RegistrationCheckInManagerTest {
         Registration reg = buildRegistration(REG_ID, USER_ID, RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), SCHEDULE_ID);
         // orderId 留 null
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode()))
+                .thenReturn(true);
 
         registrationCheckInManager.cancel(REG_ID, USER_ID, "无订单取消");
 
         verify(registrationScheduleService).releaseQuota(SCHEDULE_ID);
         verify(orderService, never()).getOrderById(anyLong());
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.CANCELED.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()),
+                eq(RegistrationStatusEnum.CANCELED.getCode()),
                 eq(USER_ID), eq("user"), eq("无订单取消"));
+    }
+
+    /**
+     * cancel 乐观守门失败（并发已变更）→ 抛异常且不写状态日志
+     */
+    @Test
+    void cancel_concurrentTransition_throwsAndSkipsLog() {
+        Registration reg = buildRegistration(REG_ID, USER_ID, RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), SCHEDULE_ID);
+        when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode()))
+                .thenReturn(false);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> registrationCheckInManager.cancel(REG_ID, USER_ID, "并发取消"));
+        assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
+        verify(registrationStatusLogService, never()).writeLog(any(), any(), any(), any(), any(), any());
     }
 
     // ===== 辅助构造方法 =====

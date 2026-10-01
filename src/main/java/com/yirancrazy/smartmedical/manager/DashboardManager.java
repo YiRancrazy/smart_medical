@@ -1,10 +1,8 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
-import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.DashboardStatsResponse;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
@@ -55,17 +53,14 @@ public class DashboardManager {
         Long inTreatment = registrationService.countByStatus(RegistrationStatusEnum.IN_TREATMENT.getCode());
 
         // 待发药：处方 status = 1（已支付）
-        Long pendingDispense = prescriptionService.count(
-                new QueryWrapper<Prescription>()
-                        .eq("status", PrescriptionStatus.PAID.getCode()));
+        Long pendingDispense = prescriptionService.countByStatus(PrescriptionStatus.PAID.getCode());
 
         // 库存预警：available_quantity < min_stock
         Long inventoryAlert = drugInventoryService.countLowStock();
 
         // 新处方待处理：处方 status = 0（待支付）
-        Long newPrescription = prescriptionService.count(
-                new QueryWrapper<Prescription>()
-                        .eq("status", PrescriptionStatus.PENDING_PAYMENT.getCode()));
+        Long newPrescription = prescriptionService.countByStatus(
+                PrescriptionStatus.PENDING_PAYMENT.getCode());
 
         // ponytail: 待审核退号当前无退号流程，恒为 0；后续若加退号审批表再补
         DashboardStatsResponse response = new DashboardStatsResponse(

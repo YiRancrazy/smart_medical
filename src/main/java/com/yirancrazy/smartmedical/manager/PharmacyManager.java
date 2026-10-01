@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
@@ -37,6 +36,7 @@ import com.yirancrazy.smartmedical.service.OrderStatusLogService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +82,7 @@ public class PharmacyManager {
     private final DrugInventoryService drugInventoryService;
     private final InventoryTransactionService inventoryTransactionService;
     private final RegistrationService registrationService;
+    private final RegistrationStatusLogService registrationStatusLogService;
     private final MedicalRecordService medicalRecordService;
     private final OrderService orderService;
     private final OrderStatusLogService orderStatusLogService;
@@ -99,10 +100,7 @@ public class PharmacyManager {
         if (pageNum != null && pageSize != null) {
             PageHelper.startPage(pageNum, pageSize);
         }
-        List<Prescription> list = prescriptionService.list(
-                new LambdaQueryWrapper<Prescription>()
-                        .eq(Prescription::getStatus, PrescriptionStatus.PAID.getCode())
-                        .orderByAsc(Prescription::getCreateTime));
+        List<Prescription> list = prescriptionService.listByStatus(PrescriptionStatus.PAID.getCode());
         PageInfo<Prescription> pageInfo = new PageInfo<>(list);
         // 批量加载病历和挂号，消除 N+1
         List<Long> medicalRecordIds = list.stream()
@@ -150,54 +148,38 @@ public class PharmacyManager {
      * @return 发药历史分页列表
      */
     public Result<PageResult<DispenseHistoryVO>> pageDispenseHistory(DispenseHistoryQueryRequest request) {
-        LambdaQueryWrapper<Prescription> wrapper = new LambdaQueryWrapper<Prescription>()
-                .eq(Prescription::getStatus, PrescriptionStatus.DISPENSED.getCode())
-                .orderByDesc(Prescription::getDispensedAt);
-
+        Set<Long> pharmacistUserIds = null;
         // 发药人手机号模糊 → 反查药师账号 userId 集合（发药人=处方 pharmacistId=account.userId）
         if (request.getDispenserPhone() != null && !request.getDispenserPhone().isBlank()) {
-            Set<Long> pharmacistUserIds = accountService.listAccountsByPhoneLikeAndRole(
+            pharmacistUserIds = accountService.listAccountsByPhoneLikeAndRole(
                             request.getDispenserPhone(), PHARMACIST_ROLE_ID).stream()
                     .map(Account::getUserId)
                     .collect(Collectors.toSet());
             if (pharmacistUserIds.isEmpty()) {
                 return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
             }
-            wrapper.in(Prescription::getPharmacistId, pharmacistUserIds);
-        }
-        if (request.getPrescriptionId() != null) {
-            wrapper.eq(Prescription::getId, request.getPrescriptionId());
-        }
-        if (request.getOrderId() != null) {
-            wrapper.eq(Prescription::getOrderId, request.getOrderId());
-        }
-        // 发药日期范围（发药时间）
-        if (request.getStartDate() != null) {
-            wrapper.ge(Prescription::getDispensedAt, request.getStartDate().atStartOfDay());
-        }
-        if (request.getEndDate() != null) {
-            wrapper.le(Prescription::getDispensedAt, request.getEndDate().atTime(LocalTime.MAX));
         }
 
         // 患者姓名模糊 → 反查病历 patientId
+        List<Long> medicalRecordIds = null;
         if (request.getPatientName() != null && !request.getPatientName().isBlank()) {
             List<Long> patientUserIds = userService.listUserIdsByNicknameLike(request.getPatientName());
             if (patientUserIds.isEmpty()) {
                 return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
             }
-            List<Long> recordIds = medicalRecordService.list(
-                            new LambdaQueryWrapper<MedicalRecord>()
-                                    .in(MedicalRecord::getPatientId, patientUserIds))
+            medicalRecordIds = medicalRecordService.listByPatientUserIds(patientUserIds)
                     .stream().map(MedicalRecord::getId).collect(Collectors.toList());
-            if (recordIds.isEmpty()) {
+            if (medicalRecordIds.isEmpty()) {
                 return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
             }
-            wrapper.in(Prescription::getMedicalRecordId, recordIds);
         }
 
-        PageHelper.startPage(request.getPageNum(), request.getPageSize());
-        List<Prescription> prescriptions = prescriptionService.list(wrapper);
-        PageInfo<Prescription> pageInfo = new PageInfo<>(prescriptions);
+        LocalDateTime startTime = request.getStartDate() == null ? null : request.getStartDate().atStartOfDay();
+        LocalDateTime endTime = request.getEndDate() == null ? null : request.getEndDate().atTime(LocalTime.MAX);
+        PageInfo<Prescription> pageInfo = prescriptionService.listDispenseHistoryPage(
+                pharmacistUserIds, request.getPrescriptionId(), request.getOrderId(),
+                startTime, endTime, medicalRecordIds, request.getPageNum(), request.getPageSize());
+        List<Prescription> prescriptions = pageInfo.getList();
         return Result.success(new PageResult<>(pageInfo, buildDispenseHistoryVOs(prescriptions)));
     }
 
@@ -235,8 +217,7 @@ public class PharmacyManager {
         // 药品明细数
         Set<Long> rxIds = prescriptions.stream().map(Prescription::getId).collect(Collectors.toSet());
         Map<Long, Long> itemCountMap = rxIds.isEmpty() ? Collections.emptyMap() :
-                prescriptionItemService.list(new LambdaQueryWrapper<PrescriptionItem>()
-                                .in(PrescriptionItem::getPrescriptionId, rxIds))
+                prescriptionItemService.listByPrescriptionIds(rxIds)
                         .stream().collect(Collectors.groupingBy(PrescriptionItem::getPrescriptionId, Collectors.counting()));
 
         List<DispenseHistoryVO> vos = new ArrayList<>();
@@ -273,9 +254,7 @@ public class PharmacyManager {
     public DispenseVO dispense(Long prescriptionId, Long pharmacistId) {
         // 1. 校验处方 + 加载明细
         Prescription rx = validatePrescription(prescriptionId);
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
+        List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(prescriptionId);
 
         // 2. 批量查药品信息
         List<Long> drugIds = items.stream().map(PrescriptionItem::getDrugId).distinct().collect(Collectors.toList());
@@ -385,8 +364,12 @@ public class PharmacyManager {
             if (record != null && record.getRegistrationId() != null) {
                 Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
                 if (reg != null && !Integer.valueOf(RegistrationStatusEnum.COMPLETED.getCode()).equals(reg.getStatus())) {
-                    registrationService.updateStatusWithLog(reg,
-                            RegistrationStatusEnum.COMPLETED.getCode(),
+                    Integer fromStatus = reg.getStatus();
+                    int toStatus = RegistrationStatusEnum.COMPLETED.getCode();
+                    if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+                        throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+                    }
+                    registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                             pharmacistId, "pharmacist", "发药完成");
                 }
             }

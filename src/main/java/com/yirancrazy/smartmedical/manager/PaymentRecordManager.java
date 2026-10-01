@@ -46,6 +46,7 @@ public class PaymentRecordManager {
     private final PayMethodService paymentMethodService;
     private final PrescriptionService prescriptionService;
     private final RegistrationService registrationService;
+    private final RegistrationStatusLogService registrationStatusLogService;
     private final OrderStatusLogService orderStatusLogService;
     private final UserPatientRelationService userPatientRelationService;
 
@@ -242,8 +243,12 @@ public class PaymentRecordManager {
         // 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
         if (registration != null) {
-            registrationService.updateStatusWithLog(registration,
-                    RegistrationStatusEnum.SUCCESS.getCode(),
+            Integer fromStatus = registration.getStatus();
+            int toStatus = RegistrationStatusEnum.SUCCESS.getCode();
+            if (!registrationService.updateStatusIfCurrent(registration, toStatus)) {
+                throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+            }
+            registrationStatusLogService.writeLog(registration.getId(), fromStatus, toStatus,
                     0L, RoleEnum.SYSTEM.getRole(), "支付成功");
         }
         // 联动处方:标记处方为已支付
@@ -259,9 +264,14 @@ public class PaymentRecordManager {
         // 仅当挂号仍处于待支付时才补同步，避免回退已报到/就诊中等状态
         if (registration != null
                 && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
-            registrationService.updateStatusWithLog(registration,
-                    RegistrationStatusEnum.SUCCESS.getCode(),
-                    0L, RoleEnum.SYSTEM.getRole(), "支付成功(补同步)");
+            Integer fromStatus = registration.getStatus();
+            int toStatus = RegistrationStatusEnum.SUCCESS.getCode();
+            if (registrationService.updateStatusIfCurrent(registration, toStatus)) {
+                registrationStatusLogService.writeLog(registration.getId(), fromStatus, toStatus,
+                        0L, RoleEnum.SYSTEM.getRole(), "支付成功(补同步)");
+            } else {
+                log.info("[payment-success] orderId={} 挂号状态已由并发变更，跳过补同步", orderId);
+            }
         }
     }
 }

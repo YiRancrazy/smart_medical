@@ -95,7 +95,7 @@ public class RegistrationManager {
             return Result.fail("挂号记录不存在");
         }
         // 校验当前用户对该挂号记录的就诊人有访问权限
-        List<Long> accessibleUserIds = userPatientRelationService.getAccessiblePatientUserIds(currentUserId, null);
+        List<Long> accessibleUserIds = resolveAccessiblePatientUserIds(currentUserId, null);
         if (!accessibleUserIds.contains(reg.getUserId())) {
             return Result.fail("无权查看该挂号记录");
         }
@@ -209,7 +209,7 @@ public class RegistrationManager {
      */
     public Result<PageResult<AppointmentResponseSimple>> getRegistrationByUid(
             Long currentUserId, Long patientCardId, Integer pageNum, Integer pageSize) {
-        List<Long> patientUserIds = userPatientRelationService.getAccessiblePatientUserIds(currentUserId, patientCardId);
+        List<Long> patientUserIds = resolveAccessiblePatientUserIds(currentUserId, patientCardId);
         if (patientUserIds == null || patientUserIds.isEmpty()) {
             return Result.success(new PageResult<>(1, pageSize == null ? 0 : pageSize, 0L, 0, new ArrayList<>()));
         }
@@ -222,6 +222,25 @@ public class RegistrationManager {
 
         List<AppointmentResponseSimple> result = convertToAppointmentResponseSimpleBatch(registrationList);
         return Result.success(new PageResult<>(pageInfo, result));
+    }
+
+    /**
+     * 解析当前账号可访问的患者 userId 集合
+     * @param currentUserId 当前登录用户id
+     * @param patientCardId 就诊卡id；为 null 时返回账号下全部关联患者
+     * @return 患者 userId 列表；就诊卡不存在或无访问关系时返回空列表
+     */
+    private List<Long> resolveAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
+        if (patientCardId == null) {
+            return userPatientRelationService.listAccessiblePatientUserIds(currentUserId);
+        }
+        Patient patient = patientService.getPatientByPatientCardId(patientCardId);
+        if (patient == null || patient.getUserId() == null) {
+            return List.of();
+        }
+        return userPatientRelationService.hasAuthorization(currentUserId, patient.getUserId())
+                ? List.of(patient.getUserId())
+                : List.of();
     }
 
     /**

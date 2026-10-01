@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.pojo.Patient;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PatientManager {
 
+    private final PatientService patientService;
     private final UserPatientRelationService userPatientRelationService;
 
     /**
@@ -29,6 +32,15 @@ public class PatientManager {
      * @return 患者 userId 列表；patientCardId 不合法或无权限时返回空列表
      */
     public List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
-        return userPatientRelationService.getAccessiblePatientUserIds(currentUserId, patientCardId);
+        if (patientCardId == null) {
+            return userPatientRelationService.listAccessiblePatientUserIds(currentUserId);
+        }
+        Patient patient = patientService.getPatientByPatientCardId(patientCardId);
+        if (patient == null || patient.getUserId() == null) {
+            return List.of();
+        }
+        return userPatientRelationService.hasAuthorization(currentUserId, patient.getUserId())
+                ? List.of(patient.getUserId())
+                : List.of();
     }
 }

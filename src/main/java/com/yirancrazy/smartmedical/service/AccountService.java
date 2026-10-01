@@ -91,14 +91,16 @@ public interface AccountService {
     List<Account> listAllAccounts();
 
     /**
-     * 根据用户名、角色ID、是否启用分页查询账户详情
+     * 根据用户ID过滤、角色ID、是否启用分页查询账户
+     * @param userIds  用户ID列表；null=不按用户过滤，空集合=无匹配
      * @param roleId   角色ID（精确匹配，可为空）
      * @param enabled  是否启用（精确匹配，可为空）
      * @param pageNum  页码
      * @param pageSize 每页大小
-     * @return 分页账户详情列表
+     * @return 分页账户列表
      */
-    PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize);
+    PageInfo<Account> listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(
+            List<Long> userIds, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize);
 
     /**
      * 根据管理员ID列表批量获取管理员信息

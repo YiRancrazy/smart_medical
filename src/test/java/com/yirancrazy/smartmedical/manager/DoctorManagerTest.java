@@ -15,6 +15,7 @@ import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,7 @@ class DoctorManagerTest {
     @Mock private AppointmentRuleService appointmentRuleService;
     @Mock private DegreeService degreeService;
     @Mock private RegistrationService registrationService;
+    @Mock private RegistrationStatusLogService registrationStatusLogService;
     @Mock private UserService userService;
     @Mock private AccountService accountService;
 
@@ -72,10 +74,15 @@ class DoctorManagerTest {
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
         when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(schedule);
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(TEMPLATE_ID)).thenReturn(template);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.IN_TREATMENT.getCode()))
+                .thenReturn(true);
 
         doctorManager.callPatient(REG_ID, DOCTOR_ID);
 
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.IN_TREATMENT.getCode()),
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.IN_TREATMENT.getCode());
+        verify(registrationStatusLogService).writeLog(
+                eq(REG_ID), eq(RegistrationStatusEnum.REPORTED.getCode()),
+                eq(RegistrationStatusEnum.IN_TREATMENT.getCode()),
                 eq(DOCTOR_ID), eq("doctor"), eq("叫号接诊"));
     }
 
@@ -107,7 +114,7 @@ class DoctorManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> doctorManager.callPatient(REG_ID, DOCTOR_ID));
         assertEquals(BizErrorCode.DOCTOR_NOT_MATCH.getCode(), ex.getCode());
-        verify(registrationService, never()).updateStatusWithLog(any(), any(Integer.class), any(Long.class), any(), any());
+        verify(registrationService, never()).updateStatusIfCurrent(any(), any(Integer.class));
     }
 
     /**

@@ -5,7 +5,6 @@ import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
@@ -51,7 +50,6 @@ class AdminAuthManagerTest {
     @Mock private UserService userService;
     @Mock private RoleService roleService;
     @Mock private RedisUtil redisUtil;
-    @Mock private RoleTypeLoaderManage roleTypeLoaderManage;
     @Mock private HttpServletRequest request;
     @Mock private HttpServletResponse response;
 
@@ -68,7 +66,7 @@ class AdminAuthManagerTest {
         RoleConstant.ROLE_LIST.clear();
         RoleConstant.ROLE_LIST.add(adminRole);
 
-        manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService, redisUtil, roleTypeLoaderManage);
+        manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService, redisUtil);
         ReflectionTestUtils.setField(manager, "accessSecretKey", "test-access-secret-key");
         ReflectionTestUtils.setField(manager, "refreshSecretKey", "test-refresh-secret-key");
         ReflectionTestUtils.setField(manager, "accessTokenPrefix", "admin-access:");

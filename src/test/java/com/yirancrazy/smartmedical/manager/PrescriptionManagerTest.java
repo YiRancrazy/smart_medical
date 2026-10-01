@@ -1,7 +1,5 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -59,9 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -124,13 +120,13 @@ class PrescriptionManagerTest {
         account.setUserId(3001L);
         account.setPhone("13800138000");
 
-        when(medicalRecordService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(record));
-        when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(rx));
+        when(medicalRecordService.listMedicalRecordsByDoctorIdAndPatientUserIds(2001L, null)).thenReturn(List.of(record));
+        when(prescriptionService.listByMedicalRecordIds(List.of(1001L))).thenReturn(List.of(rx));
         when(userService.listUsersByUserIds(List.of(3001L))).thenReturn(List.of(user));
         when(accountService.getAccountByUserId(3001L)).thenReturn(account);
         PrescriptionItem item = new PrescriptionItem();
         item.setPrescriptionId(4001L);
-        when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
+        when(prescriptionItemService.listByPrescriptionIds(List.of(4001L))).thenReturn(List.of(item));
 
         List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(2001L);
 
@@ -160,7 +156,8 @@ class PrescriptionManagerTest {
     @Test
     @SuppressWarnings("unchecked")
     void listDoctorPrescriptions_noRecords_returnsEmpty() {
-        when(medicalRecordService.list(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
+        when(medicalRecordService.listMedicalRecordsByDoctorIdAndPatientUserIds(2001L, null))
+                .thenReturn(Collections.emptyList());
 
         List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(2001L);
 
@@ -177,8 +174,8 @@ class PrescriptionManagerTest {
         record.setId(1001L);
         record.setDoctorId(2001L);
 
-        when(medicalRecordService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(record));
-        when(prescriptionService.list(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
+        when(medicalRecordService.listMedicalRecordsByDoctorIdAndPatientUserIds(2001L, null)).thenReturn(List.of(record));
+        when(prescriptionService.listByMedicalRecordIds(List.of(1001L))).thenReturn(Collections.emptyList());
 
         List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(2001L);
 
@@ -228,7 +225,7 @@ class PrescriptionManagerTest {
         when(medicalRecordService.getById(1001L)).thenReturn(record);
         when(userService.getUserById(3001L)).thenReturn(user);
         when(accountService.getAccountByUserId(3001L)).thenReturn(account);
-        when(prescriptionItemService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
+        when(prescriptionItemService.listByPrescriptionId(4001L)).thenReturn(List.of(item));
         when(drugService.listDrugsByIds(List.of(6001L))).thenReturn(List.of(drug));
 
         DoctorPrescriptionDetailVO vo = prescriptionManager.getDoctorPrescriptionDetail(4001L, 2001L);
@@ -332,12 +329,14 @@ class PrescriptionManagerTest {
         when(drugService.listDrugsByIds(List.of(7001L))).thenReturn(List.of(drug));
         when(drugInventoryService.listByDrugIds(List.of(7001L))).thenReturn(List.of(inv));
         when(drugInventoryService.lockInventory(8001L, 2)).thenReturn(1);
-        when(medicalRecordService.getOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(medicalRecordService.getByRegistrationId(1001L)).thenReturn(null);
         doAnswer(answer -> {
             MedicalRecord r = answer.getArgument(0);
             r.setId(1001L);
             return true;
         }).when(medicalRecordService).save(any(MedicalRecord.class));
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode()))
+                .thenReturn(true);
 
         PrescriptionSubmitVO vo = prescriptionManager.submit(1001L, req, doctorId);
 
@@ -353,8 +352,12 @@ class PrescriptionManagerTest {
         verify(prescriptionItemService).save(any(PrescriptionItem.class));
         verify(orderItemService).insertOrderItem(any(OrderItem.class));
         verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.COMPLETED.getCode()),
-                eq(doctorId), eq("doctor"), eq("提交病历开方"));
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                reg.getId(),
+                RegistrationStatusEnum.IN_TREATMENT.getCode(),
+                RegistrationStatusEnum.COMPLETED.getCode(),
+                doctorId, "doctor", "提交病历开方");
     }
 
     @Test
@@ -383,7 +386,9 @@ class PrescriptionManagerTest {
         when(registrationService.getRegistrationById(1001L)).thenReturn(reg);
         when(registrationScheduleService.getRegistrationScheduleById(5001L)).thenReturn(schedule);
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
-        when(medicalRecordService.getOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(medicalRecordService.getByRegistrationId(1001L)).thenReturn(null);
+        when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode()))
+                .thenReturn(true);
 
         PrescriptionSubmitVO vo = prescriptionManager.submit(1001L, req, doctorId);
 
@@ -395,8 +400,12 @@ class PrescriptionManagerTest {
         verify(medicalRecordService).save(any(MedicalRecord.class));
         verify(prescriptionService, never()).save(any());
         verify(orderService, never()).insertOrder(any());
-        verify(registrationService).updateStatusWithLog(eq(reg), eq(RegistrationStatusEnum.COMPLETED.getCode()),
-                eq(doctorId), eq("doctor"), eq("就诊完成(无处方)"));
+        verify(registrationService).updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode());
+        verify(registrationStatusLogService).writeLog(
+                reg.getId(),
+                RegistrationStatusEnum.IN_TREATMENT.getCode(),
+                RegistrationStatusEnum.COMPLETED.getCode(),
+                doctorId, "doctor", "就诊完成(无处方)");
     }
 
     @Test
@@ -480,10 +489,21 @@ class PrescriptionManagerTest {
 
         when(prescriptionService.getById(4001L)).thenReturn(rx);
         when(medicalRecordService.getById(1001L)).thenReturn(record);
-        when(userPatientRelationService.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
+        when(userPatientRelationService.listAccessiblePatientUserIds(userId)).thenReturn(List.of(9009L));
         when(orderService.getOrderById(5001L)).thenReturn(order);
         when(paymentRecordService.getSuccessPaymentRecordByOrderId(5001L)).thenReturn(orig);
-        when(prescriptionService.update(any(UpdateWrapper.class))).thenReturn(true);
+        when(prescriptionService.applyRefundIfCurrent(4001L)).thenReturn(true);
+        PrescriptionItem item = new PrescriptionItem();
+        item.setDrugId(7001L);
+        item.setQuantity(2);
+        when(prescriptionItemService.listByPrescriptionId(4001L)).thenReturn(List.of(item));
+        DrugInventory inv = new DrugInventory();
+        inv.setId(8001L);
+        inv.setDrugId(7001L);
+        inv.setWarehouseId(9001L);
+        inv.setAvailableQuantity(10);
+        inv.setLockedQuantity(2);
+        when(drugInventoryService.listByDrugIdsForUpdate(List.of(7001L))).thenReturn(List.of(inv));
 
         prescriptionManager.refund(4001L, userId);
 
@@ -491,10 +511,13 @@ class PrescriptionManagerTest {
         assertEquals(4, orig.getStatus());
         verify(orderService).updateOrderById(order);
         assertEquals(OrderStatus.REFUNDED.getCode(), order.getStatus());
-        verify(prescriptionService).update(any(UpdateWrapper.class));
+        verify(prescriptionService).applyRefundIfCurrent(4001L);
         verify(orderStatusLogService).addOrderStatusLog(any());
-        // 库存释放原语已下沉 Service，Manager 侧仅需验证委托调用
-        verify(prescriptionService).releaseLockedStock(eq(rx), eq(userId), eq("user"), anyString());
+        // 库存释放原语已上移 Manager，验证逐层调用库存 Service
+        verify(prescriptionItemService).listByPrescriptionId(4001L);
+        verify(drugInventoryService).listByDrugIdsForUpdate(List.of(7001L));
+        verify(drugInventoryService).releaseInventory(8001L, 2);
+        verify(inventoryTransactionService).insertInventoryTransaction(any(InventoryTransaction.class));
     }
 
     @Test
@@ -511,7 +534,7 @@ class PrescriptionManagerTest {
 
         when(prescriptionService.getById(4001L)).thenReturn(rx);
         when(medicalRecordService.getById(1001L)).thenReturn(record);
-        when(userPatientRelationService.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
+        when(userPatientRelationService.listAccessiblePatientUserIds(userId)).thenReturn(List.of(9009L));
 
         BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
         assertEquals(BizErrorCode.PRESCRIPTION_NOT_OWNED.getCode(), ex.getCode());
@@ -531,7 +554,7 @@ class PrescriptionManagerTest {
 
         when(prescriptionService.getById(4001L)).thenReturn(rx);
         when(medicalRecordService.getById(1001L)).thenReturn(record);
-        when(userPatientRelationService.getAccessiblePatientUserIds(userId, null)).thenReturn(List.of(9009L));
+        when(userPatientRelationService.listAccessiblePatientUserIds(userId)).thenReturn(List.of(9009L));
 
         BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
         assertEquals(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED.getCode(), ex.getCode());

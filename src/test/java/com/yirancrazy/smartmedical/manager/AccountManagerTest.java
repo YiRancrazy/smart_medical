@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -59,7 +60,7 @@ class AccountManagerTest {
      */
     @Test
     void listAccountDetailResponse_emptyList_returnsEmpty() {
-        when(accountService.listAllAccountsByRoleIdAndEnabledAndPage(null, null, null, 1, 10))
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, null, null, 1, 10))
                 .thenReturn(new PageInfo<>(List.of()));
 
         Result<PageInfo<AccountDetailResponse>> result = accountManager
@@ -87,7 +88,7 @@ class AccountManagerTest {
         admin.setName("系统管理员");
 
         PageInfo<Account> pageInfo = new PageInfo<>(List.of(account));
-        when(accountService.listAllAccountsByRoleIdAndEnabledAndPage(null, 1L, null, 1, 10))
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, 1L, null, 1, 10))
                 .thenReturn(pageInfo);
         when(adminService.listAdminsByIds(List.of(5001L))).thenReturn(List.of(admin));
 
@@ -123,7 +124,7 @@ class AccountManagerTest {
         doctor.setName("李医生");
 
         PageInfo<Account> pageInfo = new PageInfo<>(List.of(account));
-        when(accountService.listAllAccountsByRoleIdAndEnabledAndPage(null, 2L, null, 1, 10))
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, 2L, null, 1, 10))
                 .thenReturn(pageInfo);
         when(doctorService.listDoctorsByIds(List.of(6001L))).thenReturn(List.of(doctor));
 
@@ -160,7 +161,7 @@ class AccountManagerTest {
         doctor.setName("张医生");
 
         PageInfo<Account> pageInfo = new PageInfo<>(List.of(adminAcc, doctorAcc));
-        when(accountService.listAllAccountsByRoleIdAndEnabledAndPage(null, null, null, 1, 10))
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, null, null, 1, 10))
                 .thenReturn(pageInfo);
         when(adminService.listAdminsByIds(List.of(7001L))).thenReturn(List.of(admin));
         when(doctorService.listDoctorsByIds(List.of(8001L))).thenReturn(List.of(doctor));
@@ -172,6 +173,51 @@ class AccountManagerTest {
         assertEquals(2, list.size());
         assertEquals("管理员", list.get(0).getUsername());
         assertEquals("张医生", list.get(1).getUsername());
+    }
+
+    /**
+     * 姓名无匹配：Manager 直接返回空页，不再查询 account
+     */
+    @Test
+    void listAccountDetailResponse_usernameNoMatch_returnsEmptyWithoutAccountQuery() {
+        when(adminService.listAdminsByLikeName("不存在")).thenReturn(List.of());
+        when(doctorService.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentId("不存在", null))
+                .thenReturn(List.of());
+        when(userService.listUserIdsByNicknameLike("不存在")).thenReturn(List.of());
+
+        Result<PageInfo<AccountDetailResponse>> result = accountManager
+                .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
+                        "不存在", null, null, 1, 10);
+
+        assertEquals(200, result.getCode());
+        assertTrue(result.getData().getList().isEmpty());
+        verifyNoInteractions(accountService);
+    }
+
+    /**
+     * 姓名解析结果作为 userIds 过滤条件传入 AccountService
+     */
+    @Test
+    void listAccountDetailResponse_usernameMatches_passesResolvedUserIds() {
+        Admin admin = new Admin();
+        admin.setId(11L);
+        Doctor doctor = new Doctor();
+        doctor.setId(22L);
+
+        when(adminService.listAdminsByLikeName("张")).thenReturn(List.of(admin));
+        when(doctorService.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentId("张", null))
+                .thenReturn(List.of(doctor));
+        when(userService.listUserIdsByNicknameLike("张")).thenReturn(List.of(33L));
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(
+                List.of(11L, 22L, 33L), null, null, 1, 10))
+                .thenReturn(new PageInfo<>(List.of()));
+
+        Result<PageInfo<AccountDetailResponse>> result = accountManager
+                .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
+                        "张", null, null, 1, 10);
+
+        assertEquals(200, result.getCode());
+        assertTrue(result.getData().getList().isEmpty());
     }
 
     /**

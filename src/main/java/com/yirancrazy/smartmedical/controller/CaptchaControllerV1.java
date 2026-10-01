@@ -2,8 +2,7 @@ package com.yirancrazy.smartmedical.controller;
 
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
-import com.anji.captcha.service.CaptchaService;
-import com.yirancrazy.smartmedical.utils.CaptchaSupport;
+import com.yirancrazy.smartmedical.manager.CaptchaManager;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,8 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "验证码", description = "行为验证码（滑块）获取与校验")
 public class CaptchaControllerV1 {
 
-    private final CaptchaService captchaService;
-    private final CaptchaSupport captchaSupport;
+    private final CaptchaManager captchaManager;
 
     /**
      * 获取滑块验证码（图片 + token）
@@ -39,8 +37,7 @@ public class CaptchaControllerV1 {
     @PostMapping("/get")
     @Operation(summary = "获取滑块验证码", description = "返回滑块背景图、缺口图与 token，供前端渲染")
     public ResponseModel get(@RequestBody(required = false) CaptchaVO captchaVO) {
-        CaptchaVO vo = captchaVO == null ? new CaptchaVO() : captchaVO;
-        return captchaService.get(vo);
+        return captchaManager.get(captchaVO);
     }
 
     /**
@@ -52,16 +49,6 @@ public class CaptchaControllerV1 {
     @PostMapping("/check")
     @Operation(summary = "校验滑块", description = "独立校验滑块，通过后登录接口将按设备ID/IP放行")
     public ResponseModel check(@RequestBody CaptchaVO captchaVO, HttpServletRequest request) {
-        if (captchaSupport.isCooled(request)) {
-            return ResponseModel.errorMsg("操作过于频繁，请稍后再试");
-        }
-        ResponseModel response = captchaService.check(captchaVO);
-        if (response.isSuccess()) {
-            captchaSupport.markPassed(request);
-            captchaSupport.clearFail(request);
-        } else if (captchaSupport.recordFail(request)) {
-            return ResponseModel.errorMsg("连续校验失败次数过多，已暂停，请稍后再试");
-        }
-        return response;
+        return captchaManager.check(captchaVO, request);
     }
 }

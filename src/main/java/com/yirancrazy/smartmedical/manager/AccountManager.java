@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.github.pagehelper.PageInfo;
+import com.github.pagehelper.PageHelper;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import org.springframework.transaction.annotation.Transactional;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -80,7 +81,14 @@ public class AccountManager {
     public Result<PageInfo<AccountDetailResponse>> listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
             String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
 
-        PageInfo<Account> accounts = accountService.listAllAccountsByRoleIdAndEnabledAndPage(username, roleId, enabled, pageNum, pageSize);
+        List<Long> userIds = resolveUserIdsByUsername(username);
+        if (userIds != null && userIds.isEmpty()) {
+            PageHelper.clearPage();
+            return Result.success(new PageInfo<>(new ArrayList<>()));
+        }
+
+        PageInfo<Account> accounts = accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(
+                userIds, roleId, enabled, pageNum, pageSize);
 
         if (accounts.getList() == null || accounts.getList().isEmpty()) {
             return Result.success(new PageInfo<>(new ArrayList<>()));
@@ -95,6 +103,22 @@ public class AccountManager {
                 .collect(Collectors.toList());
 
         return Result.success(new PageInfo<>(responseList));
+    }
+
+    /**
+     * 根据姓名解析管理员、医生、用户ID；null 表示不按姓名过滤
+     */
+    private List<Long> resolveUserIdsByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return null;
+        }
+        List<Long> userIds = new ArrayList<>();
+        userIds.addAll(adminService.listAdminsByLikeName(username).stream().map(Admin::getId).toList());
+        userIds.addAll(doctorService
+                .listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentId(username, null)
+                .stream().map(Doctor::getId).toList());
+        userIds.addAll(userService.listUserIdsByNicknameLike(username));
+        return userIds;
     }
 
     // ========== 子方法 + 内部类 ==========

@@ -1,6 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.DashboardStatsResponse;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -48,9 +49,9 @@ class DashboardManagerTest {
                 .thenReturn(3L);    // 待就诊
         when(registrationService.countByStatus(any()))
                 .thenReturn(1L);    // 就诊中
-        // prescriptionService.count 被调 2 次（待发药 / 新处方待处理）
-        when(prescriptionService.count(any(QueryWrapper.class)))
-                .thenReturn(5L)    // 待发药
+        when(prescriptionService.countByStatus(PrescriptionStatus.PAID.getCode()))
+                .thenReturn(5L);   // 待发药
+        when(prescriptionService.countByStatus(PrescriptionStatus.PENDING_PAYMENT.getCode()))
                 .thenReturn(2L);   // 新处方待处理
         when(drugInventoryService.countLowStock())
                 .thenReturn(4L);   // 库存预警
@@ -68,6 +69,8 @@ class DashboardManagerTest {
         assertEquals(0L, data.getPendingRefundCount());
         assertEquals(4L, data.getInventoryAlertCount());
         assertEquals(2L, data.getNewPrescriptionCount());
+        verify(prescriptionService).countByStatus(PrescriptionStatus.PAID.getCode());
+        verify(prescriptionService).countByStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
     }
 
     /**
@@ -78,7 +81,7 @@ class DashboardManagerTest {
         when(registrationService.countTodayRegistrations(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
         when(registrationService.countByStatuses(any())).thenReturn(0L);
         when(registrationService.countByStatus(any())).thenReturn(0L);
-        when(prescriptionService.count(any(QueryWrapper.class))).thenReturn(0L);
+        when(prescriptionService.countByStatus(any())).thenReturn(0L);
         when(drugInventoryService.countLowStock()).thenReturn(0L);
 
         Result<DashboardStatsResponse> result = dashboardManager.getStats();

@@ -13,7 +13,6 @@ import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
-import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
@@ -66,7 +65,6 @@ public class AdminAuthManager {
     private final UserService userService;
     private final RoleService roleService;
     private final RedisUtil redisUtil;
-    private final RoleTypeLoaderManage roleTypeLoaderManage;
 
     private Role adminRole;
     /** S22: 登录限流窗口 5 分钟 */

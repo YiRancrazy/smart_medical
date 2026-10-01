@@ -1,7 +1,12 @@
 package com.yirancrazy.smartmedical.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.Prescription;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * 处方 Service
@@ -11,6 +16,65 @@ import com.yirancrazy.smartmedical.pojo.Prescription;
  * @Version: 1.0
  */
 public interface PrescriptionService extends IService<Prescription> {
+
+    /**
+     * 按处方状态统计数量
+     * @param status 处方状态码
+     * @return 数量
+     */
+    Long countByStatus(Integer status);
+
+    /**
+     * 按病历ID查询处方（不存在返回 null）
+     * @param medicalRecordId 病历ID
+     * @return 处方
+     */
+    Prescription getByMedicalRecordId(Long medicalRecordId);
+
+    /**
+     * 按病历ID集合批量查询处方（空集合返回空列表，按创建时间倒序）
+     * @param medicalRecordIds 病历ID集合
+     * @return 处方列表
+     */
+    List<Prescription> listByMedicalRecordIds(Collection<Long> medicalRecordIds);
+
+    /**
+     * 按病历ID集合、状态和创建时间范围分页查询处方
+     * @param medicalRecordIds 病历ID集合；null=不按病历过滤，空集合=无匹配
+     * @param status 处方状态；null=不按状态过滤
+     * @param createTimeStart 创建时间起；null=不限制
+     * @param createTimeEnd 创建时间止；null=不限制
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    PageInfo<Prescription> listPrescriptionsByMedicalRecordIdsAndStatusAndCreateTimePage(
+            Collection<Long> medicalRecordIds, Integer status, LocalDateTime createTimeStart,
+            LocalDateTime createTimeEnd, Integer pageNum, Integer pageSize);
+
+    /**
+     * 按处方状态查询列表（按创建时间升序）
+     * @param status 处方状态码
+     * @return 处方列表
+     */
+    List<Prescription> listByStatus(Integer status);
+
+    /**
+     * 分页查询发药历史
+     * @param pharmacistUserIds 发药药师用户ID集合；null=不按药师过滤，空集合=无匹配
+     * @param prescriptionId 处方ID；null=不按处方过滤
+     * @param orderId 订单ID；null=不按订单过滤
+     * @param dispensedAtStart 发药时间起；null=不限制
+     * @param dispensedAtEnd 发药时间止；null=不限制
+     * @param medicalRecordIds 病历ID集合；null=不按病历过滤，空集合=无匹配
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    PageInfo<Prescription> listDispenseHistoryPage(
+            Collection<Long> pharmacistUserIds, Long prescriptionId, Long orderId,
+            LocalDateTime dispensedAtStart, LocalDateTime dispensedAtEnd,
+            Collection<Long> medicalRecordIds, Integer pageNum, Integer pageSize);
 
     /**
      * 支付成功回调:标记处方为已支付（状态守卫：仅待支付可置为已支付，已支付幂等跳过）
@@ -26,21 +90,17 @@ public interface PrescriptionService extends IService<Prescription> {
     Prescription getByOrderId(Long orderId);
 
     /**
-     * 释放处方锁定的库存并写解锁流水（FOR UPDATE 行锁串行化防并发双释放）
-     * 医生作废 / 用户退款 / 系统超时统一走此原语
-     * @param rx 处方
-     * @param operatorId 操作人ID（系统传 0L）
-     * @param operatorName 操作人角色（doctor/user/system）
-     * @param remark 流水备注
+     * 待支付处方作废（状态守卫：仅 status=0 可置为 3）
+     * @param prescriptionId 处方ID
+     * @return true=更新成功；false=状态已变更
      */
-    void releaseLockedStock(Prescription rx, Long operatorId, String operatorName, String remark);
+    boolean cancelPendingIfCurrent(Long prescriptionId);
 
     /**
-     * 超时作废待支付处方：先守卫置状态 0→3（仅待支付可取消），成功后释放其锁定库存并写解锁流水
-     * 守卫失败（已被支付/取消）返回 false，不释放库存，由调用方跳过
+     * 已支付处方退款取消（状态守卫：仅 status=1 可置为 3）
      * @param prescriptionId 处方ID
-     * @param remark 作废原因备注
-     * @return true=已作废并释放库存；false=处方状态已变更，未生效
+     * @return true=更新成功；false=状态已变更
      */
-    boolean cancelExpiredPendingPrescription(Long prescriptionId, String remark);
+    boolean applyRefundIfCurrent(Long prescriptionId);
+
 }
