@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Shift;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.ShiftSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.ShiftSimpleResponse;
 import com.yirancrazy.smartmedical.service.ShiftService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

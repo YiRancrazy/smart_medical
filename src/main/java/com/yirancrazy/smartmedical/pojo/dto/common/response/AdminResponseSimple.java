@@ -1,4 +1,4 @@
-package com.yirancrazy.smartmedical.pojo.dto.user.response;
+package com.yirancrazy.smartmedical.pojo.dto.common.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

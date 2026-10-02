@@ -4,7 +4,7 @@ import com.yirancrazy.smartmedical.manager.RegistrationScheduleManager;
 import com.yirancrazy.smartmedical.manager.RegistrationScheduleTemplateManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminRegistrationScheduleTemplateDetail;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminRegistrationScheduleTemplateDetail;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

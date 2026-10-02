@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.ShiftManager;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.ShiftSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.ShiftSimpleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

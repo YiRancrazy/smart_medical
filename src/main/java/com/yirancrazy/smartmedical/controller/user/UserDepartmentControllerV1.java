@@ -4,7 +4,7 @@ import com.yirancrazy.smartmedical.manager.DepartmentManager;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
-import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.AdminDepartmentRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDepartmentRequest;
 import com.yirancrazy.smartmedical.pojo.vo.ChildDepartmentBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.ParentDepartmentBaseInfo;
 import io.swagger.v3.oas.annotations.Operation;

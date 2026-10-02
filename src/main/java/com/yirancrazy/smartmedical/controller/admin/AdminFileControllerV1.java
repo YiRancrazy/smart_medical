@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.FileManager;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.simple.AdminFileSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.simple.AdminFileSimpleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

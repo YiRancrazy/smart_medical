@@ -12,7 +12,7 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AccountDetailResponse;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;

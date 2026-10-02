@@ -29,8 +29,8 @@ import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateReque
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleViewVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminDoctorSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.detail.AdminDoctorDetailResponse;
 import com.yirancrazy.smartmedical.pojo.vo.DoctorVo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorConfirmVo;

@@ -1,4 +1,4 @@
-package com.yirancrazy.smartmedical.pojo.dto.user.request.admin;
+package com.yirancrazy.smartmedical.pojo.dto.admin.request;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;

@@ -1,4 +1,4 @@
-package com.yirancrazy.smartmedical.pojo.dto.user.request;
+package com.yirancrazy.smartmedical.pojo.dto.common.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

@@ -3,7 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.File;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.simple.AdminFileSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.simple.AdminFileSimpleResponse;
 import com.yirancrazy.smartmedical.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

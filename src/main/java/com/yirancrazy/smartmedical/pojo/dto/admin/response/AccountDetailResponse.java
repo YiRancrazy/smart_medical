@@ -1,4 +1,4 @@
-package com.yirancrazy.smartmedical.pojo.dto.user.response;
+package com.yirancrazy.smartmedical.pojo.dto.admin.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

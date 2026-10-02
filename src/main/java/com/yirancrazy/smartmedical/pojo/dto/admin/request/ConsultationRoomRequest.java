@@ -1,4 +1,4 @@
-package com.yirancrazy.smartmedical.pojo.dto.user.request.admin;
+package com.yirancrazy.smartmedical.pojo.dto.admin.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

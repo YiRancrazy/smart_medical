@@ -4,7 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Shift;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.ShiftSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.ShiftSimpleResponse;
 import com.yirancrazy.smartmedical.service.ShiftService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.pojo.File;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.simple.AdminFileSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.simple.AdminFileSimpleResponse;
 import com.yirancrazy.smartmedical.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

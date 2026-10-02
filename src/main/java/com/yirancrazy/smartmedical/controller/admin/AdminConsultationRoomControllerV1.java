@@ -5,7 +5,7 @@ import com.yirancrazy.smartmedical.manager.ConsultationRoomManager;
 import com.yirancrazy.smartmedical.pojo.ConsultationRoom;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
-import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.ConsultationRoomRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.ConsultationRoomRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

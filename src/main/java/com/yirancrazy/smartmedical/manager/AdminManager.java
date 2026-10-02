@@ -8,7 +8,7 @@ import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminAdminSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminAdminSimpleResponse;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
