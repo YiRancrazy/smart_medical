@@ -15,6 +15,7 @@ import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
@@ -29,6 +30,7 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -372,7 +374,7 @@ public class MedicalRecordManager {
      * @param doctorId 医生ID；null 表示查询全部（管理员/药师），非null则按医生过滤
      * @return 病历分页列表
      */
-    public PageInfo<MedicalRecordPageItemVO> pageMedicalRecords(MedicalRecordQueryRequest request, Long doctorId) {
+    public PageResult<MedicalRecordPageItemVO> pageMedicalRecords(MedicalRecordQueryRequest request, Long doctorId) {
         LocalDate startDate = request.getStartDate();
         LocalDate endDate = request.getEndDate();
         LocalDateTime createTimeStart = startDate == null ? null : startDate.atStartOfDay();
@@ -382,7 +384,7 @@ public class MedicalRecordManager {
         if (request.getPatientName() != null && !request.getPatientName().trim().isEmpty()) {
             patientUserIds = userService.listUserIdsByNicknameLike(request.getPatientName().trim());
             if (patientUserIds.isEmpty()) {
-                return new PageInfo<>(Collections.emptyList());
+                return PageUtils.toResult(new PageInfo<>(), Collections.emptyList());
             }
         }
 
@@ -391,11 +393,7 @@ public class MedicalRecordManager {
         PageInfo<MedicalRecord> records = medicalRecordService
                 .listMedicalRecordsByPatientUserIdsAndDoctorIdPage(
                         patientUserIds, doctorId, createTimeStart, createTimeEnd, pageNum, pageSize);
-        PageInfo<MedicalRecordPageItemVO> result = new PageInfo<>(toAdminPageItemVOs(records.getList()));
-        result.setTotal(records.getTotal());
-        result.setPageNum(records.getPageNum());
-        result.setPageSize(records.getPageSize());
-        return result;
+        return PageUtils.toResult(records, toAdminPageItemVOs(records.getList()));
     }
 
     /**

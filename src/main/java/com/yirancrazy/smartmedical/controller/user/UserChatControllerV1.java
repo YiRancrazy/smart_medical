@@ -1,10 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import cn.hutool.core.bean.BeanUtil;
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.ChatManager;
 import com.yirancrazy.smartmedical.pojo.Chat;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.ChatAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.SendImageMessageRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.SendTextMessageRequest;
@@ -71,7 +71,7 @@ public class UserChatControllerV1 {
     @GetMapping("/history/{doctorId:\\d+}")
     @Operation(summary = "查询与医生的聊天历史", description = "用户端 - 查询与某医生的聊天历史记录")
     @Parameter(name = "doctorId", description = "医生ID", required = true)
-    public Result<PageInfo<Chat>> listChatHistory(
+    public Result<PageResult<Chat>> listChatHistory(
             @PathVariable Long doctorId,
             @RequestAttribute("currentUserId") Long userId,
             @RequestParam(value = "pageNum", defaultValue = "1") Integer pageNum,

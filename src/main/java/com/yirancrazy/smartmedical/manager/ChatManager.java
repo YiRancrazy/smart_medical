@@ -5,8 +5,10 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.Chat;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.ChatService;
 import com.yirancrazy.smartmedical.utils.MinIOUtil;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
@@ -94,9 +96,9 @@ public class ChatManager {
      * @param pageSize 每页大小
      * @return 分页的聊天记录
      */
-    public Result<PageInfo<Chat>> listChatHistory(Long userId, Long doctorId, Integer pageNum, Integer pageSize) {
+    public Result<PageResult<Chat>> listChatHistory(Long userId, Long doctorId, Integer pageNum, Integer pageSize) {
         PageInfo<Chat> pageInfo = chatService.listChatsBetweenUsers(userId, doctorId, pageNum, pageSize);
-        return Result.success(pageInfo);
+        return Result.success(PageUtils.toResult(pageInfo, pageInfo.getList()));
     }
 
     /**

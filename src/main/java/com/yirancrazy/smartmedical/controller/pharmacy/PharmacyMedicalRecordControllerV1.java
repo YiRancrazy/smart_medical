@@ -1,11 +1,11 @@
 package com.yirancrazy.smartmedical.controller.pharmacy;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,7 +41,7 @@ public class PharmacyMedicalRecordControllerV1 {
      */
     @Operation(summary = "药师端 - 病历历史分页列表")
     @PostMapping("/page")
-    public Result<PageInfo<MedicalRecordPageItemVO>> page(@Valid @RequestBody MedicalRecordQueryRequest request) {
+    public Result<PageResult<MedicalRecordPageItemVO>> page(@Valid @RequestBody MedicalRecordQueryRequest request) {
         return Result.success(medicalRecordManager.pageMedicalRecords(request, null));
     }
 
