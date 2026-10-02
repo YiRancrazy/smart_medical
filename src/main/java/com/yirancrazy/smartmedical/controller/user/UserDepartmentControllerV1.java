@@ -4,19 +4,14 @@ import com.yirancrazy.smartmedical.manager.DepartmentManager;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
-import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDepartmentRequest;
 import com.yirancrazy.smartmedical.pojo.vo.ChildDepartmentBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.ParentDepartmentBaseInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,31 +47,6 @@ public class UserDepartmentControllerV1 {
     }
 
     /**
-     * 更新科室信息
-     * @param id 科室ID
-     * @param adminDepartmentRequest 科室信息请求参数
-     * @return 更新结果
-     */
-    @PutMapping("/{id:\\d+}")
-    @Operation(summary = "更新科室", description = "更新科室信息")
-    @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Integer> updateDepartment(@PathVariable Long id, @Valid @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
-        return departmentManager.updateDepartment(id, adminDepartmentRequest);
-    }
-
-    /**
-     * 根据ID删除科室
-     * @param id 科室ID
-     * @return 删除结果
-     */
-    @DeleteMapping("/{id}")
-    @Operation(summary = "删除科室", description = "根据科室ID删除科室")
-    @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Integer> deleteDepartmentById(@PathVariable Long id) {
-        return departmentManager.deleteDepartmentById(id);
-    }
-
-    /**
      * 获取所有科室列表
      * @return 科室列表
      */
@@ -106,17 +76,6 @@ public class UserDepartmentControllerV1 {
             @RequestParam Integer pageNum,
             @RequestParam Integer pageSize) {
         return departmentManager.getDepartmentPage(pageNum, pageSize);
-    }
-
-    /**
-     * 批量删除科室
-     * @param ids 科室ID列表
-     * @return 删除结果
-     */
-    @DeleteMapping("/batch")
-    @Operation(summary = "批量删除科室", description = "批量删除科室")
-    public Result<Integer> deleteBatch(@RequestBody List<Long> ids) {
-        return departmentManager.deleteBatch(ids);
     }
 
     /**

@@ -1,18 +1,14 @@
 package com.yirancrazy.smartmedical.controller.user;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.ShiftManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Shift;
-import com.yirancrazy.smartmedical.pojo.dto.user.request.ShiftAddRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,14 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserShiftControllerV1 {
 
     private final ShiftManager shiftManager;
-
-    @PostMapping("/add")
-    @Operation(summary = "添加班次", description = "添加新班次")
-    public Result<Integer> addShift(@RequestBody ShiftAddRequest request) {
-        Shift shift = new Shift();
-        BeanUtil.copyProperties(request, shift);
-        return Result.success(shiftManager.addShift(shift));
-    }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取班次", description = "根据班次ID获取班次信息")

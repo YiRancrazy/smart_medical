@@ -1,18 +1,14 @@
 package com.yirancrazy.smartmedical.controller.user;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.MedicineManager;
 import com.yirancrazy.smartmedical.pojo.Medicine;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.request.MedicineAddRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,14 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserMedicineControllerV1 {
 
     private final MedicineManager medicineManager;
-
-    @PostMapping("/add")
-    @Operation(summary = "添加药品", description = "添加新药品")
-    public Result<Integer> addMedicine(@RequestBody MedicineAddRequest request) {
-        Medicine medicine = new Medicine();
-        BeanUtil.copyProperties(request, medicine);
-        return Result.success(medicineManager.addMedicine(medicine));
-    }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取药品", description = "根据药品ID获取药品信息")
