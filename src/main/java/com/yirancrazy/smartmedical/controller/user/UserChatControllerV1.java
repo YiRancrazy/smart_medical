@@ -1,9 +1,11 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.ChatManager;
 import com.yirancrazy.smartmedical.pojo.Chat;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.ChatAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.SendImageMessageRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.SendTextMessageRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,8 +40,10 @@ public class UserChatControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加聊天记录", description = "添加新聊天记录")
-    public Result<Integer> addChat(@Valid @RequestBody Chat chat,
+    public Result<Integer> addChat(@Valid @RequestBody ChatAddRequest request,
                                    @RequestAttribute("currentUserId") Long userId) {
+        Chat chat = new Chat();
+        BeanUtil.copyProperties(request, chat);
         // 强制以当前登录用户为发送者，防止身份伪造
         chat.setSendId(userId);
         return Result.success(chatManager.addChat(chat));

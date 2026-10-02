@@ -5,6 +5,7 @@ import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -107,7 +108,7 @@ public class AdminAuthManager {
         }
         this.adminRole = RoleConstant.ROLE_LIST
                 .stream()
-                .filter(role -> role.getId().equals(1L))
+                .filter(role -> role.getId().equals(RoleEnum.ADMIN.getCodeAsLong()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("未找到系统管理员角色"));
     }

@@ -1,9 +1,11 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.ConsultationRoomManager;
 import com.yirancrazy.smartmedical.pojo.ConsultationRoom;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.ConsultationRoomRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -34,13 +36,17 @@ public class AdminConsultationRoomControllerV1 {
 
     @PostMapping
     @Operation(summary = "管理员端 - 新增诊室")
-    public Result<ConsultationRoom> add(@RequestBody ConsultationRoom room) {
+    public Result<ConsultationRoom> add(@RequestBody ConsultationRoomRequest request) {
+        ConsultationRoom room = new ConsultationRoom();
+        BeanUtil.copyProperties(request, room);
         return Result.success(consultationRoomManager.addConsultationRoom(room));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "管理员端 - 修改诊室")
-    public Result<Integer> update(@PathVariable Long id, @RequestBody ConsultationRoom room) {
+    public Result<Integer> update(@PathVariable Long id, @RequestBody ConsultationRoomRequest request) {
+        ConsultationRoom room = new ConsultationRoom();
+        BeanUtil.copyProperties(request, room);
         room.setId(id);
         return Result.success(consultationRoomManager.updateConsultationRoom(room));
     }

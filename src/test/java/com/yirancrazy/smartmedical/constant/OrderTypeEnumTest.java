@@ -12,29 +12,29 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class OrderTypeEnumTest {
 
     @Test
-    void getByOrderTypeSn_returnsMatchingEnum() {
-        OrderTypeEnum type = OrderTypeEnum.getByOrderTypeSn("3110236876932865049");
+    void getByCode_returnsMatchingEnum() {
+        OrderTypeEnum type = OrderTypeEnum.getByCode(1L);
         assertNotNull(type);
-        assertEquals(OrderTypeEnum.OUTPATIENT_REGISTRATION, type);
-        assertEquals("门诊挂号单", type.getName());
+        assertEquals(OrderTypeEnum.REGISTRATION, type);
+        assertEquals("挂号订单", type.getName());
     }
 
     @Test
-    void getByOrderTypeSn_eachKnownValueResolves() {
+    void getByCode_eachKnownValueResolves() {
         for (OrderTypeEnum type : OrderTypeEnum.values()) {
-            OrderTypeEnum resolved = OrderTypeEnum.getByOrderTypeSn(type.getOrderTypeSn());
+            OrderTypeEnum resolved = OrderTypeEnum.getByCode(type.getCode());
             assertEquals(type, resolved);
             assertNotNull(resolved.getName());
         }
     }
 
     @Test
-    void getByOrderTypeSn_returnsNullForUnknown() {
-        assertNull(OrderTypeEnum.getByOrderTypeSn("does-not-exist"));
+    void getByCode_returnsNullForUnknown() {
+        assertNull(OrderTypeEnum.getByCode(99L));
     }
 
     @Test
-    void getByOrderTypeSn_returnsNullForNull() {
-        assertNull(OrderTypeEnum.getByOrderTypeSn(null));
+    void getByCode_returnsNullForNull() {
+        assertNull(OrderTypeEnum.getByCode(null));
     }
 }

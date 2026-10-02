@@ -2,35 +2,36 @@ package com.yirancrazy.smartmedical.constant;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description: 订单类型枚举（与 order_type 表主键保持一致）
+ * @Description: 项目类型枚举（与 production_type 表主键保持一致）
  * @Datetime: 2026-10-02 12:00
  * @Version: 1.0
  */
 
-public enum OrderTypeEnum {
+public enum ProductionTypeEnum {
 
-    REGISTRATION(1L, "挂号订单"),
-    DRUG(2L, "药品订单"),
-    EXAMINATION(3L, "检查订单"),
-    INPATIENT_DEPOSIT(4L, "住院押金"),
-    PHYSICAL_EXAMINATION(5L, "体检订单");
+    DRUG(1L, "药品"),
+    EXAMINATION(2L, "检查"),
+    TREATMENT(3L, "治疗"),
+    SURGERY(4L, "手术"),
+    MATERIAL(5L, "材料"),
+    REGISTRATION(6L, "挂号");
 
     private final Long code;
     private final String name;
 
-    OrderTypeEnum(Long code, String name) {
+    ProductionTypeEnum(Long code, String name) {
         this.code = code;
         this.name = name;
     }
 
     /**
-     * 根据订单类型ID获取枚举
+     * 根据项目类型ID获取枚举
      */
-    public static OrderTypeEnum getByCode(Long code) {
+    public static ProductionTypeEnum getByCode(Long code) {
         if (code == null) {
             return null;
         }
-        for (OrderTypeEnum type : values()) {
+        for (ProductionTypeEnum type : values()) {
             if (type.getCode().equals(code)) {
                 return type;
             }
@@ -38,7 +39,6 @@ public enum OrderTypeEnum {
         return null;
     }
 
-    // Getters
     public Long getCode() { return code; }
     public String getName() { return name; }
 }

@@ -1,8 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.AdminManager;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.AdminAddRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,7 +33,9 @@ public class UserAdminControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加管理员", description = "添加新管理员")
-    public Result<Integer> addAdmin(@RequestBody Admin admin) {
+    public Result<Integer> addAdmin(@RequestBody AdminAddRequest request) {
+        Admin admin = new Admin();
+        BeanUtil.copyProperties(request, admin);
         return Result.success(adminManager.addAdmin(admin));
     }
 

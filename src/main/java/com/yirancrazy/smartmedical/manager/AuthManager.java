@@ -7,6 +7,7 @@ import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -69,7 +70,6 @@ public class AuthManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final SmsService smsService;
-    private final Long USER_ROLE = 4L;
     /** S22: 登录限流窗口 5 分钟 */
     private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
     /** S22: 登录限流阈值 5 次/窗口 */
@@ -107,7 +107,7 @@ public class AuthManager {
             // 过滤出用户账户
             Account account = accountByPhone
                     .stream()
-                    .filter(account1 -> USER_ROLE
+                    .filter(account1 -> RoleEnum.PATIENT.getCodeAsLong()
                             .equals(account1.getRoleId()))
                     .findFirst()
                     .orElse(null);
@@ -181,7 +181,7 @@ public class AuthManager {
         smsService.verifyCode(phone, code);
         Account account = accountService.getAccountByPhone(phone)
                 .stream()
-                .filter(a -> USER_ROLE.equals(a.getRoleId()))
+                .filter(a -> RoleEnum.PATIENT.getCodeAsLong().equals(a.getRoleId()))
                 .findFirst()
                 .orElse(null);
         if (account == null) {
@@ -225,7 +225,7 @@ public class AuthManager {
         Account account = new Account();
         account.setId(IdUtil.getSnowflakeNextId());
         account.setUserId(user.getId());
-        account.setRoleId(USER_ROLE);
+        account.setRoleId(RoleEnum.PATIENT.getCodeAsLong());
         account.setPhone(phone);
         // 注册不设密码：写入不可猜的随机 BCrypt 占位，之后可通过「忘记密码」流程设置登录密码
         account.setPassword(PasswordUtil.encode(RandomUtil.randomString(16)));
@@ -272,7 +272,7 @@ public class AuthManager {
         smsService.verifyCode(phone, code);
         Account account = accountService.getAccountByPhone(phone)
                 .stream()
-                .filter(a -> USER_ROLE.equals(a.getRoleId()))
+                .filter(a -> RoleEnum.PATIENT.getCodeAsLong().equals(a.getRoleId()))
                 .findFirst()
                 .orElse(null);
         if (account == null) {
@@ -339,9 +339,10 @@ public class AuthManager {
             Long roleId;
             try {
                 Object roleObj = payload.getClaim("role");
-                roleId = roleObj != null ? Long.parseLong(String.valueOf(roleObj)) : 4L;
+                roleId = roleObj != null ? Long.parseLong(String.valueOf(roleObj))
+                        : RoleEnum.PATIENT.getCodeAsLong();
             } catch (NumberFormatException e) {
-                roleId = 4L; // 默认user
+                roleId = RoleEnum.PATIENT.getCodeAsLong();
             }
 
             // 角色变更后 refresh 必须以 DB 当前角色为准，防止降权后 30 天内仍持旧权限

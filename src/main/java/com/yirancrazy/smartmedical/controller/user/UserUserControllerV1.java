@@ -1,8 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.UserManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.UserAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserProfileRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserPhoneRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UserPhoneSmsCodeRequest;
@@ -44,6 +46,14 @@ public class UserUserControllerV1 {
     @Parameter(name = "id", description = "用户ID", required = true)
     public Result<User> getUserById(@PathVariable Long id) {
         return Result.success(userManager.getUserById(id));
+    }
+
+    @PostMapping("/add")
+    @Operation(summary = "添加用户", description = "添加新用户")
+    public Result<Integer> addUser(@RequestBody UserAddRequest request) {
+        User user = new User();
+        BeanUtil.copyProperties(request, user);
+        return Result.success(userManager.addUser(user));
     }
 
     @GetMapping("/baseinfo")

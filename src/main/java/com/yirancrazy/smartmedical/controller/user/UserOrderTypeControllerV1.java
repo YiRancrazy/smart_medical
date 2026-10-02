@@ -1,8 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.OrderTypeManager;
 import com.yirancrazy.smartmedical.pojo.OrderType;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.OrderTypeAddRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,7 +33,9 @@ public class UserOrderTypeControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加订单类型", description = "添加新订单类型")
-    public Result<Integer> addOrderType(@RequestBody OrderType orderType) {
+    public Result<Integer> addOrderType(@RequestBody OrderTypeAddRequest request) {
+        OrderType orderType = new OrderType();
+        BeanUtil.copyProperties(request, orderType);
         return Result.success(orderTypeManager.addOrderType(orderType));
     }
 

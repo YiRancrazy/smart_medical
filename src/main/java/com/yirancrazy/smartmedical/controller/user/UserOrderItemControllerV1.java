@@ -1,8 +1,10 @@
 package com.yirancrazy.smartmedical.controller.user;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.OrderItemManager;
 import com.yirancrazy.smartmedical.pojo.OrderItem;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.user.request.OrderItemAddRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,8 +34,10 @@ public class UserOrderItemControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "添加订单明细", description = "添加新订单明细（校验订单归属）")
-    public Result<Integer> addOrderItem(@RequestBody OrderItem orderItem,
+    public Result<Integer> addOrderItem(@RequestBody OrderItemAddRequest request,
                                         @RequestAttribute("currentUserId") Long currentUserId) {
+        OrderItem orderItem = new OrderItem();
+        BeanUtil.copyProperties(request, orderItem);
         return Result.success(orderItemManager.addOrderItem(orderItem, currentUserId));
     }
 

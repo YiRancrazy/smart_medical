@@ -7,6 +7,7 @@ import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -338,7 +339,7 @@ public class PharmacyManager {
         txn.setQuantityBefore(beforeStock);
         txn.setQuantityAfter(inv.getStockQuantity());
         txn.setOperatorId(pharmacistId);
-        txn.setOperatorName("pharmacist");
+        txn.setOperatorName(RoleEnum.PHARMACIST.getRole());
         txn.setRemark("发药出库");
         inventoryTransactionService.insertInventoryTransaction(txn);
 
@@ -371,7 +372,7 @@ public class PharmacyManager {
                         throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
                     }
                     registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
-                            pharmacistId, "pharmacist", "发药完成");
+                            pharmacistId, RoleEnum.PHARMACIST.getRole(), "发药完成");
                 }
             }
         }
@@ -392,7 +393,7 @@ public class PharmacyManager {
                 orderLog.setFromStatus(OrderStatus.PAID.getCode());
                 orderLog.setToStatus(OrderStatus.FINISHED.getCode());
                 orderLog.setOperatorId(pharmacistId);
-                orderLog.setOperatorRole("pharmacist");
+                orderLog.setOperatorRole(RoleEnum.PHARMACIST.getRole());
                 orderLog.setRemark("发药完成");
                 orderStatusLogService.addOrderStatusLog(orderLog);
             }
@@ -443,7 +444,7 @@ public class PharmacyManager {
         txn.setQuantityBefore(beforeAvailable);
         txn.setQuantityAfter(inv.getAvailableQuantity());
         txn.setOperatorId(operatorId);
-        txn.setOperatorName("pharmacist");
+        txn.setOperatorName(RoleEnum.PHARMACIST.getRole());
         txn.setRemark("手动入库");
         inventoryTransactionService.insertInventoryTransaction(txn);
 
@@ -481,7 +482,7 @@ public class PharmacyManager {
         txn.setQuantityBefore(beforeAvailable);
         txn.setQuantityAfter(inv.getAvailableQuantity());
         txn.setOperatorId(operatorId);
-        txn.setOperatorName("pharmacist");
+        txn.setOperatorName(RoleEnum.PHARMACIST.getRole());
         txn.setRemark(remark != null ? remark : "盘点调整");
         inventoryTransactionService.insertInventoryTransaction(txn);
 
