@@ -53,7 +53,7 @@ src/main/resources/
 - 表主键用雪花 ID（`IdUtil.getSnowflakeNextId()`），见 `DepartmentManager`。
 - 中文注释、Javadoc 标注 `@Author / @Description / @Datetime / @Version`，新建类时保持一致。
 - API 用 `@Operation(summary = "...")` 标注，说明面向端（`管理员端 - `  / `用户端 - `  前缀）。
-- 请求 / 响应 DTO 放在 `pojo/dto/<role>/{request,response,result}/`；注意 `pojo/dto/user/response/` 子包历史命名（包含 admin / user 两端的响应，迁移前勿改路径）。
+- 请求 / 响应 DTO 按角色放在 `pojo/dto/<role>/{request,response,result}/`。
 - **数据库表 4 标准字段**：所有业务表（含日志表、状态流水表）都必须包含以下 4 列 —— `id`（雪花或自增，详见 §Layout 引用）、`create_time DATETIME DEFAULT CURRENT_TIMESTAMP`、`update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`、`is_deleted TINYINT(1) DEFAULT 0`；Entity 上对应字段加 MyBatis-Plus `@TableField(fill=...)` 与 `@TableLogic` 注解。即使语义上 append-only（如状态日志）也保留这 4 列，便于 DAO 层统一处理。**豁免**：仅当表为高频热点更新或纯 append-only 流水（参考 `drug_inventory`、`inventory_transaction`）时，可在 DDL 注释里**显式说明豁免原因**并省略非必要字段，但 `id` 永不豁免。新表必须在 `CreateTable.sql` 中显式列出这 4 列（即便计划豁免也要保留并注明）。
 
 ## 分层架构规范
@@ -78,7 +78,7 @@ Result<T>      Result<T>    裸数据       SQL / MyBatis-Plus
 | **Mapper** | 数据持久化（继承 `BaseMapper<T>`，复杂联表才写 XML）、查询条件封装 | 写业务逻辑、规则校验、事务控制 |
 
 - Manager 类标 `@Manager`（自定义注解，见 [annotation/Manager.java](src/main/java/com/yirancrazy/smartmedical/annotation/Manager.java)），构造注入多个 Service；原子操作下沉到 Service，Manager 不直连 Mapper。
-- 事务边界默认在 Manager 层；`service/impl/` 中历史遗留的少量 `@Transactional`（如 `PrescriptionServiceImpl`、`RegistrationServiceImpl`）应逐步收敛到 Manager。
+- 事务边界统一在 Manager 层，`service/impl/` 不声明事务。
 
 ### 接口设计规范
 
@@ -355,12 +355,12 @@ public final class IdGenerator {
 | L3 | 跨模块影响面回归，波及调用链逐一确认 |
 | L4 | 业务验收：角色权限、状态流转、金额 / 数量语义符合预期 |
 
-PR 前 checklist：跨层违规数、接口契约一致率、未收敛事务数（`PrescriptionServiceImpl` / `RegistrationServiceImpl` 等债务项）。
+PR 前 checklist：跨层违规数、接口契约一致率、未收敛事务数。
 
 ### 四、AI 能力迭代路径
 
 - **经验 → 规则回流**：踩坑 / 新约定先记录在任务总结或项目约定中，功能收尾时同步回 AGENTS.md 对应章节。
-- **已知债务登记**：IService 混合风格、Manager 层事务收敛清单、`pojo/dto/user/response/` 历史命名——新代码不得继续扩散。
+- **已知债务登记**：IService 混合风格——新代码不得继续扩散。
 - **能力三阶段**：
   1. 执行者：按规范写码（默认）
   2. 校验者：主动发现规范冲突并提议（需用户授权后生效）

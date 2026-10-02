@@ -439,7 +439,7 @@ INSERT INTO `drug_category` VALUES (8, 2, '感冒用药', 2, 4, '感冒类中成
 -- ----------------------------
 -- Table structure for drug_inventory
 -- ----------------------------
--- 豁免说明：drug_inventory 为高频热点更新表，按 CLAUDE.md 省略 create_time / is_deleted；id 保留。
+-- 豁免说明：drug_inventory 为高频热点更新表，按 AGENTS.md 省略 create_time / is_deleted；id 保留。
 DROP TABLE IF EXISTS `drug_inventory`;
 CREATE TABLE `drug_inventory`  (
   `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '库存记录ID',
@@ -500,7 +500,7 @@ INSERT INTO `file` VALUES (1, 1, '挂号排班模板.cvs', '123123', 'admin/regi
 -- ----------------------------
 -- Table structure for inventory_transaction
 -- ----------------------------
--- 豁免说明：inventory_transaction 为纯 append-only 库存流水，按 CLAUDE.md 省略 update_time / is_deleted；id、create_time 保留。
+-- 豁免说明：inventory_transaction 为纯 append-only 库存流水，按 AGENTS.md 省略 update_time / is_deleted；id、create_time 保留。
 DROP TABLE IF EXISTS `inventory_transaction`;
 CREATE TABLE `inventory_transaction`  (
   `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '库存异动流水ID',
