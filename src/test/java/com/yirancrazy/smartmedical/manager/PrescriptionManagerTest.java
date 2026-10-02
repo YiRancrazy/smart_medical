@@ -63,10 +63,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * PrescriptionManager 医生端查询单测
+ * Prescription 拆分后 Manager 单测
  * 覆盖：医生端处方列表/详情查询及所有权校验。
  * @Author: YiRanCrazy@gmail.com
- * @Description: PrescriptionManager 单测
+ * @Description: Prescription 拆分后 Manager 单测
  * @Datetime: 2026-07-24 19:10
  * @Version: 1.0
  */
@@ -92,7 +92,13 @@ class PrescriptionManagerTest {
     @Mock private AccountService accountService;
 
     @InjectMocks
-    private PrescriptionManager prescriptionManager;
+    private PrescriptionSubmitManager prescriptionSubmitManager;
+
+    @InjectMocks
+    private PrescriptionLifecycleManager prescriptionLifecycleManager;
+
+    @InjectMocks
+    private PrescriptionQueryManager prescriptionQueryManager;
 
     /**
      * listDoctorPrescriptions happy path：返回该医生的处方列表，患者信息正确映射
@@ -128,7 +134,7 @@ class PrescriptionManagerTest {
         item.setPrescriptionId(4001L);
         when(prescriptionItemService.listByPrescriptionIds(List.of(4001L))).thenReturn(List.of(item));
 
-        List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(2001L);
+        List<DoctorPrescriptionListVO> result = prescriptionQueryManager.listDoctorPrescriptions(2001L);
 
         assertEquals(1, result.size());
         DoctorPrescriptionListVO vo = result.get(0);
@@ -146,7 +152,7 @@ class PrescriptionManagerTest {
      */
     @Test
     void listDoctorPrescriptions_nullDoctorId_returnsEmpty() {
-        List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(null);
+        List<DoctorPrescriptionListVO> result = prescriptionQueryManager.listDoctorPrescriptions(null);
         assertTrue(result.isEmpty());
     }
 
@@ -159,7 +165,7 @@ class PrescriptionManagerTest {
         when(medicalRecordService.listMedicalRecordsByDoctorIdAndPatientUserIds(2001L, null))
                 .thenReturn(Collections.emptyList());
 
-        List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(2001L);
+        List<DoctorPrescriptionListVO> result = prescriptionQueryManager.listDoctorPrescriptions(2001L);
 
         assertTrue(result.isEmpty());
     }
@@ -177,7 +183,7 @@ class PrescriptionManagerTest {
         when(medicalRecordService.listMedicalRecordsByDoctorIdAndPatientUserIds(2001L, null)).thenReturn(List.of(record));
         when(prescriptionService.listByMedicalRecordIds(List.of(1001L))).thenReturn(Collections.emptyList());
 
-        List<DoctorPrescriptionListVO> result = prescriptionManager.listDoctorPrescriptions(2001L);
+        List<DoctorPrescriptionListVO> result = prescriptionQueryManager.listDoctorPrescriptions(2001L);
 
         assertTrue(result.isEmpty());
     }
@@ -228,7 +234,7 @@ class PrescriptionManagerTest {
         when(prescriptionItemService.listByPrescriptionId(4001L)).thenReturn(List.of(item));
         when(drugService.listDrugsByIds(List.of(6001L))).thenReturn(List.of(drug));
 
-        DoctorPrescriptionDetailVO vo = prescriptionManager.getDoctorPrescriptionDetail(4001L, 2001L);
+        DoctorPrescriptionDetailVO vo = prescriptionQueryManager.getDoctorPrescriptionDetail(4001L, 2001L);
 
         assertNotNull(vo);
         assertEquals(4001L, vo.getId());
@@ -256,7 +262,7 @@ class PrescriptionManagerTest {
         when(prescriptionService.getById(4001L)).thenReturn(null);
 
         BizException ex = assertThrows(BizException.class,
-                () -> prescriptionManager.getDoctorPrescriptionDetail(4001L, 2001L));
+                () -> prescriptionQueryManager.getDoctorPrescriptionDetail(4001L, 2001L));
         assertEquals(BizErrorCode.PRESCRIPTION_NOT_FOUND.getCode(), ex.getCode());
     }
 
@@ -277,7 +283,7 @@ class PrescriptionManagerTest {
         when(medicalRecordService.getById(1001L)).thenReturn(record);
 
         BizException ex = assertThrows(BizException.class,
-                () -> prescriptionManager.getDoctorPrescriptionDetail(4001L, 2001L));
+                () -> prescriptionQueryManager.getDoctorPrescriptionDetail(4001L, 2001L));
         assertEquals(BizErrorCode.PRESCRIPTION_NOT_OWNED.getCode(), ex.getCode());
     }
 
@@ -338,7 +344,7 @@ class PrescriptionManagerTest {
         when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode()))
                 .thenReturn(true);
 
-        PrescriptionSubmitVO vo = prescriptionManager.submit(1001L, req, doctorId);
+        PrescriptionSubmitVO vo = prescriptionSubmitManager.submit(1001L, req, doctorId);
 
         assertNotNull(vo);
         assertNotNull(vo.getMedicalRecordId());
@@ -390,7 +396,7 @@ class PrescriptionManagerTest {
         when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.COMPLETED.getCode()))
                 .thenReturn(true);
 
-        PrescriptionSubmitVO vo = prescriptionManager.submit(1001L, req, doctorId);
+        PrescriptionSubmitVO vo = prescriptionSubmitManager.submit(1001L, req, doctorId);
 
         assertNotNull(vo);
         assertNull(vo.getPrescriptionId());
@@ -413,7 +419,7 @@ class PrescriptionManagerTest {
         when(registrationService.getRegistrationById(1001L)).thenReturn(null);
 
         BizException ex = assertThrows(BizException.class,
-                () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
+                () -> prescriptionSubmitManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
         assertEquals(BizErrorCode.REGISTRATION_NOT_FOUND.getCode(), ex.getCode());
     }
 
@@ -437,7 +443,7 @@ class PrescriptionManagerTest {
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
 
         BizException ex = assertThrows(BizException.class,
-                () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
+                () -> prescriptionSubmitManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
         assertEquals(BizErrorCode.DOCTOR_NOT_MATCH.getCode(), ex.getCode());
     }
 
@@ -461,7 +467,7 @@ class PrescriptionManagerTest {
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(6001L)).thenReturn(template);
 
         BizException ex = assertThrows(BizException.class,
-                () -> prescriptionManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
+                () -> prescriptionSubmitManager.submit(1001L, new SubmitPrescriptionRequest(), 2001L));
         assertEquals(BizErrorCode.REGISTRATION_STATUS_INVALID.getCode(), ex.getCode());
     }
 
@@ -505,7 +511,7 @@ class PrescriptionManagerTest {
         inv.setLockedQuantity(2);
         when(drugInventoryService.listByDrugIdsForUpdate(List.of(7001L))).thenReturn(List.of(inv));
 
-        prescriptionManager.refund(4001L, userId);
+        prescriptionLifecycleManager.refund(4001L, userId);
 
         verify(paymentRecordService).insertPaymentRecord(any(PaymentRecord.class));
         assertEquals(4, orig.getStatus());
@@ -536,7 +542,7 @@ class PrescriptionManagerTest {
         when(medicalRecordService.getById(1001L)).thenReturn(record);
         when(userPatientRelationService.listAccessiblePatientUserIds(userId)).thenReturn(List.of(9009L));
 
-        BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
+        BizException ex = assertThrows(BizException.class, () -> prescriptionLifecycleManager.refund(4001L, userId));
         assertEquals(BizErrorCode.PRESCRIPTION_NOT_OWNED.getCode(), ex.getCode());
     }
 
@@ -556,7 +562,7 @@ class PrescriptionManagerTest {
         when(medicalRecordService.getById(1001L)).thenReturn(record);
         when(userPatientRelationService.listAccessiblePatientUserIds(userId)).thenReturn(List.of(9009L));
 
-        BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
+        BizException ex = assertThrows(BizException.class, () -> prescriptionLifecycleManager.refund(4001L, userId));
         assertEquals(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED.getCode(), ex.getCode());
     }
 }

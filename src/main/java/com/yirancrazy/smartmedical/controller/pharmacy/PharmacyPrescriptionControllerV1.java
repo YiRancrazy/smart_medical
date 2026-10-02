@@ -1,8 +1,7 @@
 package com.yirancrazy.smartmedical.controller.pharmacy;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.PharmacyManager;
-import com.yirancrazy.smartmedical.manager.PrescriptionManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionQueryManager;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
@@ -40,13 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class PharmacyPrescriptionControllerV1 {
 
     private final PharmacyManager pharmacyManager;
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionQueryManager prescriptionQueryManager;
 
     /** 药师端 - 历史处方分页列表 */
     @Operation(summary = "药师端 - 历史处方分页列表")
     @PostMapping("/page")
-    public Result<PageInfo<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
-        return Result.success(prescriptionManager.pagePrescriptions(request, null));
+    public Result<PageResult<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
+        return Result.success(prescriptionQueryManager.pagePrescriptions(request, null));
     }
 
     /** 药师端 - 发药历史分页列表 */
@@ -60,7 +59,7 @@ public class PharmacyPrescriptionControllerV1 {
     @Operation(summary = "药师端 - 历史处方详情")
     @GetMapping("/history/{id:\\d+}")
     public Result<PrescriptionDetailVO> historyDetail(@PathVariable Long id) {
-        return Result.success(prescriptionManager.getPrescriptionDetailForAdmin(id));
+        return Result.success(prescriptionQueryManager.getPrescriptionDetailForAdmin(id));
     }
 
     /** 药师端 - 待发药列表（F31支持可选分页） */

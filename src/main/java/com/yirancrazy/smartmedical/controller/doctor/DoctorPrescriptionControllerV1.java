@@ -1,11 +1,12 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
-import com.github.pagehelper.PageInfo;
-import com.yirancrazy.smartmedical.manager.PrescriptionManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionLifecycleManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionQueryManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionListVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,7 +37,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DoctorPrescriptionControllerV1 {
 
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionQueryManager prescriptionQueryManager;
+    private final PrescriptionLifecycleManager prescriptionLifecycleManager;
 
     /**
      * 医生端 - 处方列表
@@ -46,7 +48,7 @@ public class DoctorPrescriptionControllerV1 {
     @Operation(summary = "医生端 - 处方列表")
     @GetMapping("/list")
     public Result<List<DoctorPrescriptionListVO>> list(@RequestAttribute("currentDoctorId") Long doctorId) {
-        return Result.success(prescriptionManager.listDoctorPrescriptions(doctorId));
+        return Result.success(prescriptionQueryManager.listDoctorPrescriptions(doctorId));
     }
 
     /**
@@ -60,7 +62,7 @@ public class DoctorPrescriptionControllerV1 {
     @GetMapping("/{id:\\d+}")
     public Result<DoctorPrescriptionDetailVO> detail(@PathVariable Long id,
                                                      @RequestAttribute("currentDoctorId") Long doctorId) {
-        return Result.success(prescriptionManager.getDoctorPrescriptionDetail(id, doctorId));
+        return Result.success(prescriptionQueryManager.getDoctorPrescriptionDetail(id, doctorId));
     }
 
     /**
@@ -71,7 +73,7 @@ public class DoctorPrescriptionControllerV1 {
     @Operation(summary = "医生端 - 作废处方(仅待支付)")
     @PostMapping("/{id}/cancel")
     public Result<Void> cancel(@PathVariable Long id, @RequestAttribute("currentDoctorId") Long doctorId) {
-        prescriptionManager.cancelByDoctor(id, doctorId);
+        prescriptionLifecycleManager.cancelByDoctor(id, doctorId);
         return Result.success(null);
     }
 
@@ -83,10 +85,10 @@ public class DoctorPrescriptionControllerV1 {
      */
     @Operation(summary = "医生端 - 历史处方分页列表")
     @PostMapping("/history/page")
-    public Result<PageInfo<PrescriptionPageItemVO>> historyPage(
+    public Result<PageResult<PrescriptionPageItemVO>> historyPage(
             @Valid @RequestBody PrescriptionQueryRequest request,
             @RequestAttribute("currentDoctorId") Long doctorId) {
-        return Result.success(prescriptionManager.pagePrescriptions(request, doctorId));
+        return Result.success(prescriptionQueryManager.pagePrescriptions(request, doctorId));
     }
 
     /**
@@ -97,6 +99,6 @@ public class DoctorPrescriptionControllerV1 {
     @Operation(summary = "医生端 - 历史处方详情")
     @GetMapping("/history/{id:\\d+}")
     public Result<PrescriptionDetailVO> historyDetail(@PathVariable Long id) {
-        return Result.success(prescriptionManager.getPrescriptionDetailForAdmin(id));
+        return Result.success(prescriptionQueryManager.getPrescriptionDetailForAdmin(id));
     }
 }

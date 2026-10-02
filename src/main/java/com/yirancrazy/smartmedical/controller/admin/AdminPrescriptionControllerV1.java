@@ -1,11 +1,11 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
-import com.github.pagehelper.PageInfo;
-import com.yirancrazy.smartmedical.manager.PrescriptionManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionQueryManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AdminPrescriptionControllerV1 {
 
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionQueryManager prescriptionQueryManager;
 
     /**
      * 管理员端 - 处方历史分页列表
@@ -41,8 +41,8 @@ public class AdminPrescriptionControllerV1 {
      */
     @Operation(summary = "管理员端 - 处方历史分页列表")
     @PostMapping("/page")
-    public Result<PageInfo<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
-        return Result.success(prescriptionManager.pagePrescriptions(request, null));
+    public Result<PageResult<PrescriptionPageItemVO>> page(@Valid @RequestBody PrescriptionQueryRequest request) {
+        return Result.success(prescriptionQueryManager.pagePrescriptions(request, null));
     }
 
     /**
@@ -54,6 +54,6 @@ public class AdminPrescriptionControllerV1 {
     @Parameter(name = "id", description = "处方ID", required = true)
     @GetMapping("/{id:\\d+}")
     public Result<PrescriptionDetailVO> detail(@PathVariable Long id) {
-        return Result.success(prescriptionManager.getPrescriptionDetailForAdmin(id));
+        return Result.success(prescriptionQueryManager.getPrescriptionDetailForAdmin(id));
     }
 }

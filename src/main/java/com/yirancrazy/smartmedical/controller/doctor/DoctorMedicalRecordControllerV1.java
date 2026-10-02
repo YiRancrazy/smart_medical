@@ -1,11 +1,11 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
-import com.yirancrazy.smartmedical.manager.PrescriptionManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionSubmitManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DoctorMedicalRecordControllerV1 {
 
     private final MedicalRecordManager medicalRecordManager;
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionSubmitManager prescriptionSubmitManager;
 
     /**
      * 医生端 - 取病历(按挂号ID)
@@ -74,7 +74,7 @@ public class DoctorMedicalRecordControllerV1 {
     @PostMapping("/submit")
     public Result<PrescriptionSubmitVO> submit(@Valid @RequestBody SubmitPrescriptionRequest req,
                                                @RequestAttribute("currentDoctorId") Long doctorId) {
-        return Result.success(prescriptionManager.submit(req.getRegistrationId(), req, doctorId));
+        return Result.success(prescriptionSubmitManager.submit(req.getRegistrationId(), req, doctorId));
     }
 
     /**
@@ -85,7 +85,7 @@ public class DoctorMedicalRecordControllerV1 {
      */
     @Operation(summary = "医生端 - 历史病历分页列表")
     @PostMapping("/history/page")
-    public Result<PageInfo<MedicalRecordPageItemVO>> historyPage(
+    public Result<PageResult<MedicalRecordPageItemVO>> historyPage(
             @Valid @RequestBody MedicalRecordQueryRequest request,
             @RequestAttribute("currentDoctorId") Long doctorId) {
         return Result.success(medicalRecordManager.pageMedicalRecords(request, doctorId));

@@ -1,7 +1,8 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.PatientManager;
-import com.yirancrazy.smartmedical.manager.PrescriptionManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionLifecycleManager;
+import com.yirancrazy.smartmedical.manager.PrescriptionQueryManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
@@ -33,7 +34,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserPrescriptionControllerV1 {
 
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionQueryManager prescriptionQueryManager;
+    private final PrescriptionLifecycleManager prescriptionLifecycleManager;
     private final PatientManager patientManager;
 
     @Operation(summary = "用户端 - 我的处方列表")
@@ -45,7 +47,7 @@ public class UserPrescriptionControllerV1 {
         if (patientUserIds.isEmpty()) {
             return Result.success(Collections.emptyList());
         }
-        return Result.success(prescriptionManager.listUserPrescriptions(patientUserIds));
+        return Result.success(prescriptionQueryManager.listUserPrescriptions(patientUserIds));
     }
 
     @Operation(summary = "用户端 - 处方详情")
@@ -53,7 +55,7 @@ public class UserPrescriptionControllerV1 {
     @GetMapping("/{id:\\d+}")
     public Result<PrescriptionDetailVO> detail(@PathVariable Long id,
                                                @RequestAttribute("currentUserId") Long userId) {
-        return Result.success(prescriptionManager.getPrescriptionDetail(id, userId));
+        return Result.success(prescriptionQueryManager.getPrescriptionDetail(id, userId));
     }
 
     @Operation(summary = "用户端 - 退款已支付处方", description = "仅已支付未发药处方可退，退款后库存与款项回退")
@@ -61,7 +63,7 @@ public class UserPrescriptionControllerV1 {
     @PostMapping("/{id:\\d+}/refund")
     public Result<String> refund(@PathVariable Long id,
                                  @RequestAttribute("currentUserId") Long userId) {
-        prescriptionManager.refund(id, userId);
+        prescriptionLifecycleManager.refund(id, userId);
         return Result.success("退款成功");
     }
 }
