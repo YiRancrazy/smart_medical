@@ -13,19 +13,21 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum RoleEnum {
 
-    ADMIN(1, "系统管理员", "admin"),
-    DOCTOR(2, "医生", "doctor"),
-    PATIENT(4, "患者", "user"),
-    PHARMACIST(6, "药师", "pharmacy"),
+    ADMIN(1, "系统管理员", "admin", "admin"),
+    DOCTOR(2, "医生", "doctor", "doctor"),
+    PATIENT(4, "患者", "user", "user"),
+    PHARMACIST(6, "药师", "pharmacist", "pharmacist"),
     /** 非业务角色，仅用于系统自动写入的审计日志；code=0 为哨兵值 */
-    SYSTEM(0, "系统", "system");
+    SYSTEM(0, "系统", "system", null);
 
     private final Integer code;
     private final String name;
     /** 审计字段 operator_role 的存量字符串值，与历史数据保持一致 */
     private final String role;
+    /** Spring Security 权限名，由 hasRole / hasAnyRole 自动补 ROLE_ 前缀 */
+    private final String securityRole;
     /**
-     * 审计代码中沿用的别名；药师保持历史值 pharmacy。
+     * 审计代码中沿用的别名。
      */
     public String getAlias() {
         return role;

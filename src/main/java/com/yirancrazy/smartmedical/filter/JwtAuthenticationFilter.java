@@ -5,6 +5,7 @@ import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yirancrazy.smartmedical.config.SecurityConfig;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.FilterChain;
@@ -174,7 +175,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * 将 JWT payload 中的 role_id 映射为 Spring Security 角色权限（ROLE_xxx）
-     * 角色 ID 映射以 role 表为准：1=系统管理员 / 2=医生 / 4=患者 / 6=药师
+     * 角色 ID 映射以 RoleEnum 为准
      * @param payload JWT payload
      * @return Spring Security 角色权限列表
      */
@@ -183,19 +184,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (roleId < 0) {
             return Collections.emptyList();
         }
-        String authority = switch ((int) roleId) {
-            case 1 -> "ROLE_admin";
-            case 2 -> "ROLE_doctor";
-            case 4 -> "ROLE_user";
-            case 6 -> "ROLE_pharmacist";
-            default -> null;
-        };
+        RoleEnum role = RoleEnum.getByCode((int) roleId);
         // G10: 未知 roleId 不再兜底为 ROLE_user（会错误授权），改为拒绝所有访问
-        if (authority == null) {
+        if (role == null || role.getSecurityRole() == null) {
             log.warn("[jwt] 未知 roleId={}，拒绝授权", roleId);
             return Collections.emptyList();
         }
-        return List.of(new SimpleGrantedAuthority(authority));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.getSecurityRole()));
     }
 
     /**

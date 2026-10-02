@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.filter.CaptchaVerifyFilter;
 import com.yirancrazy.smartmedical.filter.JwtAuthenticationFilter;
 import com.yirancrazy.smartmedical.pojo.Result;
@@ -88,10 +89,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PERMIT_ALL_PATHS).permitAll()
-                        .requestMatchers("/api/admin/v1/**").hasRole("admin")
-                        .requestMatchers("/api/doctor/v1/**").hasRole("doctor")
-                        .requestMatchers("/api/pharmacy/v1/**").hasRole("pharmacist")
-                        .requestMatchers("/api/user/v1/**").hasRole("user")
+                        .requestMatchers("/api/admin/v1/**").hasRole(RoleEnum.ADMIN.getSecurityRole())
+                        .requestMatchers("/api/doctor/v1/**").hasRole(RoleEnum.DOCTOR.getSecurityRole())
+                        .requestMatchers("/api/pharmacy/v1/**").hasRole(RoleEnum.PHARMACIST.getSecurityRole())
+                        .requestMatchers("/api/user/v1/**").hasRole(RoleEnum.PATIENT.getSecurityRole())
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
