@@ -177,9 +177,9 @@ public class AdminAuthManager {
         }
 
         // accessJWT 和 refreshJwt 写入 redis 中（统一前缀用于所有角色，统一管理）
-        Long currentTimeMillis = System.currentTimeMillis();
-        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeMillis);
-        String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeMillis);
+        Long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
+        String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
         redisUtil.setEx(accessTokenPrefix + roleAccount.getId(), accessJwt, 30, TimeUnit.MINUTES);
         redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
@@ -201,9 +201,9 @@ public class AdminAuthManager {
     }
 
     /**
-     * 生成访问JWT（30分钟有效期）
+     * 生成访问JWT（30分钟有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    private String createAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
+    private String createAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -213,18 +213,18 @@ public class AdminAuthManager {
         payload.put(JWTPayload.SUBJECT, accountId);
         payload.put("userId", userId);
         payload.put("role", roleId); // 统一字段名为role
-        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 30);
-        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30 * 60);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
 
         return JWTUtil.createToken(header, payload, accessSecretKey.getBytes());
     }
 
     /**
-     * 生成刷新JWT（30天有效期，包含role信息）
+     * 生成刷新JWT（30天有效期，包含role信息），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    private String createRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeMillis) {
+    private String createRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -234,9 +234,9 @@ public class AdminAuthManager {
         payload.put(JWTPayload.SUBJECT, accountId);
         payload.put("userId", userId);
         payload.put("role", roleId); // refresh token包含role，刷新时直接解析
-        payload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 30);
-        payload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-        payload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30L * 24 * 60 * 60);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
 
         return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());

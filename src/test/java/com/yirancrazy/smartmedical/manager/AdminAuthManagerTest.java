@@ -130,6 +130,14 @@ class AdminAuthManagerTest {
         assertNotNull(tokenCaptor.getAllValues().get(1));
         assertTrue(JWTUtil.verify(tokenCaptor.getAllValues().get(0), "test-access-secret-key".getBytes()));
         assertTrue(JWTUtil.verify(tokenCaptor.getAllValues().get(1), "test-refresh-secret-key".getBytes()));
+
+        long nowSeconds = System.currentTimeMillis() / 1000;
+        long accessExp = Long.parseLong(String.valueOf(
+                JWTUtil.parseToken(tokenCaptor.getAllValues().get(0)).getPayload().getClaim("exp")));
+        long refreshExp = Long.parseLong(String.valueOf(
+                JWTUtil.parseToken(tokenCaptor.getAllValues().get(1)).getPayload().getClaim("exp")));
+        assertTrue(Math.abs(accessExp - (nowSeconds + 30 * 60)) <= 5);
+        assertTrue(Math.abs(refreshExp - (nowSeconds + 30L * 24 * 60 * 60)) <= 5);
         verify(response).setHeader(eq("Authorization"), anyString());
     }
 
