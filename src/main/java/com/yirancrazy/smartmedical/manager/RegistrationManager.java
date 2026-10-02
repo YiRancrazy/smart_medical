@@ -24,7 +24,7 @@ import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorPositionService;
 import com.yirancrazy.smartmedical.service.DoctorService;
@@ -39,6 +39,7 @@ import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -221,7 +222,7 @@ public class RegistrationManager {
         PageInfo<Registration> pageInfo = new PageInfo<>(registrationList);
 
         List<AppointmentResponseSimple> result = convertToAppointmentResponseSimpleBatch(registrationList);
-        return Result.success(new PageResult<>(pageInfo, result));
+        return Result.success(PageUtils.toResult(pageInfo, result));
     }
 
     /**

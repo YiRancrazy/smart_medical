@@ -5,7 +5,7 @@ import com.yirancrazy.smartmedical.manager.RegistrationManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.InsertRegistrationRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

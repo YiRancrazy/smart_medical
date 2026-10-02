@@ -26,11 +26,11 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleViewVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import com.yirancrazy.smartmedical.pojo.vo.DoctorVo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorConfirmVo;
@@ -48,6 +48,7 @@ import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.utils.DoctorInitPasswordUtil;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -422,7 +423,10 @@ public class DoctorManager {
         List<DoctorPosition> positions = doctorPositionService.listDoctorPositions();
         List<Degree> degrees = degreeService.listAllDegrees();
 
-        return Result.success(new PageResult<>(doctorsPageInfo, mergeAdminDoctorDetailResponseByDoctorsAndDepartmentAndPositionAndDegrees(doctors, departments, positions, degrees)));
+        return Result.success(PageUtils.toResult(
+                doctorsPageInfo,
+                mergeAdminDoctorDetailResponseByDoctorsAndDepartmentAndPositionAndDegrees(doctors, departments, positions, degrees)
+        ));
 
     }
 

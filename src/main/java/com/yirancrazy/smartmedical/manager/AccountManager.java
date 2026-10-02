@@ -11,12 +11,14 @@ import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -78,20 +80,20 @@ public class AccountManager {
      * @param pageSize 每页大小
      * @return 分页账户详情响应列表
      */
-    public Result<PageInfo<AccountDetailResponse>> listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
+    public Result<PageResult<AccountDetailResponse>> listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
             String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
 
         List<Long> userIds = resolveUserIdsByUsername(username);
         if (userIds != null && userIds.isEmpty()) {
             PageHelper.clearPage();
-            return Result.success(new PageInfo<>(new ArrayList<>()));
+            return Result.success(PageUtils.toResult(new PageInfo<>(), new ArrayList<>()));
         }
 
         PageInfo<Account> accounts = accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(
                 userIds, roleId, enabled, pageNum, pageSize);
 
         if (accounts.getList() == null || accounts.getList().isEmpty()) {
-            return Result.success(new PageInfo<>(new ArrayList<>()));
+            return Result.success(PageUtils.toResult(accounts, new ArrayList<>()));
         }
 
         // 根据 roleId 批量加载关联实体
@@ -102,7 +104,7 @@ public class AccountManager {
                 .map(account -> buildAccountDetailResponse(account, roleId, entities.adminList, entities.doctorList))
                 .collect(Collectors.toList());
 
-        return Result.success(new PageInfo<>(responseList));
+        return Result.success(PageUtils.toResult(accounts, responseList));
     }
 
     /**

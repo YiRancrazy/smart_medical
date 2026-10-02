@@ -1,9 +1,9 @@
 package com.yirancrazy.smartmedical.controller.user;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.DepartmentManager;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.AdminDepartmentRequest;
 import com.yirancrazy.smartmedical.pojo.vo.ChildDepartmentBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.ParentDepartmentBaseInfo;
@@ -102,7 +102,7 @@ public class UserDepartmentControllerV1 {
     @Operation(summary = "分页查询科室", description = "分页查询科室列表")
     @Parameter(name = "pageNum", description = "页码", required = true)
     @Parameter(name = "pageSize", description = "页面大小", required = true)
-    public Result<PageInfo<Department>> getDepartmentPage(
+    public Result<PageResult<Department>> getDepartmentPage(
             @RequestParam Integer pageNum,
             @RequestParam Integer pageSize) {
         return departmentManager.getDepartmentPage(pageNum, pageSize);

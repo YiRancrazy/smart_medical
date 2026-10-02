@@ -10,11 +10,13 @@ import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminRegistrationScheduleTemplateDetail;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -93,7 +95,7 @@ public class RegistrationScheduleTemplateManager {
      * @param pageSize 每页大小
      * @return 分页结果
      */
-    public Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByPage(Integer pageNum, Integer pageSize) {
+    public Result<PageResult<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByPage(Integer pageNum, Integer pageSize) {
 
         List<AdminRegistrationScheduleTemplateDetail> registrationScheduleTemplateDetails = new ArrayList<>();
 
@@ -135,14 +137,7 @@ public class RegistrationScheduleTemplateManager {
             registrationScheduleTemplateDetails.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
         }
 
-        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
-        pageInfo.setTotal(sourcePage.getTotal());
-        pageInfo.setPageNum(sourcePage.getPageNum());
-        pageInfo.setPageSize(sourcePage.getPageSize());
-        pageInfo.setPages(sourcePage.getPages());
-        pageInfo.setList(registrationScheduleTemplateDetails);
-
-        return Result.success(pageInfo);
+        return Result.success(PageUtils.toResult(sourcePage, registrationScheduleTemplateDetails));
     }
 
     /**
@@ -183,7 +178,7 @@ public class RegistrationScheduleTemplateManager {
      * @param departmentId 科室id
      * @return 分页结果
      */
-    public Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByDoctorIdAndDepartmentIdAndDateAndPage(Integer pageNum, Integer pageSize, Long doctorId, String startDate, String endDate, Long departmentId) {
+    public Result<PageResult<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByDoctorIdAndDepartmentIdAndDateAndPage(Integer pageNum, Integer pageSize, Long doctorId, String startDate, String endDate, Long departmentId) {
         // 日期解析防御：格式非法直接 fail，不抛 500
         LocalDate localStartDate;
         LocalDate localEndDate;
@@ -247,13 +242,7 @@ public class RegistrationScheduleTemplateManager {
             result.add(createAdminRegistrationScheduleTemplateDetail(item, doctor, department, remaining));
         }
 
-        PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
-        pageInfo.setTotal(sourcePage.getTotal());
-        pageInfo.setPageNum(sourcePage.getPageNum());
-        pageInfo.setPageSize(sourcePage.getPageSize());
-        pageInfo.setPages(sourcePage.getPages());
-        pageInfo.setList(result);
-        return Result.success(pageInfo);
+        return Result.success(PageUtils.toResult(sourcePage, result));
     }
 
     /**
@@ -288,14 +277,14 @@ public class RegistrationScheduleTemplateManager {
      * @param pageSize 每页大小
      * @return 空分页
      */
-    private Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> emptyPage(Integer pageNum, Integer pageSize) {
+    private Result<PageResult<AdminRegistrationScheduleTemplateDetail>> emptyPage(Integer pageNum, Integer pageSize) {
         PageInfo<AdminRegistrationScheduleTemplateDetail> pageInfo = new PageInfo<>();
         pageInfo.setPageNum(pageNum);
         pageInfo.setPageSize(pageSize);
         pageInfo.setPages(0);
         pageInfo.setTotal(0);
         pageInfo.setList(List.of());
-        return Result.success(pageInfo);
+        return Result.success(PageUtils.toResult(pageInfo, List.of()));
     }
 
     /**

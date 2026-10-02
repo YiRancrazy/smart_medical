@@ -24,7 +24,7 @@ import com.yirancrazy.smartmedical.pojo.dto.pharmacy.request.DispenseHistoryQuer
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseHistoryVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
@@ -38,6 +38,7 @@ import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -139,7 +140,7 @@ public class PharmacyManager {
             }
             vos.add(vo);
         }
-        return Result.success(new PageResult<>(pageInfo, vos));
+        return Result.success(PageUtils.toResult(pageInfo, vos));
     }
 
     /**
@@ -156,7 +157,7 @@ public class PharmacyManager {
                     .map(Account::getUserId)
                     .collect(Collectors.toSet());
             if (pharmacistUserIds.isEmpty()) {
-                return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
+                return Result.success(PageUtils.toResult(new PageInfo<>(List.of()), Collections.emptyList()));
             }
         }
 
@@ -165,12 +166,12 @@ public class PharmacyManager {
         if (request.getPatientName() != null && !request.getPatientName().isBlank()) {
             List<Long> patientUserIds = userService.listUserIdsByNicknameLike(request.getPatientName());
             if (patientUserIds.isEmpty()) {
-                return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
+                return Result.success(PageUtils.toResult(new PageInfo<>(List.of()), Collections.emptyList()));
             }
             medicalRecordIds = medicalRecordService.listByPatientUserIds(patientUserIds)
                     .stream().map(MedicalRecord::getId).collect(Collectors.toList());
             if (medicalRecordIds.isEmpty()) {
-                return Result.success(new PageResult<>(new PageInfo<>(List.of()), Collections.emptyList()));
+                return Result.success(PageUtils.toResult(new PageInfo<>(List.of()), Collections.emptyList()));
             }
         }
 
@@ -180,7 +181,7 @@ public class PharmacyManager {
                 pharmacistUserIds, request.getPrescriptionId(), request.getOrderId(),
                 startTime, endTime, medicalRecordIds, request.getPageNum(), request.getPageSize());
         List<Prescription> prescriptions = pageInfo.getList();
-        return Result.success(new PageResult<>(pageInfo, buildDispenseHistoryVOs(prescriptions)));
+        return Result.success(PageUtils.toResult(pageInfo, buildDispenseHistoryVOs(prescriptions)));
     }
 
     /**
@@ -411,7 +412,7 @@ public class PharmacyManager {
         // F31: 过滤+排序下推到 SQL，避免 Java 端分页漏数据
         List<DrugInventory> list = drugInventoryService.listLowStock();
         PageInfo<DrugInventory> pageInfo = new PageInfo<>(list);
-        return Result.success(new PageResult<>(pageInfo, list));
+        return Result.success(PageUtils.toResult(pageInfo, list));
     }
 
     /**

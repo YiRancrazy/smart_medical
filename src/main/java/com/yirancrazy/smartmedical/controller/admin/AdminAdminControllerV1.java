@@ -2,8 +2,8 @@ package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.AdminManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminAdminSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

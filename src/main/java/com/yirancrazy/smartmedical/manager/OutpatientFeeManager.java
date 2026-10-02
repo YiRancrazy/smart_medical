@@ -8,9 +8,10 @@ import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderType;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.OutpatientFeeItemResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.OrderTypeService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,13 +57,13 @@ public class OutpatientFeeManager {
         PageInfo<Order> pageInfo = new PageInfo<>(orders);
 
         if (orders.isEmpty()) {
-            return Result.success(new PageResult<>(pageInfo, Collections.emptyList()));
+            return Result.success(PageUtils.toResult(pageInfo, Collections.emptyList()));
         }
 
         List<OutpatientFeeItemResponse> list = orders.stream()
                 .map(order -> convertToResponse(order, orderTypeNameMap))
                 .collect(Collectors.toList());
-        return Result.success(new PageResult<>(pageInfo, list));
+        return Result.success(PageUtils.toResult(pageInfo, list));
     }
 
     /**

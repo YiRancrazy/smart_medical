@@ -12,7 +12,7 @@ import com.yirancrazy.smartmedical.pojo.dto.pharmacy.request.DispenseHistoryQuer
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseHistoryVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

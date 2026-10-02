@@ -9,14 +9,15 @@ import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.AdminDepartmentRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminDepartmentSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
 import com.yirancrazy.smartmedical.pojo.vo.ChildDepartmentBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.ParentDepartmentBaseInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -166,9 +167,9 @@ public class DepartmentManager {
      * @param pageSize 页面大小
      * @return 分页结果
      */
-    public Result<PageInfo<Department>> getDepartmentPage(Integer pageNum, Integer pageSize) {
+    public Result<PageResult<Department>> getDepartmentPage(Integer pageNum, Integer pageSize) {
         PageInfo<Department> pageInfo = departmentService.listDepartmentsByPage(pageNum, pageSize);
-        return Result.success(pageInfo);
+        return Result.success(PageUtils.toResult(pageInfo, pageInfo.getList()));
     }
 
     /**
@@ -330,7 +331,7 @@ public class DepartmentManager {
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
         fillParentDepartmentNames(result);
 
-        return Result.success(new PageResult<>(pageinfo,result));
+        return Result.success(PageUtils.toResult(pageinfo, result));
     }
 
     /**
@@ -350,7 +351,7 @@ public class DepartmentManager {
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
         fillParentDepartmentNames(result);
-        return Result.success(new PageResult<>(pageinfo,result));
+        return Result.success(PageUtils.toResult(pageinfo, result));
     }
 
     /**
@@ -370,7 +371,7 @@ public class DepartmentManager {
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
         fillParentDepartmentNames(result);
-        return Result.success(new PageResult<>(pageinfo,result));
+        return Result.success(PageUtils.toResult(pageinfo, result));
     }
 
     /**
@@ -447,7 +448,7 @@ public class DepartmentManager {
         // 封装成 PageInfo 对象
         PageInfo<Department> pageinfo = new PageInfo<>(departments);
         if (departments.isEmpty()) {
-            return Result.success(new PageResult<>(pageinfo, new ArrayList<>()));
+            return Result.success(PageUtils.toResult(pageinfo, new ArrayList<>()));
         }
         List<Long> managerIds = departments
                 .stream()
@@ -457,6 +458,6 @@ public class DepartmentManager {
                 List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         List<AdminDepartmentSimpleResponse> result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
         fillParentDepartmentNames(result);
-        return Result.success(new PageResult<>(pageinfo,result));
+        return Result.success(PageUtils.toResult(pageinfo, result));
     }
 }

@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
@@ -63,7 +64,7 @@ class AccountManagerTest {
         when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, null, null, 1, 10))
                 .thenReturn(new PageInfo<>(List.of()));
 
-        Result<PageInfo<AccountDetailResponse>> result = accountManager
+        Result<PageResult<AccountDetailResponse>> result = accountManager
                 .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(null, null, null, 1, 10);
 
         assertEquals(200, result.getCode());
@@ -92,7 +93,7 @@ class AccountManagerTest {
                 .thenReturn(pageInfo);
         when(adminService.listAdminsByIds(List.of(5001L))).thenReturn(List.of(admin));
 
-        Result<PageInfo<AccountDetailResponse>> result = accountManager
+        Result<PageResult<AccountDetailResponse>> result = accountManager
                 .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(null, 1L, null, 1, 10);
 
         assertEquals(200, result.getCode());
@@ -128,7 +129,7 @@ class AccountManagerTest {
                 .thenReturn(pageInfo);
         when(doctorService.listDoctorsByIds(List.of(6001L))).thenReturn(List.of(doctor));
 
-        Result<PageInfo<AccountDetailResponse>> result = accountManager
+        Result<PageResult<AccountDetailResponse>> result = accountManager
                 .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(null, 2L, null, 1, 10);
 
         List<AccountDetailResponse> list = result.getData().getList();
@@ -166,7 +167,7 @@ class AccountManagerTest {
         when(adminService.listAdminsByIds(List.of(7001L))).thenReturn(List.of(admin));
         when(doctorService.listDoctorsByIds(List.of(8001L))).thenReturn(List.of(doctor));
 
-        Result<PageInfo<AccountDetailResponse>> result = accountManager
+        Result<PageResult<AccountDetailResponse>> result = accountManager
                 .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(null, null, null, 1, 10);
 
         List<AccountDetailResponse> list = result.getData().getList();
@@ -185,7 +186,7 @@ class AccountManagerTest {
                 .thenReturn(List.of());
         when(userService.listUserIdsByNicknameLike("不存在")).thenReturn(List.of());
 
-        Result<PageInfo<AccountDetailResponse>> result = accountManager
+        Result<PageResult<AccountDetailResponse>> result = accountManager
                 .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
                         "不存在", null, null, 1, 10);
 
@@ -212,7 +213,7 @@ class AccountManagerTest {
                 List.of(11L, 22L, 33L), null, null, 1, 10))
                 .thenReturn(new PageInfo<>(List.of()));
 
-        Result<PageInfo<AccountDetailResponse>> result = accountManager
+        Result<PageResult<AccountDetailResponse>> result = accountManager
                 .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
                         "张", null, null, 1, 10);
 
@@ -252,5 +253,29 @@ class AccountManagerTest {
 
         org.mockito.Mockito.verify(redisUtil).delete("access_token_1001");
         org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
+    }
+
+    /**
+     * 分页元信息（pageNum/pageSize/total/totalPages）透传到 PageResult
+     */
+    @Test
+    void accountPage_preservesSourcePaginationMetadata() {
+        PageInfo<Account> source = new PageInfo<>();
+        source.setPageNum(2);
+        source.setPageSize(10);
+        source.setTotal(35L);
+        source.setPages(4);
+        source.setList(List.of());
+
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, null, null, 2, 10))
+                .thenReturn(source);
+
+        Result<PageResult<AccountDetailResponse>> result = accountManager
+                .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(null, null, null, 2, 10);
+
+        assertEquals(2, result.getData().getPageNum());
+        assertEquals(10, result.getData().getPageSize());
+        assertEquals(35L, result.getData().getTotal());
+        assertEquals(4, result.getData().getTotalPages());
     }
 }

@@ -1,9 +1,9 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.AccountManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AccountDetailResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,7 +36,7 @@ public class AdminAccountControllerV1 {
 
     @GetMapping("/detail")
     @Operation(summary = "根据用户名、角色ID、是否启用分页查询账户详情")
-    public Result<PageInfo<AccountDetailResponse>> listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
+    public Result<PageResult<AccountDetailResponse>> listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(
             @Parameter(description = "用户名") @RequestParam(required = false) String username,
             @Parameter(description = "角色ID") @RequestParam(required = false) Long roleId,
             @Parameter(description = "是否启用") @RequestParam(required = false) Boolean enabled,

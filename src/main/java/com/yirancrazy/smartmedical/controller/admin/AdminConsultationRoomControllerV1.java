@@ -1,9 +1,9 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.ConsultationRoomManager;
 import com.yirancrazy.smartmedical.pojo.ConsultationRoom;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -59,8 +59,8 @@ public class AdminConsultationRoomControllerV1 {
 
     @GetMapping("/list")
     @Operation(summary = "管理员端 - 诊室分页列表")
-    public Result<PageInfo<ConsultationRoom>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public Result<PageResult<ConsultationRoom>> list(@RequestParam(defaultValue = "1") Integer pageNum,
                                                     @RequestParam(defaultValue = "10") Integer pageSize) {
-        return Result.success(consultationRoomManager.listConsultationRooms(pageNum, pageSize));
+        return consultationRoomManager.listConsultationRooms(pageNum, pageSize);
     }
 }
