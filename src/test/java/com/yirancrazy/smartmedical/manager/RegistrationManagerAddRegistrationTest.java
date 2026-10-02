@@ -1,7 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.constant.OrderStatus;
-import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
+import com.yirancrazy.smartmedical.constant.ProductionTypeEnum;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -110,7 +110,7 @@ class RegistrationManagerAddRegistrationTest {
         OrderItem orderItem = orderItemCaptor.getValue();
         assertEquals(order.getId(), orderItem.getOrderId());
         assertEquals(registration.getId(), orderItem.getProductionId());
-        assertEquals(ProductionTypeConstant.DRUG, orderItem.getProductionTypeId());
+        assertEquals(ProductionTypeEnum.REGISTRATION.getCode(), orderItem.getProductionTypeId());
         assertEquals(1, orderItem.getQuantity());
 
         verify(registrationStatusLogService).writeLog(

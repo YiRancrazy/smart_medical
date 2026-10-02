@@ -3,7 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
-import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
+import com.yirancrazy.smartmedical.constant.OrderTypeEnum;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
@@ -129,9 +129,9 @@ public class OrderTimeOutManager {
         if (orderTypeId == null) {
             return true;
         }
-        if (orderTypeId == OrderTypeConstant.REGISTRATION) {
+        if (orderTypeId == OrderTypeEnum.REGISTRATION.getCode()) {
             cancelExpiredRegistrationOrder(order);
-        } else if (orderTypeId == OrderTypeConstant.DRUG) {
+        } else if (orderTypeId == OrderTypeEnum.DRUG.getCode()) {
             cancelExpiredPrescriptionOrder(order);
         } else {
             log.warn("[order-timeout] orderId={} 未知订单类型 {}，仅关闭订单不联动", order.getId(), orderTypeId);

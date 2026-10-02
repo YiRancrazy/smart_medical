@@ -1,7 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.constant.OrderStatus;
-import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
+import com.yirancrazy.smartmedical.constant.OrderTypeEnum;
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
@@ -209,7 +209,7 @@ class OrderTimeOutManagerTest {
         Order order = new Order();
         order.setId(5001L);
         order.setSn(5001L);
-        order.setOrderTypeId(OrderTypeConstant.REGISTRATION);
+        order.setOrderTypeId(OrderTypeEnum.REGISTRATION.getCode());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setCreateTime(LocalDateTime.now().minusMinutes(31));
         return order;
@@ -228,7 +228,7 @@ class OrderTimeOutManagerTest {
         Order order = new Order();
         order.setId(6001L);
         order.setSn(6001L);
-        order.setOrderTypeId(OrderTypeConstant.DRUG);
+        order.setOrderTypeId(OrderTypeEnum.DRUG.getCode());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setCreateTime(LocalDateTime.now().minusMinutes(31));
         return order;

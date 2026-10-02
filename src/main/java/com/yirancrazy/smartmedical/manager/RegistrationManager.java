@@ -5,8 +5,8 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
-import com.yirancrazy.smartmedical.constant.OrderTypeConstant;
-import com.yirancrazy.smartmedical.constant.ProductionTypeConstant;
+import com.yirancrazy.smartmedical.constant.OrderTypeEnum;
+import com.yirancrazy.smartmedical.constant.ProductionTypeEnum;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -157,7 +157,7 @@ public class RegistrationManager {
         order.setId(IdUtil.getSnowflakeNextId());
         order.setSn(IdUtil.getSnowflakeNextId());
         order.setUserId(patient.getUserId());
-        order.setOrderTypeId(OrderTypeConstant.REGISTRATION);
+        order.setOrderTypeId(OrderTypeEnum.REGISTRATION.getCode());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(price);
         order.setOrderCreateTime(LocalDateTime.now());
@@ -191,7 +191,7 @@ public class RegistrationManager {
         orderItem.setOrderId(order.getId());
         orderItem.setProductionId(registration.getId());
         // 挂号订单项沿用 production_type.id=1（药品）既有映射，命名常量避免裸数字
-        orderItem.setProductionTypeId(ProductionTypeConstant.DRUG);
+        orderItem.setProductionTypeId(ProductionTypeEnum.REGISTRATION.getCode());
         orderItem.setQuantity(1);
         orderItemService.insertOrderItem(orderItem);
 
