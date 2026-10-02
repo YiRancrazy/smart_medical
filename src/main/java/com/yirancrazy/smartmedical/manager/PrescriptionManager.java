@@ -10,13 +10,12 @@ import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-<<<<<<< HEAD
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
-=======
->>>>>>> fix/prescription-lock-idempotency
 import com.yirancrazy.smartmedical.pojo.Drug;
+import com.yirancrazy.smartmedical.pojo.DrugInventory;
+import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderItem;
@@ -42,6 +41,7 @@ import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.DrugService;
+import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import com.yirancrazy.smartmedical.service.OrderItemService;
 import com.yirancrazy.smartmedical.service.OrderService;
@@ -60,12 +60,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-<<<<<<< HEAD
 import java.time.LocalTime;
 import java.util.Collections;
-=======
-import java.util.ArrayList;
->>>>>>> fix/prescription-lock-idempotency
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -83,7 +79,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PrescriptionManager {
 
-<<<<<<< HEAD
     /** 库存异动类型:锁定 */
     private static final int TXN_LOCK = 4;
     /** 库存异动类型:解锁 */
@@ -92,12 +87,6 @@ public class PrescriptionManager {
     private static final int PAYMENT_STATUS_REFUNDED = 4;
     /** 默认支付方式:4 现金 */
     private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
-=======
-    /** 订单类型:药品订单(DDL order_type.id=2) */
-    private static final long ORDER_TYPE_DRUG = 2L;
-    /** 项目类型:药品(DDL production_type.id=1) */
-    private static final long PRODUCTION_TYPE_DRUG = 1L;
->>>>>>> fix/prescription-lock-idempotency
 
     private final RegistrationService registrationService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
@@ -107,18 +96,11 @@ public class PrescriptionManager {
     private final PrescriptionService prescriptionService;
     private final PrescriptionItemService prescriptionItemService;
     private final DrugService drugService;
-<<<<<<< HEAD
     private final DrugInventoryService drugInventoryService;
     private final OrderService orderService;
     private final OrderItemService orderItemService;
     private final InventoryTransactionService inventoryTransactionService;
     private final PaymentRecordService paymentRecordService;
-=======
-    private final OrderService orderService;
-    private final OrderItemService orderItemService;
-    private final InventoryManager inventoryManager;
-    private final RegistrationStatusLogManager statusLogManager;
->>>>>>> fix/prescription-lock-idempotency
     private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
     private final OrderStatusLogService orderStatusLogService;
@@ -136,7 +118,6 @@ public class PrescriptionManager {
      */
     @Transactional(rollbackFor = Exception.class)
     public PrescriptionSubmitVO submit(Long regId, SubmitPrescriptionRequest req, Long doctorId) {
-<<<<<<< HEAD
         // 1. 校验挂号存在 + ownership + status
         Registration reg = validateRegistration(regId, doctorId);
 
@@ -411,29 +392,6 @@ public class PrescriptionManager {
      * @param prescriptionId 处方ID
      * @param userId 当前用户ID
      * @throws BizException PRESCRIPTION_NOT_FOUND / PRESCRIPTION_NOT_OWNED / PRESCRIPTION_ALREADY_DISPENSED
-=======
-        Registration reg = loadRegistrationForSubmit(regId, doctorId);
-        MedicalRecord record = saveMedicalRecord(reg, req, doctorId);
-
-        List<PrescriptionLine> lines = loadPrescriptionLines(req.getItems());
-        int totalAmount = sumTotalAmount(lines);
-
-        Order order = createDrugOrder(reg, totalAmount);
-        Prescription rx = createPendingPrescription(record.getId(), order.getId(), totalAmount);
-        saveItemsAndLockInventory(lines, rx.getId(), order, doctorId);
-
-        statusLogManager.transition(reg,
-                RegistrationStatusEnum.PENDING_PAYMENT.getCode(),
-                doctorId, "doctor", "提交病历开方");
-
-        return buildSubmitVO(record, rx, order, totalAmount);
-    }
-
-    /**
-     * 支付成功回调:标记处方为已支付(由 PaymentRecordManager 调用)
-     * @param orderId 订单ID
-     * @throws BizException CONCURRENT_OPERATION 处方版本冲突
->>>>>>> fix/prescription-lock-idempotency
      */
     @Transactional(rollbackFor = Exception.class)
     public void refund(Long prescriptionId, Long userId) {
@@ -450,17 +408,6 @@ public class PrescriptionManager {
         if (rx.getStatus() == null || rx.getStatus() != PrescriptionStatus.PAID.getCode()) {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "仅已支付未发药的处方可退款");
         }
-<<<<<<< HEAD
-=======
-        if (rx.getStatus() != null && rx.getStatus() == PrescriptionStatus.PAID.getCode()) {
-            log.info("[prescription-paid] prescriptionId={} already paid, skip", rx.getId());
-            return;
-        }
-        rx.setStatus(PrescriptionStatus.PAID.getCode());
-        if (!prescriptionService.updateById(rx)) {
-            throw new BizException(BizErrorCode.CONCURRENT_OPERATION, "处方状态已变更，请重试");
-        }
->>>>>>> fix/prescription-lock-idempotency
 
         // 1. 订单退款（已支付才退），写退款记录 + 原支付记录置为已退款 + 订单置为已退款
         if (rx.getOrderId() != null) {
@@ -522,19 +469,16 @@ public class PrescriptionManager {
         if (rx == null) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_FOUND);
         }
+        // ownership:反查病历的 doctor_id
         MedicalRecord record = rx.getMedicalRecordId() == null
                 ? null : medicalRecordService.getById(rx.getMedicalRecordId());
         if (record == null || !doctorId.equals(record.getDoctorId())) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
         }
-        if (rx.getStatus() != null && rx.getStatus() == PrescriptionStatus.CANCELLED.getCode()) {
-            throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_CANCELLED);
-        }
-        if (rx.getStatus() == null || rx.getStatus() != PrescriptionStatus.PENDING_PAYMENT.getCode()) {
+        if (rx.getStatus() != PrescriptionStatus.PENDING_PAYMENT.getCode()) {
             throw new BizException(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED, "只能作废待支付处方");
         }
 
-<<<<<<< HEAD
         // 处方置为已取消：条件更新仅当仍处于待支付才生效，先抢到者生效，失败方抛异常回滚
         boolean rxUpdated = prescriptionService.cancelPendingIfCurrent(rx.getId());
         if (!rxUpdated) {
@@ -559,37 +503,11 @@ public class PrescriptionManager {
                 }
                 registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
                         doctorId, RoleEnum.DOCTOR.getRole(), "作废处方");
-=======
-        List<PrescriptionItem> items = prescriptionItemService.list(
-                new LambdaQueryWrapper<PrescriptionItem>()
-                        .eq(PrescriptionItem::getPrescriptionId, prescriptionId));
-        String relatedOrder = String.valueOf(rx.getOrderId());
-        for (PrescriptionItem item : items) {
-            inventoryManager.release(item.getDrugId(), item.getQuantity(),
-                    relatedOrder, doctorId, "doctor");
-        }
-
-        closeOrder(rx.getOrderId());
-
-        rx.setStatus(PrescriptionStatus.CANCELLED.getCode());
-        if (!prescriptionService.updateById(rx)) {
-            throw new BizException(BizErrorCode.CONCURRENT_OPERATION, "处方状态已变更，请重试");
-        }
-
-        if (record.getRegistrationId() != null) {
-            Registration reg = registrationService.getRegistrationById(record.getRegistrationId());
-            if (reg != null && reg.getStatus() != null
-                    && reg.getStatus() == RegistrationStatusEnum.PENDING_PAYMENT.getCode()) {
-                statusLogManager.transition(reg,
-                        RegistrationStatusEnum.IN_TREATMENT.getCode(),
-                        doctorId, "doctor", "作废处方");
->>>>>>> fix/prescription-lock-idempotency
             }
         }
     }
 
     /**
-<<<<<<< HEAD
      * 关闭处方关联订单（置为已取消并写订单状态日志）
      */
     private void closeOrderForCancel(Prescription rx, Long operatorId, String operatorRole, String remark) {
@@ -786,199 +704,10 @@ public class PrescriptionManager {
             itemVO.setUsageMethod(item.getUsageMethod());
             return itemVO;
         }).collect(Collectors.toList()));
-=======
-     * 校验挂号存在、医生归属、可开方状态
-     */
-    private Registration loadRegistrationForSubmit(Long regId, Long doctorId) {
-        Registration reg = registrationService.getRegistrationById(regId);
-        if (reg == null) {
-            throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
-        }
-        RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleTemplateId());
-        Long regDoctorId = template == null ? null : template.getDoctorId();
-        if (!doctorId.equals(regDoctorId)) {
-            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
-        }
-        Integer curStatus = reg.getStatus();
-        if (curStatus == null
-                || (curStatus != RegistrationStatusEnum.IN_TREATMENT.getCode()
-                && curStatus != RegistrationStatusEnum.PENDING_PAYMENT.getCode())) {
-            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "请先完成叫号");
-        }
-        return reg;
-    }
-
-    /**
-     * 创建或更新病历(status=1 已提交)
-     */
-    private MedicalRecord saveMedicalRecord(Registration reg, SubmitPrescriptionRequest req, Long doctorId) {
-        MedicalRecord record = medicalRecordService.getOne(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getRegistrationId, reg.getId())
-                        .last("LIMIT 1"));
-        if (record == null) {
-            record = new MedicalRecord();
-            record.setId(IdUtil.getSnowflakeNextId());
-            record.setRegistrationId(reg.getId());
-            record.setDoctorId(doctorId);
-            record.setPatientId(reg.getUserId());
-        } else {
-            // 幂等守门:已有病历时，先确认没有未取消处方再落库
-            assertNoOpenPrescription(record.getId());
-        }
-        record.setChiefComplaint(req.getChiefComplaint());
-        record.setPresentIllness(req.getPresentIllness());
-        record.setPastHistory(req.getPastHistory());
-        record.setPhysicalExam(req.getPhysicalExam());
-        record.setDiagnosis(req.getDiagnosis());
-        record.setTreatmentPlan(req.getTreatmentPlan());
-        record.setStatus(1);
-        if (record.getId() == null) {
-            medicalRecordService.save(record);
-        } else {
-            medicalRecordService.updateById(record);
-        }
-        return record;
-    }
-
-    /**
-     * 幂等守门:同一病历已有未取消处方时拒绝重复提交
-     */
-    private void assertNoOpenPrescription(Long medicalRecordId) {
-        Prescription existing = prescriptionService.getOne(
-                new LambdaQueryWrapper<Prescription>()
-                        .eq(Prescription::getMedicalRecordId, medicalRecordId)
-                        .ne(Prescription::getStatus, PrescriptionStatus.CANCELLED.getCode())
-                        .last("LIMIT 1"));
-        if (existing != null) {
-            throw new BizException(BizErrorCode.MEDICAL_RECORD_ALREADY_SUBMITTED, "该挂号已有未取消处方");
-        }
-    }
-
-    /**
-     * 加载药品并做存在性校验，失败时事务内不产生任何写操作
-     */
-    private List<PrescriptionLine> loadPrescriptionLines(List<PrescriptionItemRequest> items) {
-        List<PrescriptionLine> lines = new ArrayList<>(items.size());
-        for (PrescriptionItemRequest item : items) {
-            Drug drug = drugService.getDrugById(item.getDrugId());
-            if (drug == null) {
-                throw new BizException(BizErrorCode.DRUG_NOT_FOUND, "drugId=" + item.getDrugId());
-            }
-            lines.add(new PrescriptionLine(drug, item));
-        }
-        return lines;
-    }
-
-    /**
-     * 汇总处方金额(分)
-     */
-    private int sumTotalAmount(List<PrescriptionLine> lines) {
-        int totalAmount = 0;
-        for (PrescriptionLine line : lines) {
-            totalAmount += line.drug().getPrice() * line.request().getQuantity();
-        }
-        return totalAmount;
-    }
-
-    /**
-     * 创建药品订单(status=0 待支付)
-     */
-    private Order createDrugOrder(Registration reg, int totalAmount) {
-        Order order = new Order();
-        order.setId(IdUtil.getSnowflakeNextId());
-        order.setUserId(reg.getUserId());
-        order.setOrderTypeId(ORDER_TYPE_DRUG);
-        order.setSn(IdUtil.getSnowflakeNextId());
-        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
-        order.setTotalAmount(totalAmount);
-        order.setOrderCreateTime(LocalDateTime.now());
-        orderService.insertOrder(order);
-        return order;
-    }
-
-    /**
-     * 创建处方头(status=0 待支付)，直接带入订单ID
-     */
-    private Prescription createPendingPrescription(Long medicalRecordId, Long orderId, int totalAmount) {
-        Prescription rx = new Prescription();
-        rx.setId(IdUtil.getSnowflakeNextId());
-        rx.setMedicalRecordId(medicalRecordId);
-        rx.setOrderId(orderId);
-        rx.setTotalAmount(totalAmount);
-        rx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
-        prescriptionService.save(rx);
-        return rx;
-    }
-
-    /**
-     * 逐条写处方明细、订单明细并锁定库存
-     */
-    private void saveItemsAndLockInventory(List<PrescriptionLine> lines, Long prescriptionId,
-                                           Order order, Long doctorId) {
-        String relatedOrder = String.valueOf(order.getSn());
-        for (PrescriptionLine line : lines) {
-            Drug drug = line.drug();
-            PrescriptionItemRequest item = line.request();
-
-            PrescriptionItem rxItem = new PrescriptionItem();
-            rxItem.setId(IdUtil.getSnowflakeNextId());
-            rxItem.setPrescriptionId(prescriptionId);
-            rxItem.setDrugId(item.getDrugId());
-            rxItem.setQuantity(item.getQuantity());
-            rxItem.setUnitPrice(drug.getPrice());
-            rxItem.setUsageMethod(item.getUsageMethod());
-            prescriptionItemService.save(rxItem);
-
-            OrderItem orderItem = new OrderItem();
-            orderItem.setId(IdUtil.getSnowflakeNextId());
-            orderItem.setOrderId(order.getId());
-            orderItem.setProductionId(item.getDrugId());
-            orderItem.setProductionTypeId(PRODUCTION_TYPE_DRUG);
-            orderItem.setQuantity(item.getQuantity());
-            orderItem.setProductionName(drug.getCommonName());
-            orderItemService.insertOrderItem(orderItem);
-
-            inventoryManager.lock(item.getDrugId(), item.getQuantity(),
-                    relatedOrder, doctorId, "doctor");
-        }
-    }
-
-    /**
-     * 关闭未支付订单，已关闭订单不重复处理
-     */
-    private void closeOrder(Long orderId) {
-        if (orderId == null) {
-            return;
-        }
-        Order order = orderService.getOrderById(orderId);
-        if (order == null || order.getStatus() == null
-                || order.getStatus() == OrderStatus.CANCELED.getCode()) {
-            return;
-        }
-        order.setStatus(OrderStatus.CANCELED.getCode());
-        orderService.updateOrderById(order);
-    }
-
-    /**
-     * 组装提交结果
-     */
-    private PrescriptionSubmitVO buildSubmitVO(MedicalRecord record, Prescription rx,
-                                               Order order, int totalAmount) {
-        PrescriptionSubmitVO vo = new PrescriptionSubmitVO();
-        vo.setMedicalRecordId(record.getId());
-        vo.setPrescriptionId(rx.getId());
-        vo.setOrderId(order.getId());
-        vo.setOrderSn(String.valueOf(order.getSn()));
-        vo.setTotalAmount(totalAmount);
-        vo.setRegistrationStatus(RegistrationStatusEnum.PENDING_PAYMENT.getCode());
->>>>>>> fix/prescription-lock-idempotency
         return vo;
     }
 
     /**
-<<<<<<< HEAD
      * 用户端 - 处方列表（按就诊人过滤）
      * ponytail: N+1 查询，用户处方列表 < 100，可接受
      * @param patientUserIds 可访问的用户ID列表
@@ -1280,10 +1009,5 @@ public class PrescriptionManager {
             return itemVO;
         }).collect(Collectors.toList()));
         return vo;
-=======
-     * 单条处方行:药品快照 + 原始请求，避免后续重复查库
-     */
-    private record PrescriptionLine(Drug drug, PrescriptionItemRequest request) {
->>>>>>> fix/prescription-lock-idempotency
     }
 }
