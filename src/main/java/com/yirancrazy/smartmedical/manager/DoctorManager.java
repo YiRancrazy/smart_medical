@@ -238,6 +238,33 @@ public class DoctorManager {
     }
 
     /**
+     * 按 ID 查询医生详情（管理员端，字段与列表接口保持一致）
+     * @param id 医生 ID
+     * @return 医生详情响应；医生不存在返回 404
+     */
+    public Result<AdminDoctorDetailResponse> getAdminDoctorDetailById(Long id) {
+        if (id == null) {
+            return Result.fail("医生ID不能为空");
+        }
+        Doctor doctor = doctorService.getDoctorById(id);
+        if (doctor == null) {
+            return Result.info(404, "医生不存在", null);
+        }
+        Department department = doctor.getDepartmentId() == null
+                ? null : departmentService.getDepartmentById(doctor.getDepartmentId());
+        DoctorPosition position = doctor.getDoctorPositionId() == null
+                ? null : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
+        Degree degree = doctor.getDegreeId() == null
+                ? null : degreeService.getDegreeById(doctor.getDegreeId());
+        List<Department> departments = department == null ? Collections.emptyList() : Collections.singletonList(department);
+        List<DoctorPosition> positions = position == null ? Collections.emptyList() : Collections.singletonList(position);
+        List<Degree> degrees = degree == null ? Collections.emptyList() : Collections.singletonList(degree);
+        List<AdminDoctorDetailResponse> details = mergeAdminDoctorDetailResponseByDoctorsAndDepartmentAndPositionAndDegrees(
+                Collections.singletonList(doctor), departments, positions, degrees);
+        return Result.success(details.get(0));
+    }
+
+    /**
      * 按 ID 查询医生详情（拼装科室 / 职称 / 学历名称）
      * @param id 医生 ID
      * @return 医生详情 VO；医生不存在返回 404

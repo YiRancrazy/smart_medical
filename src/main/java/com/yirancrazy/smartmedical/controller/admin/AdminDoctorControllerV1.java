@@ -71,6 +71,17 @@ public class AdminDoctorControllerV1 {
     }
 
     /**
+     * 查询医生详情
+     * @param id 医生ID
+     * @return 医生详情
+     */
+    @Operation(summary = "管理员端 - 查询医生详情")
+    @GetMapping("/{id:\\d+}")
+    public Result<AdminDoctorDetailResponse> getDoctorDetailById(@PathVariable Long id) {
+        return doctorManager.getAdminDoctorDetailById(id);
+    }
+
+    /**
      * 编辑医生信息
      * @param id 医生ID
      * @param request 编辑请求
