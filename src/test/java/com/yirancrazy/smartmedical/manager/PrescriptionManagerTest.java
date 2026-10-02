@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
+<<<<<<< HEAD
 import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -37,32 +38,68 @@ import com.yirancrazy.smartmedical.pojo.OrderItem;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+=======
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.PrescriptionStatus;
+import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.pojo.Drug;
+import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.pojo.Order;
+import com.yirancrazy.smartmedical.pojo.Prescription;
+import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
+import com.yirancrazy.smartmedical.pojo.Registration;
+>>>>>>> fix/prescription-lock-idempotency
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.PrescriptionItemRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
+<<<<<<< HEAD
+=======
+import com.yirancrazy.smartmedical.service.DrugService;
+import com.yirancrazy.smartmedical.service.MedicalRecordService;
+import com.yirancrazy.smartmedical.service.OrderItemService;
+import com.yirancrazy.smartmedical.service.OrderService;
+import com.yirancrazy.smartmedical.service.PrescriptionItemService;
+import com.yirancrazy.smartmedical.service.PrescriptionService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
+import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
+>>>>>>> fix/prescription-lock-idempotency
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+<<<<<<< HEAD
 import java.time.LocalDateTime;
 import java.util.Collections;
+=======
+>>>>>>> fix/prescription-lock-idempotency
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+<<<<<<< HEAD
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+=======
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+>>>>>>> fix/prescription-lock-idempotency
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
+<<<<<<< HEAD
  * PrescriptionManager 医生端查询单测
  * 覆盖：医生端处方列表/详情查询及所有权校验。
  * @Author: YiRanCrazy@gmail.com
@@ -90,10 +127,34 @@ class PrescriptionManagerTest {
     @Mock private UserPatientRelationService userPatientRelationService;
     @Mock private UserService userService;
     @Mock private AccountService accountService;
+=======
+ * PrescriptionManager 开方/支付/作废核心路径单测
+ * @Author: YiRanCrazy@gmail.com
+ * @Description: 覆盖提交幂等、库存锁定/释放、支付标记
+ * @Datetime: 2026-10-01 10:30
+ * @Version: 1.0
+ */
+
+@ExtendWith(MockitoExtension.class)
+class PrescriptionManagerTest {
+
+    @Mock private RegistrationService registrationService;
+    @Mock private RegistrationScheduleTemplateService registrationScheduleTemplateService;
+    @Mock private MedicalRecordService medicalRecordService;
+    @Mock private PrescriptionService prescriptionService;
+    @Mock private PrescriptionItemService prescriptionItemService;
+    @Mock private DrugService drugService;
+    @Mock private OrderService orderService;
+    @Mock private OrderItemService orderItemService;
+    @Mock private InventoryManager inventoryManager;
+    @Mock private RegistrationStatusLogManager statusLogManager;
+    @Mock private RegistrationStatusLogService registrationStatusLogService;
+>>>>>>> fix/prescription-lock-idempotency
 
     @InjectMocks
     private PrescriptionManager prescriptionManager;
 
+<<<<<<< HEAD
     /**
      * listDoctorPrescriptions happy path：返回该医生的处方列表，患者信息正确映射
      */
@@ -558,5 +619,151 @@ class PrescriptionManagerTest {
 
         BizException ex = assertThrows(BizException.class, () -> prescriptionManager.refund(4001L, userId));
         assertEquals(BizErrorCode.PRESCRIPTION_ALREADY_DISPENSED.getCode(), ex.getCode());
+=======
+    @Test
+    void submit_happyPath_createsOrderAndLocksInventory() {
+        Registration reg = inTreatmentRegistration(11L, 22L, 33L);
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setDoctorId(44L);
+        Drug drug = drug(55L, 300, "阿莫西林");
+
+        when(registrationService.getRegistrationById(11L)).thenReturn(reg);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(33L)).thenReturn(template);
+        when(medicalRecordService.getOne(any())).thenReturn(null);
+        when(drugService.getDrugById(55L)).thenReturn(drug);
+
+        PrescriptionSubmitVO vo = prescriptionManager.submit(11L, submitRequest(55L, 2), 44L);
+
+        assertNotNull(vo.getMedicalRecordId());
+        assertNotNull(vo.getPrescriptionId());
+        assertNotNull(vo.getOrderId());
+        assertEquals(600, vo.getTotalAmount());
+        assertEquals(RegistrationStatusEnum.PENDING_PAYMENT.getCode(), vo.getRegistrationStatus());
+        verify(orderService).insertOrder(any(Order.class));
+        verify(orderItemService).insertOrderItem(any());
+        verify(prescriptionItemService).save(any(PrescriptionItem.class));
+        verify(inventoryManager).lock(eq(55L), eq(2), anyString(), eq(44L), eq("doctor"));
+        verify(statusLogManager).transition(eq(reg),
+                eq(RegistrationStatusEnum.PENDING_PAYMENT.getCode()), eq(44L), eq("doctor"), anyString());
+    }
+
+    @Test
+    void submit_existingOpenPrescription_throwsAndSkipsOrder() {
+        Registration reg = inTreatmentRegistration(11L, 22L, 33L);
+        RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setDoctorId(44L);
+        MedicalRecord existingRecord = new MedicalRecord();
+        existingRecord.setId(99L);
+        Prescription existingRx = new Prescription();
+        existingRx.setId(100L);
+        existingRx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
+
+        when(registrationService.getRegistrationById(11L)).thenReturn(reg);
+        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(33L)).thenReturn(template);
+        when(medicalRecordService.getOne(any())).thenReturn(existingRecord);
+        when(prescriptionService.getOne(any())).thenReturn(existingRx);
+
+        assertThrows(BizException.class,
+                () -> prescriptionManager.submit(11L, submitRequest(55L, 1), 44L));
+
+        verify(orderService, never()).insertOrder(any());
+        verify(inventoryManager, never()).lock(any(), any(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void cancelByDoctor_pendingPayment_releasesInventoryAndClosesOrder() {
+        Prescription rx = new Prescription();
+        rx.setId(100L);
+        rx.setMedicalRecordId(99L);
+        rx.setOrderId(88L);
+        rx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
+
+        MedicalRecord record = new MedicalRecord();
+        record.setId(99L);
+        record.setRegistrationId(11L);
+        record.setDoctorId(44L);
+
+        PrescriptionItem item = new PrescriptionItem();
+        item.setDrugId(55L);
+        item.setQuantity(2);
+
+        Order order = new Order();
+        order.setId(88L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+
+        Registration reg = inTreatmentRegistration(11L, 22L, 33L);
+        reg.setStatus(RegistrationStatusEnum.PENDING_PAYMENT.getCode());
+
+        when(prescriptionService.getById(100L)).thenReturn(rx);
+        when(medicalRecordService.getById(99L)).thenReturn(record);
+        when(prescriptionItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
+        when(orderService.getOrderById(88L)).thenReturn(order);
+        when(prescriptionService.updateById(rx)).thenReturn(true);
+        when(registrationService.getRegistrationById(11L)).thenReturn(reg);
+
+        prescriptionManager.cancelByDoctor(100L, 44L);
+
+        assertEquals(PrescriptionStatus.CANCELLED.getCode(), rx.getStatus());
+        assertEquals(OrderStatus.CANCELED.getCode(), order.getStatus());
+        verify(inventoryManager).release(eq(55L), eq(2), anyString(), eq(44L), eq("doctor"));
+        verify(statusLogManager).transition(eq(reg),
+                eq(RegistrationStatusEnum.IN_TREATMENT.getCode()), eq(44L), eq("doctor"), anyString());
+    }
+
+    @Test
+    void markAsPaid_pendingPrescription_marksPaid() {
+        Prescription rx = new Prescription();
+        rx.setId(100L);
+        rx.setOrderId(88L);
+        rx.setStatus(PrescriptionStatus.PENDING_PAYMENT.getCode());
+
+        when(prescriptionService.getOne(any())).thenReturn(rx);
+        when(prescriptionService.updateById(rx)).thenReturn(true);
+
+        prescriptionManager.markAsPaid(88L);
+
+        assertEquals(PrescriptionStatus.PAID.getCode(), rx.getStatus());
+        verify(prescriptionService).updateById(rx);
+    }
+
+    @Test
+    void markAsPaid_alreadyPaid_isIdempotent() {
+        Prescription rx = new Prescription();
+        rx.setId(100L);
+        rx.setOrderId(88L);
+        rx.setStatus(PrescriptionStatus.PAID.getCode());
+
+        when(prescriptionService.getOne(any())).thenReturn(rx);
+
+        prescriptionManager.markAsPaid(88L);
+
+        verify(prescriptionService, never()).updateById(any());
+    }
+
+    private Registration inTreatmentRegistration(Long regId, Long userId, Long templateId) {
+        Registration reg = new Registration();
+        reg.setId(regId);
+        reg.setUserId(userId);
+        reg.setRegistrationScheduleTemplateId(templateId);
+        reg.setStatus(RegistrationStatusEnum.IN_TREATMENT.getCode());
+        return reg;
+    }
+
+    private Drug drug(Long drugId, int price, String name) {
+        Drug drug = new Drug();
+        drug.setId(drugId);
+        drug.setPrice(price);
+        drug.setCommonName(name);
+        return drug;
+    }
+
+    private SubmitPrescriptionRequest submitRequest(Long drugId, Integer quantity) {
+        SubmitPrescriptionRequest req = new SubmitPrescriptionRequest();
+        req.setRegistrationId(11L);
+        req.setChiefComplaint("咳嗽");
+        req.setDiagnosis("上呼吸道感染");
+        req.setItems(List.of(new PrescriptionItemRequest(drugId, quantity, "口服")));
+        return req;
+>>>>>>> fix/prescription-lock-idempotency
     }
 }
