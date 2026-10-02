@@ -1,11 +1,14 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.yirancrazy.smartmedical.manager.UserManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminUserAddRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,7 +35,9 @@ public class AdminUserControllerV1 {
 
     @PostMapping("/add")
     @Operation(summary = "管理员端 - 添加用户")
-    public Result<Integer> addUser(@RequestBody User user) {
+    public Result<Integer> addUser(@Valid @RequestBody AdminUserAddRequest request) {
+        User user = new User();
+        BeanUtil.copyProperties(request, user);
         return Result.success(userManager.addUser(user));
     }
 
