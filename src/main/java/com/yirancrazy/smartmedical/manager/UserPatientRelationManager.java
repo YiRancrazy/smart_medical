@@ -16,6 +16,7 @@ import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -42,6 +43,7 @@ public class UserPatientRelationManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final RegistrationService registrationService;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
     private static final Long USER_ROLE = 4L;
 
@@ -275,6 +277,7 @@ public class UserPatientRelationManager {
             orphanAccount.setEnabled(false);
             orphanAccount.setPhone(tombstone);
             accountService.updateAccountById(orphanAccount);
+            jwtTokenRevoker.revoke(orphanAccount.getId());
         }
         return Result.success(userPatientRelationService.deleteUserPatientRelationById(id));
     }
