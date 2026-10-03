@@ -25,86 +25,20 @@
       </div>
     </glass-card>
 
-    <div class="top-services">
-      <div
-        v-for="svc in topServices"
-        :key="svc.label"
-        class="top-service-card"
-        :class="{ 'is-disabled': !svc.path }"
-        :style="{ background: svc.path ? svc.bg : undefined }"
-        @click="handleService(svc)"
-      >
-        <div class="top-service-icon" :style="{ background: svc.path ? svc.iconBg : undefined }">
-          <van-icon :name="svc.icon" />
-        </div>
-        <div class="top-service-text">
-          <div class="top-service-title">{{ svc.label }}</div>
-          <div class="top-service-desc">{{ svc.desc }}</div>
-        </div>
-      </div>
-    </div>
-
-    <glass-card class="quick-card">
-      <van-grid :column-num="4" :border="false">
-        <van-grid-item
-          v-for="q in quickItems"
-          :key="q.label"
-          :class="{ 'is-disabled': !q.path }"
-          @click="handleService(q)"
-        >
+    <glass-card class="tab-card" padding="0">
+      <div class="section-title">门诊服务</div>
+      <van-grid :column-num="4" :border="false" class="tab-grid">
+        <van-grid-item v-for="s in outpatientServices" :key="s.label" @click="handleService(s)">
           <template #icon>
-            <div class="quick-icon-wrap" :style="{ background: q.path ? q.bg : undefined }">
-              <van-icon :name="q.icon" />
+            <div class="tab-icon-wrap" :style="{ background: s.bg }">
+              <van-icon :name="s.icon" />
             </div>
           </template>
           <template #text>
-            <span class="quick-text">{{ q.label }}</span>
+            <span class="tab-text">{{ s.label }}</span>
           </template>
         </van-grid-item>
       </van-grid>
-    </glass-card>
-
-    <glass-card class="tab-card" padding="0">
-      <van-tabs v-model:active="activeTab" class="service-tabs">
-        <van-tab title="门诊服务">
-          <van-grid :column-num="4" :border="false" class="tab-grid">
-            <van-grid-item
-              v-for="s in outpatientServices"
-              :key="s.label"
-              :class="{ 'is-disabled': !s.path }"
-              @click="handleService(s)"
-            >
-              <template #icon>
-                <div class="tab-icon-wrap" :style="{ background: s.path ? s.bg : undefined }">
-                  <van-icon :name="s.icon" />
-                </div>
-              </template>
-              <template #text>
-                <span class="tab-text">{{ s.label }}</span>
-              </template>
-            </van-grid-item>
-          </van-grid>
-        </van-tab>
-        <van-tab title="住院服务">
-          <van-grid :column-num="4" :border="false" class="tab-grid">
-            <van-grid-item
-              v-for="s in inpatientServices"
-              :key="s.label"
-              :class="{ 'is-disabled': !s.path }"
-              @click="handleService(s)"
-            >
-              <template #icon>
-                <div class="tab-icon-wrap" :style="{ background: s.path ? s.bg : undefined }">
-                  <van-icon :name="s.icon" />
-                </div>
-              </template>
-              <template #text>
-                <span class="tab-text">{{ s.label }}</span>
-              </template>
-            </van-grid-item>
-          </van-grid>
-        </van-tab>
-      </van-tabs>
     </glass-card>
   </div>
 </template>
@@ -113,59 +47,30 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GlassCard from '@/components/GlassCard.vue'
-import { showToast } from 'vant'
 
 /**
  * 用户首页
  * @Author: YiRanCrazy@gmail.com
- * @Description: 医院首页：搜索、banner、服务入口、门诊/住院服务
+ * @Description: 医院首页：搜索、banner、服务入口、门诊服务
  * @Datetime: 2026-07-17 11:50
  * @Version: 1.0
  */
 
 const router = useRouter()
 const keyword = ref('')
-const activeTab = ref(0)
 
 interface ServiceItem {
   label: string
-  desc?: string
   icon: string
   bg: string
-  iconBg: string
-  path?: string
+  path: string
 }
 
-const topServices: ServiceItem[] = [
-  { label: '预约就诊', desc: '医生24小时内接诊', icon: 'calendar-o', bg: '#ECFDF5', iconBg: '#34D399', path: '/department' },
-  { label: '在线咨询', desc: '在线医师快速答复', icon: 'chat-o', bg: '#EFF6FF', iconBg: '#60A5FA' },
-  { label: '即刻就诊', desc: '医生30分钟内接诊', icon: 'clock-o', bg: '#FFF7ED', iconBg: '#FDBA74' },
-  { label: '便民门诊', desc: '足不出户线上续方', icon: 'notes-o', bg: '#F0FDFA', iconBg: '#2DD4BF' }
-]
-
-const quickItems: ServiceItem[] = [
-  { label: '就诊人管理', icon: 'friends-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/patient' },
-  { label: '电子健康卡', icon: 'card-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent' },
-  { label: '电子票据', icon: 'bill-o', bg: 'rgba(245, 158, 11, 0.1)', iconBg: 'transparent' },
-  { label: '地址管理', icon: 'location-o', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent' }
-]
-
 const outpatientServices: ServiceItem[] = [
-  { label: '预约挂号', icon: 'cluster-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/department' },
-  { label: '门诊费用', icon: 'bill-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/outpatient-fee' },
-  { label: '处方查询', icon: 'records', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent', path: '/prescription' },
-  { label: '病历查询', icon: 'description', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent', path: '/medical-record' },
-  { label: '门诊充值', icon: 'balance-o', bg: 'rgba(245, 158, 11, 0.1)', iconBg: 'transparent' },
-  { label: '线上退款', icon: 'refund-o', bg: 'rgba(139, 92, 246, 0.1)', iconBg: 'transparent' },
-  { label: '云胶片', icon: 'photograph', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent' },
-  { label: '智能分诊', icon: 'search', bg: 'rgba(245, 158, 11, 0.1)', iconBg: 'transparent' }
-]
-
-const inpatientServices: ServiceItem[] = [
-  { label: '住院预约', icon: 'hotel-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent' },
-  { label: '住院充值', icon: 'balance-o', bg: 'rgba(245, 158, 11, 0.1)', iconBg: 'transparent' },
-  { label: '住院费用', icon: 'bill-o', bg: 'rgba(16, 185, 129, 0.1)', iconBg: 'transparent' },
-  { label: '陪护管理', icon: 'friends-o', bg: 'rgba(90, 200, 250, 0.1)', iconBg: 'transparent' }
+  { label: '预约挂号', icon: 'cluster-o', bg: 'rgba(16, 185, 129, 0.1)', path: '/department' },
+  { label: '门诊费用', icon: 'bill-o', bg: 'rgba(16, 185, 129, 0.1)', path: '/outpatient-fee' },
+  { label: '处方查询', icon: 'records', bg: 'rgba(90, 200, 250, 0.1)', path: '/prescription' },
+  { label: '病历查询', icon: 'description', bg: 'rgba(16, 185, 129, 0.1)', path: '/medical-record' }
 ]
 
 function handleSearch() {
@@ -173,11 +78,7 @@ function handleSearch() {
 }
 
 function handleService(item: ServiceItem) {
-  if (item.path) {
-    router.push(item.path)
-  } else {
-    showToast('功能开发中')
-  }
+  router.push(item.path)
 }
 </script>
 
@@ -260,105 +161,14 @@ function handleService(item: ServiceItem) {
   }
 }
 
-.top-services {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.top-service-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: $radius-lg;
-
-  &.is-disabled {
-    background: #F3F4F6;
-
-    .top-service-icon {
-      background: #E5E7EB;
-      color: #9CA3AF;
-    }
-
-    .top-service-title,
-    .top-service-desc {
-      color: #9CA3AF;
-    }
-  }
-
-  .top-service-icon {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $radius-md;
-    color: #fff;
-    font-size: 22px;
-  }
-
-  .top-service-title {
-    font-size: $font-size-h3;
-    font-weight: $font-weight-semibold;
-    color: $color-text-primary;
-  }
-
-  .top-service-desc {
-    margin-top: 4px;
-    font-size: $font-size-xs;
-    color: $color-text-secondary;
-  }
-}
-
-.quick-card {
-  :deep(.van-grid-item__content) {
-    padding: 16px 0;
-  }
-
-  .is-disabled {
-    .quick-icon-wrap {
-      background: #E5E7EB;
-      color: #9CA3AF;
-    }
-
-    .quick-text {
-      color: #9CA3AF;
-    }
-  }
-
-  .quick-icon-wrap {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $radius-md;
-    color: $color-primary;
-    font-size: 22px;
-    margin-bottom: 8px;
-  }
-
-  .quick-text {
-    font-size: $font-size-sm;
-    color: $color-text-primary;
-  }
-}
-
 .tab-card {
   overflow: hidden;
 
-  :deep(.van-tabs__nav) {
-    background: transparent;
-  }
-
-  :deep(.van-tab) {
-    font-size: $font-size-body;
-  }
-
-  :deep(.van-tabs__line) {
-    background: $color-primary;
-    width: 24px;
+  .section-title {
+    padding: 16px 16px 0;
+    font-size: $font-size-h3;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
   }
 
   .tab-grid {
@@ -367,17 +177,6 @@ function handleService(item: ServiceItem) {
 
   :deep(.van-grid-item__content) {
     padding: 12px 0;
-  }
-
-  .is-disabled {
-    .tab-icon-wrap {
-      background: #E5E7EB;
-      color: #9CA3AF;
-    }
-
-    .tab-text {
-      color: #9CA3AF;
-    }
   }
 
   .tab-icon-wrap {
