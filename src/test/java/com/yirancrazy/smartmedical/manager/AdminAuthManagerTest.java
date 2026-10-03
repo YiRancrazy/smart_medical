@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.jwt.JWTUtil;
-import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.AccountService;
@@ -81,12 +80,6 @@ class AdminAuthManagerTest {
 
     @Test
     void validateJwtConfig_allPresent_passes() {
-        manager.validateJwtConfig();
-    }
-
-    @Test
-    void validateJwtConfig_roleCacheEmpty_stillPasses() {
-        RoleConstant.ROLE_LIST.clear();
         manager.validateJwtConfig();
     }
 

@@ -46,7 +46,6 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserService;
-import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.utils.DoctorInitPasswordUtil;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
@@ -137,7 +136,7 @@ public class DoctorManager {
         Account account = new Account();
         account.setId(IdUtil.getSnowflakeNextId());
         account.setUserId(doctorId);
-        account.setRoleId(RoleConstant.ROLE_DOCTOR_ID);
+        account.setRoleId(RoleEnum.DOCTOR.getCodeAsLong());
         account.setPhone(req.getPhone());
         account.setEmail(req.getEmail());
         String initPassword = DoctorInitPasswordUtil.generate(req.getName(), req.getPhone());

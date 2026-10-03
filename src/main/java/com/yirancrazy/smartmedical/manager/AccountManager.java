@@ -3,20 +3,19 @@ package com.yirancrazy.smartmedical.manager;
 import com.github.pagehelper.PageInfo;
 import com.github.pagehelper.PageHelper;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import org.springframework.transaction.annotation.Transactional;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.AccountDetailResponse;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
-import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
@@ -27,14 +26,10 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.yirancrazy.smartmedical.constant.DepartmentConstant.DEPARTMENT_LIST;
-import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_ADMIN_ID;
-import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_DOCTOR_ID;
-import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -48,10 +43,12 @@ import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 @Slf4j
 public class AccountManager {
 
+    private static final long ROLE_ADMIN_ID = RoleEnum.ADMIN.getCodeAsLong();
+    private static final long ROLE_DOCTOR_ID = RoleEnum.DOCTOR.getCodeAsLong();
+
     private final AccountService accountService;
     private final AdminService adminService;
     private final UserService userService;
-    private final RoleService roleService;
     private final DoctorService doctorService;
     private final RedisUtil redisUtil;
     private final JwtTokenRevoker jwtTokenRevoker;
@@ -222,12 +219,10 @@ public class AccountManager {
             response.setDepartmentId(null);
         }
 
-        Role role = ROLE_LIST.stream()
-                .filter(r -> r.getId().equals(account.getRoleId()))
-                .findFirst().orElse(null);
-        if (role != null) {
-            response.setRole(role.getRemark());
-        }
+        RoleEnum roleEnum = account.getRoleId() == null
+                ? null
+                : RoleEnum.getByCode(account.getRoleId().intValue());
+        response.setRole(roleEnum == null ? null : roleEnum.getName());
         return response;
     }
 

@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Doctor;
@@ -10,7 +11,6 @@ import com.yirancrazy.smartmedical.pojo.dto.admin.response.AccountDetailResponse
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
-import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
@@ -26,6 +26,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -45,7 +46,6 @@ class AccountManagerTest {
     @Mock private AccountService accountService;
     @Mock private AdminService adminService;
     @Mock private UserService userService;
-    @Mock private RoleService roleService;
     @Mock private DoctorService doctorService;
     @Mock private RedisUtil redisUtil;
     @Mock private JwtTokenRevoker jwtTokenRevoker;
@@ -106,6 +106,7 @@ class AccountManagerTest {
         assertEquals("13800138000", resp.getPhone());
         assertEquals(1L, resp.getRoleId());
         assertEquals("系统管理员", resp.getUsername());
+        assertEquals(RoleEnum.ADMIN.getName(), resp.getRole());
     }
 
     /**
@@ -136,6 +137,28 @@ class AccountManagerTest {
         List<AccountDetailResponse> list = result.getData().getList();
         assertEquals(1, list.size());
         assertEquals("李医生", list.get(0).getUsername());
+        assertEquals(RoleEnum.DOCTOR.getName(), list.get(0).getRole());
+    }
+
+    /**
+     * 已废弃角色(roleId=3 护士)：不映射角色名称，role 为空
+     */
+    @Test
+    void listAccountDetailResponse_deprecatedRole_returnsNullRoleName() {
+        Account account = new Account();
+        account.setId(3001L);
+        account.setUserId(9001L);
+        account.setRoleId(3L);
+        account.setEnabled(true);
+
+        when(accountService.listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(null, 3L, null, 1, 10))
+                .thenReturn(new PageInfo<>(List.of(account)));
+
+        Result<PageResult<AccountDetailResponse>> result = accountManager
+                .listAccountDetailResponseByUsernameAndRoleIdAndEnabledAndPage(null, 3L, null, 1, 10);
+
+        assertEquals(200, result.getCode());
+        assertNull(result.getData().getList().get(0).getRole());
     }
 
     /**
