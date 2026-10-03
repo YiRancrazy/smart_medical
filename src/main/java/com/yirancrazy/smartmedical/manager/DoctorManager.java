@@ -373,6 +373,7 @@ public class DoctorManager {
                 break;
                }
            }
+           // 数据库与实体中 scope 可空，NULL 表示暂无评分；此处不做默认值兜底，由展示层决定
            temp.setScore(doctor.getScope());
            result.add(temp);
         }

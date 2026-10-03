@@ -45,8 +45,8 @@ public class Doctor {
     @Schema(description = "家庭住址")
     private String address;                       // 家庭住址
 
-    @Schema(description = "评分")
-    private Double scope;                         // 评分
+    @Schema(description = "评分（可空，NULL 表示暂无评分）")
+    private Double scope;                         // 评分，NULL 表示暂无评分
 
     @Schema(description = "标签")
     private String tags;                          // 标签

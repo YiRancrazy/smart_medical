@@ -40,7 +40,7 @@ public class UserDoctorControllerV1 {
     }
 
     @GetMapping("/registration/baseInfo")
-    @Operation(summary = "根据科室ID获取科室下医生挂号的基本信息", description = "根据科室ID获取科室下医生挂号的基本信息")
+    @Operation(summary = "根据科室ID获取科室下医生挂号的基本信息", description = "根据科室ID获取科室下医生挂号的基本信息；score 为 null 表示暂无评分")
     @Parameter(name = "departmentId", description = "科室ID", required = true)
     public Result<List<RegistrationDoctorBaseInfo>> getRegistrationDoctorBaseInfoByDepartmentId(@RequestParam("departmentId") Long departmentId){
         return doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(departmentId);

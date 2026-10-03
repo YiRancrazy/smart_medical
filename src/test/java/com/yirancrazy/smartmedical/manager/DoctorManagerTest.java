@@ -1,11 +1,17 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
+import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.pojo.AppointmentRule;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
 import com.yirancrazy.smartmedical.service.DegreeService;
@@ -23,9 +29,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -147,6 +158,40 @@ class DoctorManagerTest {
         BizException ex = assertThrows(BizException.class,
                 () -> doctorManager.callPatient(REG_ID, DOCTOR_ID));
         assertEquals(BizErrorCode.DOCTOR_NOT_MATCH.getCode(), ex.getCode());
+    }
+
+    /**
+     * 挂号医生列表：医生评分为 NULL 时不应触发拆箱空指针，评分原样返回 null
+     */
+    @Test
+    void getRegistrationDoctorBaseInfoByDepartmentId_nullScope_doesNotThrow() {
+        Long departmentId = 900L;
+        Doctor doctor = new Doctor();
+        doctor.setId(DOCTOR_ID);
+        doctor.setName("测试医生");
+        doctor.setDepartmentId(departmentId);
+        doctor.setScope(null);
+
+        AppointmentRule rule = new AppointmentRule();
+        rule.setStatus(AppointmentRuleStatusEnum.NORMAL.getCode());
+        rule.setRuleType(AppointmentRuleTypeEnum.OUT_PATIENT.getCode());
+        rule.setDepartmentId(departmentId);
+        rule.setPriority(1);
+        rule.setMaxAdvanceDays(7);
+
+        when(appointmentRuleService.listAppointmentsRulesByDepartmentId(departmentId)).thenReturn(List.of(rule));
+        when(doctorService.listDoctorsByDepartmentId(departmentId)).thenReturn(List.of(doctor));
+        when(doctorService.listDoctorsByDoctorIdsAndStatusAndMaxAdvanceDays(
+                anyList(), eq(AppointmentRuleStatusEnum.NORMAL.getCode()), eq(7))).thenReturn(List.of(doctor));
+        when(registrationScheduleService.getRecentRegistrationListByDoctorIdList(anyList())).thenReturn(List.of());
+        when(doctorPositionService.listDoctorPositions()).thenReturn(List.of());
+
+        Result<List<RegistrationDoctorBaseInfo>> result = assertDoesNotThrow(
+                () -> doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(departmentId));
+
+        assertEquals(200, result.getCode());
+        assertEquals(1, result.getData().size());
+        assertNull(result.getData().get(0).getScore());
     }
 
     // ===== 辅助构造 =====
