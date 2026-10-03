@@ -387,17 +387,14 @@ class AuthManagerTest {
     @Test
     void refresh_expiredToken_returnsFail() {
         AuthManager m = buildManager();
-        Account account = userAccount(42L, 7L);
-        account.setEnabled(true);
         String refreshToken = buildRefreshToken(42L, 7L, 4L,
                 System.currentTimeMillis() / 1000 - 1);
-
-        when(accountService.getAccountById(42L)).thenReturn(account);
 
         Result<String> result = m.refresh(refreshToken, response);
 
         assertEquals(500, result.getCode());
         assertEquals("Refresh token 已过期", result.getMessage());
+        verify(accountService, never()).getAccountById(anyLong());
         verify(redisUtil, never()).get(anyString());
     }
 

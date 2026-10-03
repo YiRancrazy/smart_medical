@@ -337,6 +337,20 @@ public class AuthManager {
             JWTPayload payload = jwt.getPayload();
             String accountId = String.valueOf(payload.getClaim("sub"));
 
+            Long exp;
+            try {
+                Object expObj = payload.getClaim("exp");
+                if (expObj == null) {
+                    return Result.fail("Refresh token 无效");
+                }
+                exp = Long.parseLong(String.valueOf(expObj));
+            } catch (NumberFormatException e) {
+                return Result.fail("Refresh token 无效");
+            }
+            if (exp < System.currentTimeMillis() / 1000) {
+                return Result.fail("Refresh token 已过期");
+            }
+
             // 从refresh token直接解析role，不依赖旧access token
             Long roleId;
             try {
@@ -378,19 +392,6 @@ public class AuthManager {
                 userId = Long.parseLong(accountId);
             }
 
-            Long exp;
-            try {
-                Object expObj = payload.getClaim("exp");
-                if (expObj == null) {
-                    return Result.fail("Refresh token 无效");
-                }
-                exp = Long.parseLong(String.valueOf(expObj));
-            } catch (NumberFormatException e) {
-                return Result.fail("Refresh token 无效");
-            }
-            if (exp < System.currentTimeMillis() / 1000) {
-                return Result.fail("Refresh token 已过期");
-            }
             // Redis 比对：统一用 adminRefreshTokenPrefix + accountId（所有角色共用）
             String redisRefresh = redisUtil.get(adminRefreshTokenPrefix + accountId);
             if (redisRefresh == null || !redisRefresh.equals(refreshToken)) {
