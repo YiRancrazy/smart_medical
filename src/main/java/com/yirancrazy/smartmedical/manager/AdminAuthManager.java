@@ -47,8 +47,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class AdminAuthManager {
 
-    @Value("${jwt.accessTokenPrefix}")
-    private String accessTokenPrefix;   // 固定登录令牌前缀
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;   // 固定管理员刷新令牌前缀
     @Value("${jwt.accessSecretKey}")
@@ -99,9 +97,6 @@ public class AdminAuthManager {
         }
         if (refreshSecretKey == null || refreshSecretKey.isBlank()) {
             throw new IllegalStateException("jwt.refreshSecretKey 未配置");
-        }
-        if (accessTokenPrefix == null || accessTokenPrefix.isBlank()) {
-            throw new IllegalStateException("jwt.accessTokenPrefix 未配置");
         }
         if (adminRefreshTokenPrefix == null || adminRefreshTokenPrefix.isBlank()) {
             throw new IllegalStateException("jwt.admin.adminRefreshTokenPrefix 未配置");
@@ -176,11 +171,10 @@ public class AdminAuthManager {
             log.info("[admin-login] 密码已升级为 BCrypt, accountId={}", roleAccount.getId());
         }
 
-        // accessJWT 和 refreshJwt 写入 redis 中（统一前缀用于所有角色，统一管理）
+        // accessJwt 不写入 Redis，refreshJwt 仍写入 Redis 用于刷新校验
         Long currentTimeSeconds = System.currentTimeMillis() / 1000;
         String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
         String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
-        redisUtil.setEx(accessTokenPrefix + roleAccount.getId(), accessJwt, 30, TimeUnit.MINUTES);
         redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
         // 统一通过响应头返回access token，前端从Authorization头提取
@@ -201,7 +195,7 @@ public class AdminAuthManager {
     }
 
     /**
-     * 生成访问JWT（30分钟有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
+     * 生成访问 JWT（7 天有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
     private String createAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
         Map<String, Object> header = new HashMap<>();
@@ -213,7 +207,8 @@ public class AdminAuthManager {
         payload.put(JWTPayload.SUBJECT, accountId);
         payload.put("userId", userId);
         payload.put("role", roleId); // 统一字段名为role
-        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30 * 60);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 7L * 24 * 60 * 60);
+        payload.put("iatMs", System.currentTimeMillis());
         payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
         payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));

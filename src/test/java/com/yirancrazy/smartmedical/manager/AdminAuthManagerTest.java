@@ -69,7 +69,6 @@ class AdminAuthManagerTest {
         manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService, redisUtil);
         ReflectionTestUtils.setField(manager, "accessSecretKey", "test-access-secret-key");
         ReflectionTestUtils.setField(manager, "refreshSecretKey", "test-refresh-secret-key");
-        ReflectionTestUtils.setField(manager, "accessTokenPrefix", "admin-access:");
         ReflectionTestUtils.setField(manager, "adminRefreshTokenPrefix", "admin-refresh:");
         manager.validateJwtConfig();
     }
@@ -94,20 +93,14 @@ class AdminAuthManagerTest {
     }
 
     @Test
-    void validateJwtConfig_blankAccessPrefix_throws() {
-        ReflectionTestUtils.setField(manager, "accessTokenPrefix", "");
-        assertThrows(IllegalStateException.class, manager::validateJwtConfig);
-    }
-
-    @Test
     void validateJwtConfig_allPresent_passes() {
         manager.validateJwtConfig();
     }
 
-    // ---- C15: loginByPhoneAndPassword 调用 setEx 带 7 天 TTL ----
+    // ---- C15: access token 7 天有效且不写 Redis，refresh token 仍写 Redis ----
 
     @Test
-    void login_writesAccessAndRefreshWithSevenDayTtl() {
+    void login_writesOnlyRefreshAndIssuesSevenDayAccessToken() {
         Account account = new Account();
         account.setId(42L);
         account.setPhone("13800000000");
@@ -122,23 +115,26 @@ class AdminAuthManagerTest {
         Result<String> result = manager.loginByPhoneAndPassword("13800000000", "raw", true, request, response);
 
         assertEquals(200, result.getCode());
-        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-        verify(redisUtil).setEx(eq("admin-access:42"), tokenCaptor.capture(), eq(30L), eq(TimeUnit.MINUTES));
-        verify(redisUtil).setEx(eq("admin-refresh:42"), tokenCaptor.capture(), eq(30L), eq(TimeUnit.DAYS));
-        // ponytail: 至少验证 token 是合法 JWT 字符串且彼此不同（防退化）
-        assertNotNull(tokenCaptor.getAllValues().get(0));
-        assertNotNull(tokenCaptor.getAllValues().get(1));
-        assertTrue(JWTUtil.verify(tokenCaptor.getAllValues().get(0), "test-access-secret-key".getBytes()));
-        assertTrue(JWTUtil.verify(tokenCaptor.getAllValues().get(1), "test-refresh-secret-key".getBytes()));
+        ArgumentCaptor<String> headerCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> refreshCaptor = ArgumentCaptor.forClass(String.class);
+        verify(response).setHeader(eq("Authorization"), headerCaptor.capture());
+        verify(redisUtil).setEx(eq("admin-refresh:42"), refreshCaptor.capture(), eq(30L), eq(TimeUnit.DAYS));
+        verify(redisUtil, never()).setEx(eq("admin-access:42"), anyString(), anyLong(), any(TimeUnit.class));
+
+        String accessToken = headerCaptor.getValue().substring("Bearer ".length());
+        String refreshToken = refreshCaptor.getValue();
+        assertNotNull(accessToken);
+        assertNotNull(refreshToken);
+        assertTrue(JWTUtil.verify(accessToken, "test-access-secret-key".getBytes()));
+        assertTrue(JWTUtil.verify(refreshToken, "test-refresh-secret-key".getBytes()));
 
         long nowSeconds = System.currentTimeMillis() / 1000;
         long accessExp = Long.parseLong(String.valueOf(
-                JWTUtil.parseToken(tokenCaptor.getAllValues().get(0)).getPayload().getClaim("exp")));
+                JWTUtil.parseToken(accessToken).getPayload().getClaim("exp")));
         long refreshExp = Long.parseLong(String.valueOf(
-                JWTUtil.parseToken(tokenCaptor.getAllValues().get(1)).getPayload().getClaim("exp")));
-        assertTrue(Math.abs(accessExp - (nowSeconds + 30 * 60)) <= 5);
+                JWTUtil.parseToken(refreshToken).getPayload().getClaim("exp")));
+        assertTrue(Math.abs(accessExp - (nowSeconds + 7L * 24 * 60 * 60)) <= 5);
         assertTrue(Math.abs(refreshExp - (nowSeconds + 30L * 24 * 60 * 60)) <= 5);
-        verify(response).setHeader(eq("Authorization"), anyString());
     }
 
     @Test

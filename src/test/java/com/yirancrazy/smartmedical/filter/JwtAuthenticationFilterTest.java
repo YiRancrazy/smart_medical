@@ -1,7 +1,7 @@
 package com.yirancrazy.smartmedical.filter;
 
 import cn.hutool.jwt.JWT;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
 class JwtAuthenticationFilterTest {
 
     @Mock
-    private RedisUtil redisUtil;
+    private JwtTokenRevoker jwtTokenRevoker;
 
     @Mock
     private HttpServletRequest request;
@@ -56,9 +56,8 @@ class JwtAuthenticationFilterTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        filter = new JwtAuthenticationFilter(redisUtil);
+        filter = new JwtAuthenticationFilter(jwtTokenRevoker);
         ReflectionTestUtils.setField(filter, "accessSecretKey", accessSecretKey);
-        ReflectionTestUtils.setField(filter, "accessTokenPrefix", "admin-access-token");
         SecurityContextHolder.clearContext();
         lenient().when(response.getWriter()).thenReturn(writer);
     }
@@ -76,7 +75,8 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/admin/v1/user/profile");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenThrow(new RuntimeException("Redis connection timeout"));
+        when(jwtTokenRevoker.findRevokedAtMillis(accountId))
+                .thenThrow(new RuntimeException("Redis connection timeout"));
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -112,7 +112,6 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/doctor/v1/prescription/list");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -128,7 +127,6 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/doctor/v1/prescription/list");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -144,7 +142,6 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/doctor/v1/prescription/list");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -159,7 +156,6 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -174,7 +170,6 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/admin/v1/user/profile");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -189,7 +184,6 @@ class JwtAuthenticationFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/admin/v1/user/profile");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -234,7 +228,7 @@ class JwtAuthenticationFilterTest {
         filter.doFilterInternal(request, response, filterChain);
 
         verify(response).setStatus(401);
-        verify(redisUtil, never()).get(anyString());
+        verify(jwtTokenRevoker, never()).findRevokedAtMillis(anyLong());
         verify(filterChain, never()).doFilter(request, response);
     }
 
@@ -254,17 +248,18 @@ class JwtAuthenticationFilterTest {
         filter.doFilterInternal(request, response, filterChain);
 
         verify(response).setStatus(401);
-        verify(redisUtil, never()).get(anyString());
+        verify(jwtTokenRevoker, never()).findRevokedAtMillis(anyLong());
         verify(filterChain, never()).doFilter(request, response);
     }
 
     @Test
     void doFilterInternal_revokedToken_shouldReturn401() throws Exception {
         Long accountId = 123456789L;
-        String token = buildToken(accountId, 4);
+        String token = buildToken(accountId, 4, System.currentTimeMillis() - 1000);
         when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn("different-token");
+        when(jwtTokenRevoker.findRevokedAtMillis(accountId))
+                .thenReturn(System.currentTimeMillis());
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -273,12 +268,26 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void doFilterInternal_tokenIssuedAfterRevocation_shouldPass() throws Exception {
+        Long accountId = 123456789L;
+        String token = buildToken(accountId, 4, System.currentTimeMillis() - 1000);
+        when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(jwtTokenRevoker.findRevokedAtMillis(accountId))
+                .thenReturn(System.currentTimeMillis() - 2000);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verify(response, never()).setStatus(anyInt());
+    }
+
+    @Test
     void doFilterInternal_validAdminToken_shouldSetAuthenticationAndContext() throws Exception {
         Long accountId = 123456789L;
         String token = buildToken(accountId, 1L);
         when(request.getRequestURI()).thenReturn("/api/admin/v1/user/profile");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -299,7 +308,6 @@ class JwtAuthenticationFilterTest {
         String token = buildToken(accountId, 99L);
         when(request.getRequestURI()).thenReturn("/api/user/v1/registration/list");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(redisUtil.get(anyString())).thenReturn(token);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -330,10 +338,15 @@ class JwtAuthenticationFilterTest {
      * 构造带指定 role claim 的签名 JWT（sub / userId 相同；role 为 null 时不写入 claim）
      */
     private String buildToken(Long accountId, Object role) {
+        return buildToken(accountId, role, System.currentTimeMillis());
+    }
+
+    private String buildToken(Long accountId, Object role, long issuedAtMillis) {
         JWT jwt = JWT.create()
                 .setPayload("sub", accountId.toString())
                 .setPayload("userId", accountId.toString())
                 .setPayload("exp", System.currentTimeMillis() / 1000 + 3600)
+                .setPayload("iatMs", issuedAtMillis)
                 .setKey(accessSecretKey.getBytes());
         if (role != null) {
             jwt.setPayload("role", role);

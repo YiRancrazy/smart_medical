@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yirancrazy.smartmedical.config.SecurityConfig;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,7 +32,7 @@ import java.util.List;
 /**
  * JWT 认证过滤器
  * @Author: YiRanCrazy@gmail.com
- * @Description: 从 Authorization 头读取 Bearer token → 校验 JWT 签名 + Redis 中是否仍存在；
+ * @Description: 从 Authorization 头读取 Bearer token → 校验 JWT 签名、过期时间和账号级吊销时间戳；
  *              通过后将主体写入 SecurityContext；失败统一返回 401 JSON。
  * @Datetime: 2026-02-02 12:50
  * @Version: 1.0
@@ -46,10 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Value("${jwt.accessSecretKey}")
     private String accessSecretKey;
 
-    @Value("${jwt.accessTokenPrefix:admin-access-token}")
-    private String accessTokenPrefix;
-
-    private final RedisUtil redisUtil;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -126,20 +123,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 校验 Redis 中 token 仍存在（支持 logout 撤销）：login 写入 accessTokenPrefix+accountId，
-            // logout 删除同一 key，Filter 必须比对否则登出后旧 token 在 exp 前仍有效
-            // BUG-B10: Redis 不可达时降级为仅校验签名和过期时间，避免全站 500
-            Object cached;
-            boolean redisAvailable;
+            // 账号级吊销：Redis 只保存吊销时间戳，账号在吊销时间点之前签发的 access token 全部失效。
+            // access token 本身不再写入 Redis，因此并发刷新不会互相顶号。
+            // Redis 不可达时降级为仅校验签名和过期时间，避免全站 500。
+            long issuedAtMillis = resolveIssuedAtMillis(payload);
+            Long revokedAtMillis;
             try {
-                cached = redisUtil.get(accessTokenPrefix + accountId);
-                redisAvailable = true;
+                revokedAtMillis = jwtTokenRevoker.findRevokedAtMillis(accountId);
+            } catch (NumberFormatException e) {
+                log.warn("[jwt] 吊销时间戳格式异常，拒绝该 token: accountId={}, value={}", accountId, e.getMessage());
+                unauthorized(response, "access_token 已失效");
+                return;
             } catch (Exception e) {
-                log.warn("[jwt] Redis 校验失败，降级为仅校验签名和过期时间: {}", e.getMessage());
-                cached = null;
-                redisAvailable = false;
+                log.warn("[jwt] Redis 吊销校验失败，降级为仅校验签名和过期时间: {}", e.getMessage());
+                revokedAtMillis = null;
             }
-            if (redisAvailable && (cached == null || !token.equals(cached.toString()))) {
+            if (revokedAtMillis != null && issuedAtMillis <= revokedAtMillis) {
                 unauthorized(response, "access_token 已失效");
                 return;
             }
@@ -209,6 +208,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (NumberFormatException e) {
             return -1;
         }
+    }
+
+    /**
+     * 解析 token 签发时间（毫秒）
+     * <p>新 token 使用 iatMs；历史 token 回退到秒级 iat，均缺失时返回 0，
+     * 保证存在吊销记录时历史 token 不会被放行。</p>
+     * @param payload JWT payload
+     * @return 签发时间戳（毫秒）
+     */
+    private long resolveIssuedAtMillis(JWTPayload payload) {
+        Object iatMsClaim = payload.getClaim("iatMs");
+        if (iatMsClaim != null) {
+            return Long.parseLong(String.valueOf(iatMsClaim));
+        }
+        Object iatClaim = payload.getClaim(JWTPayload.ISSUED_AT);
+        if (iatClaim != null) {
+            return Long.parseLong(String.valueOf(iatClaim)) * 1000L;
+        }
+        return 0L;
     }
 
     /**

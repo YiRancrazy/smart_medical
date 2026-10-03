@@ -14,6 +14,7 @@ import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.MinIOUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,7 @@ class UserManagerTest {
     @Mock private UserService userService;
     @Mock private AccountService accountService;
     @Mock private RedisUtil redisUtil;
+    @Mock private JwtTokenRevoker jwtTokenRevoker;
     @Mock private SmsService smsService;
 
     @InjectMocks
@@ -294,7 +296,6 @@ class UserManagerTest {
 
     @Test
     void changePhone_verifiesBothCodesAndRevokesTokens() {
-        ReflectionTestUtils.setField(userManager, "accessTokenPrefix", "jwt:access:");
         ReflectionTestUtils.setField(userManager, "adminRefreshTokenPrefix", "jwt:refresh:");
         Account account = new Account();
         account.setId(42L);
@@ -310,8 +311,9 @@ class UserManagerTest {
         assertEquals("13900000000", account.getPhone());
         verify(smsService).verifyCode("13800000000", "123456");
         verify(smsService).verifyCode("13900000000", "654321");
-        verify(redisUtil).delete("jwt:access:42");
+        verify(jwtTokenRevoker).revoke(42L);
         verify(redisUtil).delete("jwt:refresh:42");
+        verify(redisUtil, org.mockito.Mockito.never()).delete("jwt:access:42");
         verify(accountService).updateAccountById(account);
     }
 

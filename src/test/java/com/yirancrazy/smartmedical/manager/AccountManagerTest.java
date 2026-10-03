@@ -12,6 +12,7 @@ import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AccountUpdateRequest;
 import org.junit.jupiter.api.Test;
@@ -47,12 +48,12 @@ class AccountManagerTest {
     @Mock private RoleService roleService;
     @Mock private DoctorService doctorService;
     @Mock private RedisUtil redisUtil;
+    @Mock private JwtTokenRevoker jwtTokenRevoker;
 
     @InjectMocks
     private AccountManager accountManager;
 
     private void setTokenPrefixes() {
-        ReflectionTestUtils.setField(accountManager, "accessTokenPrefix", "access_token_");
         ReflectionTestUtils.setField(accountManager, "adminRefreshTokenPrefix", "refresh_token_");
     }
 
@@ -233,8 +234,9 @@ class AccountManagerTest {
 
         accountManager.deleteAccount(1001L);
 
-        org.mockito.Mockito.verify(redisUtil).delete("access_token_1001");
+        org.mockito.Mockito.verify(jwtTokenRevoker).revoke(1001L);
         org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
+        org.mockito.Mockito.verify(redisUtil, org.mockito.Mockito.never()).delete("access_token_1001");
     }
 
     /**
@@ -251,8 +253,9 @@ class AccountManagerTest {
         request.setRoleId(2L);
         accountManager.updateAccount(1001L, request);
 
-        org.mockito.Mockito.verify(redisUtil).delete("access_token_1001");
+        org.mockito.Mockito.verify(jwtTokenRevoker).revoke(1001L);
         org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
+        org.mockito.Mockito.verify(redisUtil, org.mockito.Mockito.never()).delete("access_token_1001");
     }
 
     /**

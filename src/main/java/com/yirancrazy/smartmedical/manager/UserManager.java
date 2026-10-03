@@ -16,6 +16,7 @@ import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.MinIOUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,8 +50,7 @@ public class UserManager {
 
     private final SmsService smsService;
 
-    @Value("${jwt.accessTokenPrefix}")
-    private String accessTokenPrefix;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;
@@ -274,7 +274,7 @@ public class UserManager {
             log.warn("[change-phone] 手机号唯一索引冲突, accountId={}", accountId);
             return Result.fail("该手机号已注册");
         }
-        redisUtil.delete(accessTokenPrefix + accountId);
+        jwtTokenRevoker.revoke(accountId);
         redisUtil.delete(adminRefreshTokenPrefix + accountId);
         log.info("[change-phone] 手机号换绑成功, accountId={}", accountId);
         return Result.success("换绑成功，请重新登录");

@@ -5,6 +5,7 @@ import com.yirancrazy.smartmedical.manager.AdminAuthManager;
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.utils.CaptchaSupport;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,9 @@ class AdminAuthControllerV1Test {
 
     @MockitoBean
     private RedisUtil redisUtil;
+
+    @MockitoBean
+    private JwtTokenRevoker jwtTokenRevoker;
 
     // CaptchaVerifyFilter 为 @Component Filter，WebMvcTest 切片会注册它但不会扫描 CaptchaSupport，需显式 mock
     @MockitoBean

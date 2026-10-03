@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.jwt.JWT;
+import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
@@ -14,6 +15,7 @@ import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -50,6 +53,7 @@ class AuthManagerTest {
     @Mock private AccountService accountService;
     @Mock private UserService userService;
     @Mock private RedisUtil redisUtil;
+    @Mock private JwtTokenRevoker jwtTokenRevoker;
     @Mock private PatientCardService patientCardService;
     @Mock private PatientService patientService;
     @Mock private SmsService smsService;
@@ -59,10 +63,10 @@ class AuthManagerTest {
     private AuthManager authManager;
 
     private AuthManager buildManager() {
-        AuthManager m = new AuthManager(accountService, userService, redisUtil, patientCardService, patientService, smsService);
+        AuthManager m = new AuthManager(accountService, userService, redisUtil, jwtTokenRevoker,
+                patientCardService, patientService, smsService);
         ReflectionTestUtils.setField(m, "accessSecretKey", "test-access-secret");
         ReflectionTestUtils.setField(m, "refreshSecretKey", "test-refresh-secret");
-        ReflectionTestUtils.setField(m, "accessTokenPrefix", "access_token_");
         ReflectionTestUtils.setField(m, "adminRefreshTokenPrefix", "refresh_token_");
         return m;
     }
@@ -91,6 +95,8 @@ class AuthManagerTest {
         assertEquals("42", result.getData().getAccountId());
         assertEquals("7", result.getData().getUid());
         verify(response).setHeader(eq("Authorization"), anyString());
+        verify(redisUtil).setEx(eq("refresh_token_42"), anyString(), eq(30L), eq(TimeUnit.DAYS));
+        verify(redisUtil, never()).setEx(eq("access_token_42"), anyString(), anyLong(), any(TimeUnit.class));
     }
 
     @Test
@@ -118,15 +124,16 @@ class AuthManagerTest {
     }
 
     @Test
-    void logout_deletesBothTokens() {
+    void logout_revokesAccountAndDeletesRefreshToken() {
         AuthManager m = buildManager();
         when(redisUtil.delete(anyString())).thenReturn(true);
 
         Result<String> result = m.logout(42L);
 
         assertEquals(200, result.getCode());
-        verify(redisUtil).delete("access_token_42");
+        verify(jwtTokenRevoker).revoke(42L);
         verify(redisUtil).delete("refresh_token_42");
+        verify(redisUtil, never()).delete("access_token_42");
     }
 
     @Test
@@ -172,8 +179,9 @@ class AuthManagerTest {
         assertEquals(200, result.getCode());
         verify(smsService).verifyCode("13800000000", "123456");
         verify(accountService).updateAccountById(existing);
-        verify(redisUtil).delete("access_token_9");
+        verify(jwtTokenRevoker).revoke(9L);
         verify(redisUtil).delete("refresh_token_9");
+        verify(redisUtil, never()).delete("access_token_9");
     }
 
     @Test
@@ -311,12 +319,13 @@ class AuthManagerTest {
 
         assertEquals(200, result.getCode());
         verify(accountService).updateAccountById(account);
-        verify(redisUtil).delete("access_token_42");
+        verify(jwtTokenRevoker).revoke(42L);
         verify(redisUtil).delete("refresh_token_42");
+        verify(redisUtil, never()).delete("access_token_42");
     }
 
     @Test
-    void refresh_validToken_rotatesAccessToken() {
+    void refresh_validToken_issuesSevenDayAccessWithoutRedisStore() {
         AuthManager m = buildManager();
         Account account = userAccount(42L, 7L);
         account.setEnabled(true);
@@ -330,7 +339,8 @@ class AuthManagerTest {
 
         assertEquals(200, result.getCode());
         assertNotNull(result.getData());
-        verify(redisUtil).setEx(eq("access_token_42"), eq(result.getData()), eq(30L), eq(TimeUnit.MINUTES));
+        assertAccessTokenHasSevenDayTtl(result.getData(), "test-access-secret");
+        verify(redisUtil, never()).setEx(anyString(), anyString(), anyLong(), any(TimeUnit.class));
         verify(response).setHeader(eq("Authorization"), eq("Bearer " + result.getData()));
     }
 
@@ -367,7 +377,8 @@ class AuthManagerTest {
         assertEquals(500, result.getCode());
         assertEquals("账号已被禁用，请重新登录", result.getMessage());
         verify(redisUtil).delete("refresh_token_42");
-        verify(redisUtil).delete("access_token_42");
+        verify(redisUtil, never()).delete("access_token_42");
+        verify(jwtTokenRevoker).revoke(42L);
     }
 
     @Test
@@ -406,5 +417,13 @@ class AuthManagerTest {
                 .setPayload("exp", expiresAt)
                 .setKey("test-refresh-secret".getBytes())
                 .sign();
+    }
+
+    private void assertAccessTokenHasSevenDayTtl(String token, String secret) {
+        assertTrue(JWTUtil.verify(token, secret.getBytes()));
+        long exp = Long.parseLong(String.valueOf(
+                JWTUtil.parseToken(token).getPayload().getClaim("exp")));
+        long nowSeconds = System.currentTimeMillis() / 1000;
+        assertTrue(Math.abs(exp - (nowSeconds + 7L * 24 * 60 * 60)) <= 5);
     }
 }

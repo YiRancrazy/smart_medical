@@ -231,7 +231,7 @@ npm run dev
 | --- | --- |
 | `JWT_ACCESS_SECRET_KEY` | JWT 访问令牌密钥，必填 |
 | `JWT_REFRESH_SECRET_KEY` | JWT 刷新令牌密钥，必填 |
-| `JWT_ACCESS_TOKEN_PREFIX` | Redis 访问令牌前缀 |
+| `JWT_REVOKED_TOKEN_PREFIX` | Redis 账号级吊销时间戳前缀；access token 不落 Redis |
 | `JWT_REFRESH_TOKEN_PREFIX` | Redis 刷新令牌前缀 |
 | `CORS_ALLOWED_ORIGINS` | 允许来源；dev 可用 `*`，prod 必须配置具体域名且禁止 `*` |
 | `COOKIE_SECURE` | Cookie 安全标记；HTTPS 生产环境应设为 `true` |

@@ -20,6 +20,7 @@ import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,9 +54,8 @@ public class AccountManager {
     private final RoleService roleService;
     private final DoctorService doctorService;
     private final RedisUtil redisUtil;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
-    @Value("${jwt.accessTokenPrefix}")
-    private String accessTokenPrefix;
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;
 
@@ -66,7 +66,7 @@ public class AccountManager {
         if (accountId == null) {
             return;
         }
-        redisUtil.delete(accessTokenPrefix + accountId);
+        jwtTokenRevoker.revoke(accountId);
         redisUtil.delete(adminRefreshTokenPrefix + accountId);
     }
 

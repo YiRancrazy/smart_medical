@@ -25,6 +25,7 @@ import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.NicknameGenerator;
 import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -56,8 +57,6 @@ public class AuthManager {
     private String accessSecretKey;
     @Value("${jwt.refreshSecretKey}")                      // 刷新 jwt 加密密钥
     private String refreshSecretKey;
-    @Value("${jwt.accessTokenPrefix}")
-    private String accessTokenPrefix;                 // jwt 访问令牌前缀
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;                // 管理员 jwt 刷新加密密钥
     @Value("${cookie.secure:false}")
@@ -67,6 +66,7 @@ public class AuthManager {
     private final AccountService accountService;
     private final UserService userService;
     private final RedisUtil redisUtil;
+    private final JwtTokenRevoker jwtTokenRevoker;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final SmsService smsService;
@@ -74,6 +74,8 @@ public class AuthManager {
     private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
     /** S22: 登录限流阈值 5 次/窗口 */
     private static final long LOGIN_RATE_MAX = 5L;
+    /** access token 有效期 7 天，不再写入 Redis */
+    private static final long ACCESS_TOKEN_TTL_SECONDS = 7L * 24 * 60 * 60;
 
     /**
      * S22: 登录限流 — 同手机号 5 分钟内最多 5 次，超限抛 BizException
@@ -243,12 +245,12 @@ public class AuthManager {
     }
 
     /**
-     * 用户登出：删除 Redis 中的 access/refresh token，使旧 token 立即失效（Filter 会比对 Redis）
+     * 用户登出：记录账号级吊销时间并使 refresh token 失效
      * @param accountId 账号ID（JWT sub，与 login 时 Redis key 一致）
      * @return 登出结果
      */
     public Result<String> logout(Long accountId) {
-        redisUtil.delete(accessTokenPrefix + accountId);
+        jwtTokenRevoker.revoke(accountId);
         redisUtil.delete(adminRefreshTokenPrefix + accountId);
         return Result.success("登出成功");
     }
@@ -281,8 +283,8 @@ public class AuthManager {
         // 直接以 BCrypt 覆盖，消除历史弱密码
         account.setPassword(PasswordUtil.encode(newPassword));
         accountService.updateAccountById(account);
-        // 清理该账号所有 token，强制旧会话失效、重新登录
-        redisUtil.delete(accessTokenPrefix + account.getId());
+        // 记录账号级吊销时间并清理 refresh token，强制旧会话失效、重新登录
+        jwtTokenRevoker.revoke(account.getId());
         redisUtil.delete(adminRefreshTokenPrefix + account.getId());
         log.info("[forgot-password] 密码已重置, accountId={}", account.getId());
         return Result.success("重置成功");
@@ -309,8 +311,8 @@ public class AuthManager {
         }
         account.setPassword(PasswordUtil.encode(newPassword));
         accountService.updateAccountById(account);
-        // 强制重新登录：清除 Redis 中该账号的全部 token
-        redisUtil.delete(accessTokenPrefix + accountId);
+        // 强制重新登录：记录账号级吊销时间并清理 refresh token
+        jwtTokenRevoker.revoke(accountId);
         redisUtil.delete(adminRefreshTokenPrefix + accountId);
         log.info("[change-password] 密码已修改, accountId={}", accountId);
         return Result.success("密码修改成功");
@@ -354,13 +356,13 @@ public class AuthManager {
                 if (Boolean.FALSE.equals(account.getEnabled())) {
                     // 禁用账号不可刷新令牌，旧会话立即失效
                     redisUtil.delete(adminRefreshTokenPrefix + accountId);
-                    redisUtil.delete(accessTokenPrefix + accountId);
+                    jwtTokenRevoker.revoke(Long.parseLong(accountId));
                     return Result.fail("账号已被禁用，请重新登录");
                 }
                 if (account.getRoleId() == null || !account.getRoleId().equals(roleId)) {
                     // 角色已变更，旧 refresh token 不再可信，清除并要求重新登录
                     redisUtil.delete(adminRefreshTokenPrefix + accountId);
-                    redisUtil.delete(accessTokenPrefix + accountId);
+                    jwtTokenRevoker.revoke(Long.parseLong(accountId));
                     return Result.fail("账号角色已变更，请重新登录");
                 }
             } catch (NumberFormatException e) {
@@ -394,12 +396,9 @@ public class AuthManager {
             if (redisRefresh == null || !redisRefresh.equals(refreshToken)) {
                 return Result.fail("Refresh token 已失效");
             }
-            // 签发新 access JWT（统一30分钟有效期）
+            // 签发新 access JWT（7 天有效期，不写入 Redis）
             Long currentTimeSeconds = System.currentTimeMillis() / 1000;
             String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeSeconds);
-
-            // 覆盖旧 access（旧 token 立即失效）
-            redisUtil.setEx(accessTokenPrefix + accountId, newAccessJwt, 30, TimeUnit.MINUTES);
 
             response.setHeader("Authorization", "Bearer " + newAccessJwt);
             return Result.success(newAccessJwt);
@@ -419,8 +418,6 @@ public class AuthManager {
     private LoginVo issueTokens(Account account, User user, HttpServletResponse response) {
         Long currentTimeSeconds = System.currentTimeMillis() / 1000;
         String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
-        // 存储JWT访问令牌（统一前缀用于所有角色，统一管理）
-        redisUtil.setEx(accessTokenPrefix + account.getId(), accessJwt, 30, TimeUnit.MINUTES);
 
         String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
         // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
@@ -458,7 +455,7 @@ public class AuthManager {
     }
 
     /**
-     * 生成访问JWT（30分钟有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
+     * 生成访问 JWT（7 天有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
     private String generateAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
         Map<String, Object> header = new HashMap<>();
@@ -470,7 +467,8 @@ public class AuthManager {
         payload.put(JWTPayload.SUBJECT, accountId);
         payload.put("userId", userId);
         payload.put("role", roleId);
-        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30 * 60);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + ACCESS_TOKEN_TTL_SECONDS);
+        payload.put("iatMs", System.currentTimeMillis());
         payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
         payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));

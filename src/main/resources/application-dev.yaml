@@ -48,8 +48,8 @@ pagehelper:
 jwt:
   accessSecretKey: ${JWT_ACCESS_SECRET_KEY}
   refreshSecretKey: ${JWT_REFRESH_SECRET_KEY}
-  # Redis key 前缀，可经环境变量覆盖（默认值与 Java 端 @Value 缺省值保持一致）
-  accessTokenPrefix: ${JWT_ACCESS_TOKEN_PREFIX:admin-access-token}
+  # 账号级吊销时间戳 Redis key 前缀；access token 本身不落 Redis
+  revokedTokenPrefix: ${JWT_REVOKED_TOKEN_PREFIX:admin-revoked-token:}
   admin:
     adminRefreshTokenPrefix: ${JWT_REFRESH_TOKEN_PREFIX:admin-refresh-token}
 
