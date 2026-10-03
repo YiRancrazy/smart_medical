@@ -140,7 +140,7 @@ const deptLevel = ref<'parent' | 'child'>('parent')
 const searchForm = ref({
   name: '',
   sn: '',
-  parentId: undefined as number | undefined,
+  parentId: undefined as string | undefined,
   status: undefined as number | undefined
 })
 

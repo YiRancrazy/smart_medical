@@ -18,8 +18,8 @@ export interface MedicalRecordQueryParams {
 }
 
 export interface MedicalRecordPageItemVO {
-  id: number
-  registrationId: number
+  id: string
+  registrationId: string
   patientName: string
   doctorName: string
   departmentName: string
@@ -29,12 +29,12 @@ export interface MedicalRecordPageItemVO {
 }
 
 export interface MedicalRecordDetailVO {
-  id: number
-  registrationId: number
-  doctorId: number
+  id: string
+  registrationId: string
+  doctorId: string
   doctorName: string
   departmentName: string
-  patientId: number
+  patientId: string
   patientName: string
   patientPhone: string
   chiefComplaint: string

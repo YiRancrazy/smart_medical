@@ -30,10 +30,10 @@ export interface ScheduleTemplateResponse {
 export interface ScheduleConditionsParams {
   pageNum?: number
   pageSize?: number
-  doctorId?: number
+  doctorId?: string
   startDate?: string
   endDate?: string
-  departmentId?: number
+  departmentId?: string
 }
 
 /**

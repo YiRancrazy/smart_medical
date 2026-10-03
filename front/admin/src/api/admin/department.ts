@@ -31,7 +31,7 @@ export interface DepartmentConditionsParams {
   sn?: string
   type?: number
   status?: number
-  parentId?: number
+  parentId?: string
   current?: number
   size?: number
 }

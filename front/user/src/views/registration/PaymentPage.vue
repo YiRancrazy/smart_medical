@@ -74,7 +74,7 @@ const feeDesc = computed(() => {
 
 const methodLoading = ref(false)
 const methods = ref<PaymentMethod[]>([])
-const selectedMethodId = ref<number | null>(null)
+const selectedMethodId = ref<string | null>(null)
 
 const paying = ref(false)
 
@@ -98,7 +98,7 @@ async function loadDefaultMethod() {
   try {
     const res = await getDefaultPaymentMethod()
     if (res.data?.id) {
-      selectedMethodId.value = Number(res.data.id)
+      selectedMethodId.value = String(res.data.id)
     }
   } catch {
     // 无默认则不选

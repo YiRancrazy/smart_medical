@@ -10,7 +10,7 @@ import type { Result } from '../types'
  */
 
 export interface DrugVO {
-  id: number
+  id: string
   drugCode: string
   commonName: string
   tradeName: string

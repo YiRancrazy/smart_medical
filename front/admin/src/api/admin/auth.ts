@@ -22,7 +22,7 @@ export interface LoginParams {
 }
 
 export interface AdminInfoSimple {
-  id: number
+  id: string
   phone: string
   username: string
   roleId: number

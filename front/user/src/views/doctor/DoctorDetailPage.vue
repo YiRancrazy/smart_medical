@@ -119,7 +119,7 @@ function parseTags(tags?: string): string[] {
 
 async function loadDoctor() {
   try {
-    const res = await getDoctorById(Number(doctorId))
+    const res = await getDoctorById(doctorId)
     doctor.value = res.data || null
   } catch {
     showToast('加载医生信息失败')
@@ -129,7 +129,7 @@ async function loadDoctor() {
 async function loadSchedule() {
   scheduleLoading.value = true
   try {
-    const res = await getRecentSchedule(Number(doctorId))
+    const res = await getRecentSchedule(doctorId)
     recentSchedule.value = res.data || []
   } catch {
     showToast('加载排班失败')
@@ -144,7 +144,7 @@ async function selectDate(s: RegistrationDateAndRemainQuotaVo) {
   selectedSlot.value = null
   timeLoading.value = true
   try {
-    const res = await getTimeSlots(Number(doctorId), s.date)
+    const res = await getTimeSlots(doctorId, s.date)
     timeSlots.value = res.data || []
   } catch {
     showToast('加载时段失败')

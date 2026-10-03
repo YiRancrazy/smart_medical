@@ -10,8 +10,8 @@ import type { Result, PageResult } from '../types'
  */
 
 export interface DrugInventory {
-  id: number
-  drugId: number
+  id: string
+  drugId: string
   drugName: string
   currentStock: number
   minStock: number

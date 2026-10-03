@@ -36,7 +36,7 @@ export interface DoctorDetailResponse {
 
 export interface DoctorConditionsParams {
   username?: string
-  departmentId?: number
+  departmentId?: string
   current?: number
   size?: number
 }
@@ -58,7 +58,7 @@ export function listDoctorsDetail(params: DoctorConditionsParams) {
 /**
  * 医生详情
  */
-export function getDoctorById(id: number) {
+export function getDoctorById(id: string | number) {
   return request.get<any, Result<DoctorDetailResponse>>(`/api/admin/v1/doctor/${id}`)
 }
 
@@ -73,14 +73,14 @@ export function createDoctor(data: Partial<DoctorDetailResponse> & { name: strin
  * 查询全部职称
  */
 export function listDoctorPositions() {
-  return request.get<any, Result<{ id: number; name: string }[]>>('/api/admin/v1/doctor/positions')
+  return request.get<any, Result<{ id: string; name: string }[]>>('/api/admin/v1/doctor/positions')
 }
 
 /**
  * 查询全部学历
  */
 export function listDegrees() {
-  return request.get<any, Result<{ id: number; name: string }[]>>('/api/admin/v1/doctor/degrees')
+  return request.get<any, Result<{ id: string; name: string }[]>>('/api/admin/v1/doctor/degrees')
 }
 
 /**

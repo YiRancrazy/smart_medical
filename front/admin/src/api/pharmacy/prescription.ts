@@ -10,23 +10,23 @@ import type { Result, PageResult } from '../types'
  */
 
 export interface PendingPrescriptionVO {
-  prescriptionId: number
-  orderId: number
-  patientId: number
-  registrationSn: number
+  prescriptionId: string
+  orderId: string
+  patientId: string
+  registrationSn: string
   totalAmount: number
   createdAt: string
 }
 
 export interface DispenseVO {
-  prescriptionId: number
+  prescriptionId: string
   prescriptionStatus: number
   dispensedAt: string
   items: DispenseItemVO[]
 }
 
 export interface DispenseItemVO {
-  drugId: number
+  drugId: string
   drugName: string
   quantity: number
   stockAfter: number
@@ -44,9 +44,9 @@ export interface DispenseHistoryQueryParams {
 }
 
 export interface DispenseHistoryVO {
-  prescriptionId: number
-  orderId: number
-  medicalRecordId: number
+  prescriptionId: string
+  orderId: string
+  medicalRecordId: string
   patientName: string
   doctorName: string
   dispenserPhone: string

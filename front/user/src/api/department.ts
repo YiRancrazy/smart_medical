@@ -10,18 +10,18 @@ import type { ApiResult, PageInfo } from './types'
  */
 
 export interface Department {
-  id: number
+  id: string
   name: string
   sn: string
   type: number
   status: number
-  parentId: number | null
+  parentDepartmentId: string | null
   createTime: string
   updateTime: string
 }
 
 export interface ParentDepartmentBaseInfo {
-  id: number
+  id: string
   name: string
   sn: string
   type: number
@@ -29,18 +29,18 @@ export interface ParentDepartmentBaseInfo {
 }
 
 export interface ChildDepartmentBaseInfo {
-  id: number
+  id: string
   name: string
   sn: string
   type: number
   status: number
-  parentId: number
+  parentId: string
 }
 
 /**
  * 科室详情
  */
-export function getDepartmentById(id: number) {
+export function getDepartmentById(id: number | string) {
   return request.get<any, ApiResult<Department>>(`/api/user/v1/department/${id}`)
 }
 
@@ -75,7 +75,7 @@ export function getChildList() {
 /**
  * 按 parentId 取二级科室
  */
-export function getChildListByParent(parentId: number) {
+export function getChildListByParent(parentId: number | string) {
   return request.get<any, ApiResult<Department[]>>(
     '/api/user/v1/department/child/list/parentId',
     { params: { parentId } }

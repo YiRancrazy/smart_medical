@@ -10,7 +10,7 @@ import type { Result } from '../types'
  */
 
 export interface PatientInfoVO {
-  patientId: number
+  patientId: string
   patientName: string
   patientPhone: string
   patientAge?: number
@@ -18,10 +18,10 @@ export interface PatientInfoVO {
 }
 
 export interface MedicalRecordDetailVO {
-  id: number
-  registrationId: number
-  doctorId: number
-  patientId: number
+  id: string
+  registrationId: string
+  doctorId: string
+  patientId: string
   patientName: string
   patientPhone: string
   chiefComplaint: string
@@ -44,11 +44,11 @@ export interface DraftMedicalRecordRequest {
 }
 
 export interface PrescriptionItemRequest {
-  drugId: number
+  drugId: string
   quantity: number
   usageMethod: string
-  drugSelectValue?: number | undefined
-  drugOptions?: { label: string; value: number }[]
+  drugSelectValue?: string | undefined
+  drugOptions?: { label: string; value: string }[]
   drugLoading?: boolean
   /** M21: 稳定唯一 key，避免增删行时 v-for 复用导致输入状态错乱 */
   _uid?: number
@@ -61,9 +61,9 @@ export interface SubmitPrescriptionRequest extends DraftMedicalRecordRequest {
 }
 
 export interface PrescriptionSubmitVO {
-  medicalRecordId: number
-  prescriptionId: number
-  orderId: number
+  medicalRecordId: string
+  prescriptionId: string
+  orderId: string
   orderSn: string
   totalAmount: number
   registrationStatus: number

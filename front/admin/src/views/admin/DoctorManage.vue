@@ -229,7 +229,7 @@ import { PlusOutlined, UploadOutlined } from '@ant-design/icons-vue'
 
 const searchForm = ref({
   username: '',
-  departmentId: undefined as number | undefined
+  departmentId: undefined as string | undefined
 })
 
 const tableData = ref<DoctorDetailResponse[]>([])
@@ -248,8 +248,8 @@ const editForm = ref({
 const addVisible = ref(false)
 const addSubmitting = ref(false)
 const avatarUploading = ref(false)
-const positionOptions = ref<{ id: number; name: string }[]>([])
-const degreeOptions = ref<{ id: number; name: string }[]>([])
+const positionOptions = ref<{ id: string; name: string }[]>([])
+const degreeOptions = ref<{ id: string; name: string }[]>([])
 const defaultAddForm = () => ({
   name: '',
   phone: '',

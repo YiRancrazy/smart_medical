@@ -21,7 +21,7 @@ export interface PaymentRecordSimpleResponse {
 }
 
 export interface PaymentMethod {
-  id: number
+  id: string
   name: string
   icon: string
   enabled: boolean
@@ -47,8 +47,8 @@ export function getPaymentRecordList() {
  */
 export function pay(params: {
   orderId: number | string
-  paymentMethodId?: number
-  transactionSn?: number
+  paymentMethodId?: number | string
+  transactionSn?: number | string
   /** 实付金额，单位：分（整数）。后端为 Integer，传浮点会转换失败返回 400 */
   realAmount?: number
 }) {

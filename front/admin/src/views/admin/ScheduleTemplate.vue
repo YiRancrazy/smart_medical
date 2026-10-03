@@ -127,8 +127,8 @@ import Modal from 'ant-design-vue/es/modal'
  */
 
 const searchForm = ref({
-  doctorId: undefined as number | undefined,
-  departmentId: undefined as number | undefined,
+  doctorId: undefined as string | undefined,
+  departmentId: undefined as string | undefined,
   dateRange: undefined as [string, string] | undefined
 })
 

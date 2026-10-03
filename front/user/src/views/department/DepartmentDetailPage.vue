@@ -69,7 +69,7 @@ const department = ref<Department | null>(null)
 const doctors = ref<RegistrationDoctorBaseInfo[]>([])
 
 onMounted(async () => {
-  const id = Number(route.params.id)
+  const id = String(route.params.id)
   if (!id) return
 
   loading.value = true

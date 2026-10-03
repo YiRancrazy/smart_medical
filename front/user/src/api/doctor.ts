@@ -12,7 +12,7 @@ import type { ApiResult, PageResult } from './types'
 export interface DoctorVo {
   doctorId: string
   doctorName: string
-  departmentId: number
+  departmentId: string
   departmentName: string
   avatar: string
   doctorPositionId: string
@@ -65,14 +65,14 @@ export function searchDoctorsByName(name: string) {
 /**
  * 医生详情
  */
-export function getDoctorById(id: number) {
+export function getDoctorById(id: number | string) {
   return request.get<any, ApiResult<DoctorVo>>(`/api/user/v1/doctor/${id}`)
 }
 
 /**
  * 科室下医生挂号信息
  */
-export function getDoctorRegistrationBaseInfo(departmentId: number) {
+export function getDoctorRegistrationBaseInfo(departmentId: number | string) {
   return request.get<any, ApiResult<RegistrationDoctorBaseInfo[]>>(
     '/api/user/v1/doctor/registration/baseInfo',
     { params: { departmentId } }

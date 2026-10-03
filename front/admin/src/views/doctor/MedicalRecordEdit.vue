@@ -36,7 +36,7 @@
                     :options="item.drugOptions"
                     :loading="item.drugLoading"
                     @search="(kw: string) => handleDrugSearch(index, kw)"
-                    @change="(val: number) => handleDrugSelected(index, val)"
+                    @change="(val: string) => handleDrugSelected(index, val)"
                     style="width: 100%"
                   />
                 </a-form-item>
@@ -147,9 +147,9 @@ const patientInfoSubtitle = computed(() => {
 
 const resultVisible = ref(false)
 const submitResult = ref<PrescriptionSubmitVO>({
-  medicalRecordId: 0,
-  prescriptionId: 0,
-  orderId: 0,
+  medicalRecordId: '',
+  prescriptionId: '',
+  orderId: '',
   orderSn: '',
   totalAmount: 0,
   registrationStatus: 0
@@ -191,7 +191,7 @@ async function loadRecord() {
 function addItem() {
   prescriptionItems.value.push({
     _uid: ++uidSeq,
-    drugId: undefined as unknown as number,
+    drugId: undefined as unknown as string,
     quantity: 1,
     usageMethod: '',
     drugSelectValue: undefined,
@@ -235,7 +235,7 @@ onUnmounted(() => {
   })
 })
 
-function handleDrugSelected(index: number, val: number) {
+function handleDrugSelected(index: number, val: string) {
   const item = prescriptionItems.value[index]
   item.drugId = val
 }

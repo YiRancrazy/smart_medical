@@ -19,8 +19,8 @@ export interface PrescriptionQueryParams {
 }
 
 export interface PrescriptionPageItemVO {
-  id: number
-  medicalRecordId: number
+  id: string
+  medicalRecordId: string
   patientName: string
   doctorName: string
   totalAmount: number
@@ -30,7 +30,7 @@ export interface PrescriptionPageItemVO {
 }
 
 export interface PrescriptionItemVO {
-  drugId: number
+  drugId: string
   commonName: string
   specification: string
   unit: string
@@ -40,15 +40,15 @@ export interface PrescriptionItemVO {
 }
 
 export interface PrescriptionDetailVO {
-  id: number
-  medicalRecordId: number
-  patientId: number
+  id: string
+  medicalRecordId: string
+  patientId: string
   patientName: string
   patientPhone: string
   doctorName: string
   status: number
   totalAmount: number
-  orderId: number
+  orderId: string
   createTime: string
   items: PrescriptionItemVO[]
 }

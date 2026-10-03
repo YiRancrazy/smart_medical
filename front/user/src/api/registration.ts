@@ -59,7 +59,7 @@ export interface PageResult<T> {
 /**
  * 医生最近7天排班
  */
-export function getRecentSchedule(doctorId: number) {
+export function getRecentSchedule(doctorId: number | string) {
   return request.get<any, ApiResult<RegistrationDateAndRemainQuotaVo[]>>(
     '/api/user/v1/registration/schedule/doctor/recent',
     { params: { doctorId } }
@@ -69,7 +69,7 @@ export function getRecentSchedule(doctorId: number) {
 /**
  * 医生+日期时段排班
  */
-export function getTimeSlots(doctorId: number, date: string) {
+export function getTimeSlots(doctorId: number | string, date: string) {
   return request.get<any, ApiResult<RegistrationConfirmTime[]>>(
     '/api/user/v1/registration/schedule/time',
     { params: { doctorId, date } }
