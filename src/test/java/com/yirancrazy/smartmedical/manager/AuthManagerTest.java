@@ -97,6 +97,8 @@ class AuthManagerTest {
         verify(response).setHeader(eq("Authorization"), anyString());
         verify(redisUtil).setEx(eq("refresh_token_42"), anyString(), eq(30L), eq(TimeUnit.DAYS));
         verify(redisUtil, never()).setEx(eq("access_token_42"), anyString(), anyLong(), any(TimeUnit.class));
+        // 登录签发新 token 时清除账号级吊销标记，否则登出后 7 天内重新登录仍会被 401
+        verify(jwtTokenRevoker).clear(42L);
     }
 
     @Test
@@ -341,6 +343,7 @@ class AuthManagerTest {
         assertNotNull(result.getData());
         assertAccessTokenHasSevenDayTtl(result.getData(), "test-access-secret");
         verify(redisUtil, never()).setEx(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+        verify(jwtTokenRevoker).clear(42L);
         verify(response).setHeader(eq("Authorization"), eq("Bearer " + result.getData()));
     }
 

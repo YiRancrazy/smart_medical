@@ -400,6 +400,8 @@ public class AuthManager {
             Long currentTimeSeconds = System.currentTimeMillis() / 1000;
             String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeSeconds);
 
+            // 清理历史吊销记录，避免新 token 因 iatMs <= 吊销时间戳被 filter 拒绝
+            jwtTokenRevoker.clear(Long.parseLong(accountId));
             response.setHeader("Authorization", "Bearer " + newAccessJwt);
             return Result.success(newAccessJwt);
         } catch (CryptoException | DataAccessException | IllegalArgumentException e) {
@@ -420,6 +422,8 @@ public class AuthManager {
         String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
 
         String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
+        // 登录成功即解除账号级吊销，保证登出 / 改密后重新登录能立即使用新 token
+        jwtTokenRevoker.clear(account.getId());
         // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
         redisUtil.setEx(adminRefreshTokenPrefix + account.getId(), refreshJwt, 30, TimeUnit.DAYS);
 

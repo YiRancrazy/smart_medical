@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 /**
@@ -80,5 +80,19 @@ class JwtTokenRevokerTest {
         when(redisUtil.get("admin-revoked-token:42")).thenReturn("not-a-timestamp");
 
         assertThrows(NumberFormatException.class, () -> jwtTokenRevoker.findRevokedAtMillis(42L));
+    }
+
+    @Test
+    void clear_shouldDeleteRevocationKey() {
+        jwtTokenRevoker.clear(42L);
+
+        verify(redisUtil).delete("admin-revoked-token:42");
+    }
+
+    @Test
+    void clear_whenAccountIdNull_shouldSkipRedis() {
+        jwtTokenRevoker.clear(null);
+
+        verify(redisUtil, never()).delete(anyString());
     }
 }

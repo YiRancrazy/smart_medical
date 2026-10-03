@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,6 +51,7 @@ class AdminAuthManagerTest {
     @Mock private UserService userService;
     @Mock private RoleService roleService;
     @Mock private RedisUtil redisUtil;
+    @Mock private JwtTokenRevoker jwtTokenRevoker;
     @Mock private HttpServletRequest request;
     @Mock private HttpServletResponse response;
 
@@ -66,7 +68,8 @@ class AdminAuthManagerTest {
         RoleConstant.ROLE_LIST.clear();
         RoleConstant.ROLE_LIST.add(adminRole);
 
-        manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService, redisUtil);
+        manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService,
+                redisUtil, jwtTokenRevoker);
         ReflectionTestUtils.setField(manager, "accessSecretKey", "test-access-secret-key");
         ReflectionTestUtils.setField(manager, "refreshSecretKey", "test-refresh-secret-key");
         ReflectionTestUtils.setField(manager, "adminRefreshTokenPrefix", "admin-refresh:");
@@ -120,6 +123,7 @@ class AdminAuthManagerTest {
         verify(response).setHeader(eq("Authorization"), headerCaptor.capture());
         verify(redisUtil).setEx(eq("admin-refresh:42"), refreshCaptor.capture(), eq(30L), eq(TimeUnit.DAYS));
         verify(redisUtil, never()).setEx(eq("admin-access:42"), anyString(), anyLong(), any(TimeUnit.class));
+        verify(jwtTokenRevoker).clear(42L);
 
         String accessToken = headerCaptor.getValue().substring("Bearer ".length());
         String refreshToken = refreshCaptor.getValue();

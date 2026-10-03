@@ -53,4 +53,15 @@ public final class JwtTokenRevoker {
         }
         return Long.parseLong(value.trim());
     }
+
+    /**
+     * 清除账号吊销记录，供重新登录 / 刷新签发新 token 时调用
+     * @param accountId 账号 ID
+     */
+    public void clear(Long accountId) {
+        if (accountId == null) {
+            return;
+        }
+        redisUtil.delete(revokedTokenPrefix + accountId);
+    }
 }

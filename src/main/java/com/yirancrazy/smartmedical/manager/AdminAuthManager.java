@@ -19,6 +19,7 @@ import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
 import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.annotation.PostConstruct;
@@ -64,6 +65,7 @@ public class AdminAuthManager {
     private final UserService userService;
     private final RoleService roleService;
     private final RedisUtil redisUtil;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
     private Role adminRole;
     /** S22: 登录限流窗口 5 分钟 */
@@ -175,6 +177,8 @@ public class AdminAuthManager {
         Long currentTimeSeconds = System.currentTimeMillis() / 1000;
         String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
         String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
+        // 登录成功即解除账号级吊销，保证登出 / 改密后重新登录能立即使用新 token
+        jwtTokenRevoker.clear(roleAccount.getId());
         redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
 
         // 统一通过响应头返回access token，前端从Authorization头提取
