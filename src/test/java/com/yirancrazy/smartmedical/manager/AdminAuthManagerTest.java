@@ -3,7 +3,6 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.pojo.Account;
-import com.yirancrazy.smartmedical.pojo.Role;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
@@ -14,7 +13,6 @@ import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,29 +54,15 @@ class AdminAuthManagerTest {
     @Mock private HttpServletResponse response;
 
     private AdminAuthManager manager;
-    private Role adminRole;
 
     @BeforeEach
     void setUp() {
-        // 先填充 ROLE_LIST，再构造 manager：
-        // AdminAuthManager.adminRole 在 @PostConstruct 中初始化，依赖 ROLE_LIST 非空
-        adminRole = new Role();
-        adminRole.setId(1L);
-        adminRole.setName("系统管理员");
-        RoleConstant.ROLE_LIST.clear();
-        RoleConstant.ROLE_LIST.add(adminRole);
-
         manager = new AdminAuthManager(accountService, adminService, doctorService, userService, roleService,
                 redisUtil, jwtTokenRevoker);
         ReflectionTestUtils.setField(manager, "accessSecretKey", "test-access-secret-key");
         ReflectionTestUtils.setField(manager, "refreshSecretKey", "test-refresh-secret-key");
         ReflectionTestUtils.setField(manager, "adminRefreshTokenPrefix", "admin-refresh:");
         manager.validateJwtConfig();
-    }
-
-    @AfterEach
-    void tearDown() {
-        RoleConstant.ROLE_LIST.clear();
     }
 
     // ---- C8: PostConstruct 校验 ----
@@ -97,6 +81,12 @@ class AdminAuthManagerTest {
 
     @Test
     void validateJwtConfig_allPresent_passes() {
+        manager.validateJwtConfig();
+    }
+
+    @Test
+    void validateJwtConfig_roleCacheEmpty_stillPasses() {
+        RoleConstant.ROLE_LIST.clear();
         manager.validateJwtConfig();
     }
 

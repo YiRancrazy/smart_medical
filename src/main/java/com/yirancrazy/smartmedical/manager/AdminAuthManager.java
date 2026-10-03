@@ -4,7 +4,6 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
-import com.yirancrazy.smartmedical.constant.RoleConstant;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
@@ -67,7 +66,6 @@ public class AdminAuthManager {
     private final RedisUtil redisUtil;
     private final JwtTokenRevoker jwtTokenRevoker;
 
-    private Role adminRole;
     /** S22: 登录限流窗口 5 分钟 */
     private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
     /** S22: 登录限流阈值 5 次/窗口 */
@@ -103,11 +101,6 @@ public class AdminAuthManager {
         if (adminRefreshTokenPrefix == null || adminRefreshTokenPrefix.isBlank()) {
             throw new IllegalStateException("jwt.admin.adminRefreshTokenPrefix 未配置");
         }
-        this.adminRole = RoleConstant.ROLE_LIST
-                .stream()
-                .filter(role -> role.getId().equals(RoleEnum.ADMIN.getCodeAsLong()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("未找到系统管理员角色"));
     }
     /**
      * 管理员手机号密码登录
@@ -119,7 +112,7 @@ public class AdminAuthManager {
      * @return 结果
      */
     public Result<String> loginByPhoneAndPassword(String phone, String password,Boolean remember, HttpServletRequest request, HttpServletResponse response){
-        return loginByPhoneAndPasswordAndRoleId(phone, password, adminRole.getId(), remember, request, response);
+        return loginByPhoneAndPasswordAndRoleId(phone, password, RoleEnum.ADMIN.getCodeAsLong(), remember, request, response);
     }
 
     /**
@@ -273,7 +266,7 @@ public class AdminAuthManager {
 
         // 按 role 加载对应档案表，取 name/avatar
         long roleId = account.getRoleId() == null ? 0L : account.getRoleId();
-        if (roleId == adminRole.getId()) {
+        if (roleId == RoleEnum.ADMIN.getCodeAsLong()) {
             // 管理员
             Admin admin = adminService.getAdminById(account.getUserId());
             if (admin == null) {
@@ -282,7 +275,7 @@ public class AdminAuthManager {
             result.setUsername(admin.getName());
             result.setNickname(admin.getName());
             result.setAvatar(admin.getAvatar());
-        } else if (roleId == 2L) {
+        } else if (roleId == RoleEnum.DOCTOR.getCodeAsLong()) {
             // 医生：account.userId 约定等于 doctor.id
             Doctor doctor = doctorService.getDoctorById(account.getUserId());
             if (doctor == null) {
