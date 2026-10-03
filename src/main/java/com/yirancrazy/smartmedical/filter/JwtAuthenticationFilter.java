@@ -51,18 +51,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     /**
-     * CROSS-04: 白名单统一由 SecurityConfig.PERMIT_ALL_PATHS 控制，避免 Filter 与 SecurityFilterChain 两份清单不一致
+     * 白名单统一由 SecurityConfig.PERMIT_ALL_PATHS 控制，避免 Filter 与 SecurityFilterChain 两份清单不一致
      */
     private static final List<String> PERMIT_ALL_PATHS = List.of(SecurityConfig.PERMIT_ALL_PATHS);
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     /**
-     *
-     * @param request
-     * @param response
-     * @param filterChain
-     * @throws ServletException
-     * @throws IOException
+     * 过滤器主逻辑
+     * @param request 请求
+     * @param response 响应
+     * @param filterChain 过滤器链
+     * @throws ServletException 抛给过滤器链
+     * @throws IOException 抛给过滤器链
      */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -105,13 +105,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String sub = String.valueOf(payload.getClaim("sub"));
             long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
 
-            // CROSS-02: exp 使用秒级 Unix 时间戳，与 JWT 标准保持一致
+            // exp 使用秒级 Unix 时间戳，与 JWT 标准保持一致
             if (exp < System.currentTimeMillis() / 1000) {
                 unauthorized(response, "access_token 过期");
                 return;
             }
 
-            // 解析 accountId（JWT sub）与 userId claim；login 时以 accountId 为 Redis key 存 token
+            // 解析 accountId（JWT sub）与 userId claim；登录时以 accountId 为 Redis key 存 token
             Long accountId;
             Long currentUserId;
             try {
@@ -124,10 +124,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             // 账号级吊销：Redis 只保存吊销时间戳，账号在吊销时间点之前签发的 access token 全部失效。
-            // access token 本身不再写入 Redis，因此并发刷新不会互相顶号。
-            // Redis 不可达时降级为仅校验签名和过期时间，避免全站 500。
-            long issuedAtMillis = resolveIssuedAtMillis(payload);
-            Long revokedAtMillis;
+            // access token 本身不再写入 Redis，Redis 不可达时降级为仅校验签名和过期时间，避免全站 500。
+            long issuedAtMillis = resolveIssuedAtMillis(payload);  // 解析 token 签发时间（毫秒）
+            Long revokedAtMillis; // 账号最近一次吊销时间戳（毫秒）
             try {
                 revokedAtMillis = jwtTokenRevoker.findRevokedAtMillis(accountId);
             } catch (NumberFormatException e) {
