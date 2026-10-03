@@ -64,28 +64,59 @@ public class UserPatientRelationManager {
     public Result<Integer> insertUserPatientRelation(Long currentUserId,String name, String idCard, String phone, String relation, String remark, String defaulted) {
 
         Long id = IdUtil.getSnowflakeNextId();
-        User patientUser = userService.getUserByIdCard(idCard);
-        if (patientUser != null) {
-            // 身份证命中已有用户：校验提交手机号与该用户账号归属一致，避免身份证与手机号分属两人时
-            // 静默错绑他人账号，导致后续重复添加被误判为"已存在"
-            List<Account> phoneAccounts = accountService.getAccountByPhone(phone);
-            if (phoneAccounts != null && !phoneAccounts.isEmpty()) {
-                Long idCardUserId = patientUser.getId();
-                boolean ownedByPatient = phoneAccounts.stream()
-                        .anyMatch(account -> account.getUserId().equals(idCardUserId));
-                if (!ownedByPatient) {
-                    return Result.fail("该手机号已被其他账号使用，与身份证不一致");
-                }
+        User patientUser;
+        if (SELF_RELATION.equals(relation)) {
+            // 本人只能绑定当前登录账号：先按当前账号定位用户，避免删除就诊人后归档的旧 user 记录
+            // 仍持有同一身份证，导致新账号完善本人时被误判为"手机号已被其他账号使用"
+            patientUser = userService.getUserById(currentUserId);
+            if (patientUser == null) {
+                return Result.fail("当前账号不存在");
             }
+            Account selfAccount = accountService.getAccountByUserId(currentUserId);
+            if (selfAccount == null) {
+                return Result.fail("当前账号不存在");
+            }
+            // 本人手机号必须属于当前账号，防止把他人手机号填成本人联系方式
+            String boundPhone = phone == null || phone.isBlank() ? selfAccount.getPhone() : phone;
+            if (boundPhone != null && !boundPhone.equals(selfAccount.getPhone())) {
+                return Result.fail("本人关系手机号需与当前账号一致");
+            }
+            // 身份证命中其他用户时，仅当其账号仍启用才视为占用；删除就诊人产生的归档账号允许本人复用
+            User idCardUser = idCard == null || idCard.isBlank() ? null : userService.getUserByIdCard(idCard);
+            if (idCardUser != null && !idCardUser.getId().equals(currentUserId)
+                    && hasEnabledAccount(idCardUser.getId())) {
+                return Result.fail("该身份证已被其他账号绑定");
+            }
+            // 完善本人就诊卡需要把姓名 / 身份证落回当前用户，供后续展示与下单使用
+            if (name != null && !name.isBlank()) {
+                patientUser.setNickname(name);
+                patientUser.setUsername(name);
+            }
+            if (idCard != null && !idCard.isBlank()) {
+                patientUser.setIdCard(idCard);
+            }
+            userService.updateUserById(patientUser);
         } else {
-            List<Account> accounts = accountService.getAccountByPhone(phone);
-            if (accounts != null && !accounts.isEmpty()) {
-                patientUser = userService.getUserById(accounts.get(0).getUserId());
-            } else if (SELF_RELATION.equals(relation)) {
-                // 身份证与手机号都未命中已有账号，说明提交的是他人身份信息，不应为其新建账号并标为本人
-                return Result.fail("本人关系只能绑定当前登录账号");
+            patientUser = userService.getUserByIdCard(idCard);
+            if (patientUser != null) {
+                // 身份证命中已有用户：校验提交手机号与该用户账号归属一致，避免身份证与手机号分属两人时
+                // 静默错绑他人账号，导致后续重复添加被误判为"已存在"
+                List<Account> phoneAccounts = accountService.getAccountByPhone(phone);
+                if (phoneAccounts != null && !phoneAccounts.isEmpty()) {
+                    Long idCardUserId = patientUser.getId();
+                    boolean ownedByPatient = phoneAccounts.stream()
+                            .anyMatch(account -> account.getUserId().equals(idCardUserId));
+                    if (!ownedByPatient) {
+                        return Result.fail("该手机号已被其他账号使用，与身份证不一致");
+                    }
+                }
             } else {
-                patientUser = createPatientUser(name, idCard, phone);
+                List<Account> accounts = accountService.getAccountByPhone(phone);
+                if (accounts != null && !accounts.isEmpty()) {
+                    patientUser = userService.getUserById(accounts.get(0).getUserId());
+                } else {
+                    patientUser = createPatientUser(name, idCard, phone);
+                }
             }
         }
         Long patientUserId = patientUser.getId();
@@ -330,5 +361,15 @@ public class UserPatientRelationManager {
         patientService.insertPatient(patient);
 
         return user;
+    }
+
+    /**
+     * 判断用户是否存在启用状态的账号
+     * @param userId 用户id
+     * @return 是否存在启用账号
+     */
+    private boolean hasEnabledAccount(Long userId) {
+        Account account = accountService.getAccountByUserId(userId);
+        return account != null && !Boolean.FALSE.equals(account.getEnabled());
     }
 }
