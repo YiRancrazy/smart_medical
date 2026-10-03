@@ -26,6 +26,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -393,6 +395,20 @@ class AuthManagerTest {
         verify(redisUtil, never()).get(anyString());
     }
 
+    @Test
+    void refresh_algNoneToken_returnsFailBeforeRedisCompare() {
+        AuthManager m = buildManager();
+        String refreshToken = buildAlgNoneToken(42L, 7L, 4L);
+
+        Result<String> result = m.refresh(refreshToken, response);
+
+        assertEquals(500, result.getCode());
+        assertEquals("Refresh token 无效", result.getMessage());
+        verify(accountService, never()).getAccountById(anyLong());
+        verify(redisUtil, never()).get(anyString());
+        verify(response, never()).setHeader(anyString(), anyString());
+    }
+
     private Account userAccount(Long accountId, Long userId) {
         Account account = new Account();
         account.setId(accountId);
@@ -412,6 +428,22 @@ class AuthManagerTest {
                 .setPayload("exp", expiresAt)
                 .setKey("test-refresh-secret".getBytes())
                 .sign();
+    }
+
+    private String buildAlgNoneToken(Long accountId, Long userId, Long roleId) {
+        String header = encodeJson("{\"alg\":\"none\",\"typ\":\"JWT\"}");
+        String payload = encodeJson("{"
+                + "\"sub\":\"" + accountId + "\","
+                + "\"userId\":" + userId + ","
+                + "\"role\":" + roleId + ","
+                + "\"exp\":" + (System.currentTimeMillis() / 1000 + 3600)
+                + "}");
+        return header + "." + payload + ".";
+    }
+
+    private String encodeJson(String json) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
 
     private void assertAccessTokenHasSevenDayTtl(String token, String secret) {

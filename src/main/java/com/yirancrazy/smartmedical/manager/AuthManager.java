@@ -1,11 +1,14 @@
 package com.yirancrazy.smartmedical.manager;
 
+import cn.hutool.core.exceptions.ValidateException;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.crypto.CryptoException;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
+import cn.hutool.jwt.JWTValidator;
+import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -330,8 +333,7 @@ public class AuthManager {
         }
         try {
             JWT jwt = JWTUtil.parseToken(refreshToken);
-            jwt.setKey(refreshSecretKey.getBytes());
-            if (!jwt.verify()) {
+            if (!verifyHs256(jwt, refreshSecretKey)) {
                 return Result.fail("Refresh token 无效");
             }
             JWTPayload payload = jwt.getPayload();
@@ -407,6 +409,22 @@ public class AuthManager {
         } catch (CryptoException | DataAccessException | IllegalArgumentException e) {
             log.error("[refresh] 刷新token异常", e);
             return Result.fail("刷新token失败");
+        }
+    }
+
+    /**
+     * 固定使用 HS256 校验 refresh token 算法与签名，禁止由 token header 决定验签算法
+     * @param jwt 已解析 JWT
+     * @param secret 签名密钥
+     * @return 算法与签名是否均通过
+     */
+    private boolean verifyHs256(JWT jwt, String secret) {
+        try {
+            JWTValidator.of(jwt).validateAlgorithm(JWTSignerUtil.hs256(secret.getBytes()));
+            return true;
+        } catch (ValidateException e) {
+            log.warn("[refresh] Refresh token 算法或签名校验失败: {}", e.getMessage());
+            return false;
         }
     }
 
