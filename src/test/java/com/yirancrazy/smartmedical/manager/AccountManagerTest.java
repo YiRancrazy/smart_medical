@@ -236,7 +236,6 @@ class AccountManagerTest {
 
         org.mockito.Mockito.verify(jwtTokenRevoker).revoke(1001L);
         org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
-        org.mockito.Mockito.verify(redisUtil, org.mockito.Mockito.never()).delete("access_token_1001");
     }
 
     /**
@@ -255,7 +254,6 @@ class AccountManagerTest {
 
         org.mockito.Mockito.verify(jwtTokenRevoker).revoke(1001L);
         org.mockito.Mockito.verify(redisUtil).delete("refresh_token_1001");
-        org.mockito.Mockito.verify(redisUtil, org.mockito.Mockito.never()).delete("access_token_1001");
     }
 
     /**

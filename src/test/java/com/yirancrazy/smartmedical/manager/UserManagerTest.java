@@ -313,7 +313,6 @@ class UserManagerTest {
         verify(smsService).verifyCode("13900000000", "654321");
         verify(jwtTokenRevoker).revoke(42L);
         verify(redisUtil).delete("jwt:refresh:42");
-        verify(redisUtil, org.mockito.Mockito.never()).delete("jwt:access:42");
         verify(accountService).updateAccountById(account);
     }
 

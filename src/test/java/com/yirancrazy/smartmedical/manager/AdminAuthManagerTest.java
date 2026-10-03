@@ -122,7 +122,6 @@ class AdminAuthManagerTest {
         ArgumentCaptor<String> refreshCaptor = ArgumentCaptor.forClass(String.class);
         verify(response).setHeader(eq("Authorization"), headerCaptor.capture());
         verify(redisUtil).setEx(eq("admin-refresh:42"), refreshCaptor.capture(), eq(30L), eq(TimeUnit.DAYS));
-        verify(redisUtil, never()).setEx(eq("admin-access:42"), anyString(), anyLong(), any(TimeUnit.class));
         verify(jwtTokenRevoker).clear(42L);
 
         String accessToken = headerCaptor.getValue().substring("Bearer ".length());

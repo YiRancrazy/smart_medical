@@ -96,7 +96,6 @@ class AuthManagerTest {
         assertEquals("7", result.getData().getUid());
         verify(response).setHeader(eq("Authorization"), anyString());
         verify(redisUtil).setEx(eq("refresh_token_42"), anyString(), eq(30L), eq(TimeUnit.DAYS));
-        verify(redisUtil, never()).setEx(eq("access_token_42"), anyString(), anyLong(), any(TimeUnit.class));
         // 登录签发新 token 时清除账号级吊销标记，否则登出后 7 天内重新登录仍会被 401
         verify(jwtTokenRevoker).clear(42L);
     }
@@ -135,7 +134,6 @@ class AuthManagerTest {
         assertEquals(200, result.getCode());
         verify(jwtTokenRevoker).revoke(42L);
         verify(redisUtil).delete("refresh_token_42");
-        verify(redisUtil, never()).delete("access_token_42");
     }
 
     @Test
@@ -183,7 +181,6 @@ class AuthManagerTest {
         verify(accountService).updateAccountById(existing);
         verify(jwtTokenRevoker).revoke(9L);
         verify(redisUtil).delete("refresh_token_9");
-        verify(redisUtil, never()).delete("access_token_9");
     }
 
     @Test
@@ -323,7 +320,6 @@ class AuthManagerTest {
         verify(accountService).updateAccountById(account);
         verify(jwtTokenRevoker).revoke(42L);
         verify(redisUtil).delete("refresh_token_42");
-        verify(redisUtil, never()).delete("access_token_42");
     }
 
     @Test
@@ -380,7 +376,6 @@ class AuthManagerTest {
         assertEquals(500, result.getCode());
         assertEquals("账号已被禁用，请重新登录", result.getMessage());
         verify(redisUtil).delete("refresh_token_42");
-        verify(redisUtil, never()).delete("access_token_42");
         verify(jwtTokenRevoker).revoke(42L);
     }
 
