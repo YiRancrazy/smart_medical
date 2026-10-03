@@ -56,17 +56,10 @@ public class RegistrationScheduleManager {
             return Result.fail("医生不存在");
         }
 
-        List<AppointmentRule> appointmentRules = new ArrayList<>();
-
-        List<AppointmentRule> currentDoctorAppointmentRules = appointmentRuleService.listAppointmentsRulesByDoctorId(doctorId);
-        if (currentDoctorAppointmentRules.isEmpty()) {
-            // ponytail: S13 — 无医生规则时回落到科室规则，不再跨科室兜底取全院规则
-            appointmentRules = appointmentRuleService.listAppointmentsRulesByDepartmentId(doctor.getDepartmentId());
-        } else {
-            appointmentRules = currentDoctorAppointmentRules;
-        }
-
-        appointmentRules = appointmentRules
+        // 规则解析口径与 DoctorManager#getRegistrationDoctorBaseInfoByDepartmentId 对齐：
+        // 医生专属 → 科室 → 全院默认（department_id/doctor_id 均为 NULL），且不跨科室套用他科规则；
+        // 否则新科室未单独配置规则时，科室页能列出医生、排班页却直接报「没有可用的挂号配置」
+        List<AppointmentRule> appointmentRules = resolveAppointmentRules(doctor)
                 .stream()
                 .filter(item -> Objects.equals(item.getStatus(), AppointmentRuleStatusEnum.NORMAL.getCode()))
                 .filter(item -> Objects.equals(item.getRuleType(), AppointmentRuleTypeEnum.OUT_PATIENT.getCode()))
@@ -140,6 +133,24 @@ public class RegistrationScheduleManager {
         result.sort(Comparator.comparing(RegistrationDateAndRemainQuotaVo::getDate));
 
         return Result.success(result);
+    }
+
+    /**
+     * 解析医生可用的挂号规则：医生专属规则 → 科室规则 → 全院默认规则
+     * @param doctor 医生实体
+     * @return 待进一步按状态 / 规则类型过滤的规则列表
+     */
+    private List<AppointmentRule> resolveAppointmentRules(Doctor doctor) {
+        List<AppointmentRule> doctorRules = appointmentRuleService.listAppointmentsRulesByDoctorId(doctor.getId());
+        if (!doctorRules.isEmpty()) {
+            return doctorRules;
+        }
+        List<AppointmentRule> departmentRules =
+                appointmentRuleService.listAppointmentsRulesByDepartmentId(doctor.getDepartmentId());
+        if (!departmentRules.isEmpty()) {
+            return departmentRules;
+        }
+        return appointmentRuleService.listGlobalAppointmentRules();
     }
 
     /**

@@ -69,4 +69,10 @@ public interface AppointmentRuleService {
      * @return 预约规则列表
      */
     List<AppointmentRule> listAppointmentsRulesByDoctorId(Long doctorId);
+
+    /**
+     * 获取全院默认预约规则（department_id 与 doctor_id 均为 NULL）
+     * @return 预约规则列表
+     */
+    List<AppointmentRule> listGlobalAppointmentRules();
 }

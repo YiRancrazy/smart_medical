@@ -69,6 +69,18 @@ public class AppointmentRuleServiceImpl implements AppointmentRuleService {
     }
 
     /**
+     * 获取全院默认预约规则（department_id 与 doctor_id 均为 NULL）
+     * @return 预约规则列表
+     */
+    @Override
+    public List<AppointmentRule> listGlobalAppointmentRules() {
+        return appointmentRuleMapper.selectList(new LambdaQueryWrapper<AppointmentRule>()
+                .isNull(AppointmentRule::getDepartmentId)
+                .isNull(AppointmentRule::getDoctorId)
+                .orderBy(true,true,AppointmentRule::getPriority));
+    }
+
+    /**
      * 根据id更新预约规则
      * @param appointmentRule 预约规则
      * @return 更新结果
