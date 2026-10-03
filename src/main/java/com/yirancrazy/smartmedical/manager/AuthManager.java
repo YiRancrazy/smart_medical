@@ -397,8 +397,7 @@ public class AuthManager {
                 return Result.fail("Refresh token 已失效");
             }
             // 签发新 access JWT（7 天有效期，不写入 Redis）
-            Long currentTimeSeconds = System.currentTimeMillis() / 1000;
-            String newAccessJwt = generateAccessJwt(accountId, userId, roleId, currentTimeSeconds);
+            String newAccessJwt = generateAccessJwt(accountId, userId, roleId);
 
             // 清理历史吊销记录，避免新 token 因 iatMs <= 吊销时间戳被 filter 拒绝
             jwtTokenRevoker.clear(Long.parseLong(accountId));
@@ -419,7 +418,7 @@ public class AuthManager {
      */
     private LoginVo issueTokens(Account account, User user, HttpServletResponse response) {
         Long currentTimeSeconds = System.currentTimeMillis() / 1000;
-        String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
+        String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId());
 
         String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
         // 登录成功即解除账号级吊销，保证登出 / 改密后重新登录能立即使用新 token
@@ -461,7 +460,10 @@ public class AuthManager {
     /**
      * 生成访问 JWT（7 天有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    private String generateAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
+    private String generateAccessJwt(String accountId, Long userId, Long roleId) {
+        long nowMillis = System.currentTimeMillis();
+        long currentTimeSeconds = nowMillis / 1000;
+
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -472,7 +474,7 @@ public class AuthManager {
         payload.put("userId", userId);
         payload.put("role", roleId);
         payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + ACCESS_TOKEN_TTL_SECONDS);
-        payload.put("iatMs", System.currentTimeMillis());
+        payload.put("iatMs", nowMillis);
         payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
         payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));

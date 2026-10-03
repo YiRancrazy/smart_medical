@@ -175,7 +175,7 @@ public class AdminAuthManager {
 
         // accessJwt 不写入 Redis，refreshJwt 仍写入 Redis 用于刷新校验
         Long currentTimeSeconds = System.currentTimeMillis() / 1000;
-        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
+        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId());
         String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
         // 登录成功即解除账号级吊销，保证登出 / 改密后重新登录能立即使用新 token
         jwtTokenRevoker.clear(roleAccount.getId());
@@ -201,7 +201,10 @@ public class AdminAuthManager {
     /**
      * 生成访问 JWT（7 天有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    private String createAccessJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
+    private String createAccessJwt(String accountId, Long userId, Long roleId) {
+        long nowMillis = System.currentTimeMillis();
+        long currentTimeSeconds = nowMillis / 1000;
+
         Map<String, Object> header = new HashMap<>();
         header.put("alg", "HS256");
         header.put("typ", "JWT");
@@ -212,7 +215,7 @@ public class AdminAuthManager {
         payload.put("userId", userId);
         payload.put("role", roleId); // 统一字段名为role
         payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 7L * 24 * 60 * 60);
-        payload.put("iatMs", System.currentTimeMillis());
+        payload.put("iatMs", nowMillis);
         payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
         payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));

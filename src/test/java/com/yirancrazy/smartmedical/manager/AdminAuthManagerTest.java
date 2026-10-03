@@ -135,9 +135,13 @@ class AdminAuthManagerTest {
         long nowSeconds = System.currentTimeMillis() / 1000;
         long accessExp = Long.parseLong(String.valueOf(
                 JWTUtil.parseToken(accessToken).getPayload().getClaim("exp")));
+        long accessIatMs = Long.parseLong(String.valueOf(
+                JWTUtil.parseToken(accessToken).getPayload().getClaim("iatMs")));
         long refreshExp = Long.parseLong(String.valueOf(
                 JWTUtil.parseToken(refreshToken).getPayload().getClaim("exp")));
         assertTrue(Math.abs(accessExp - (nowSeconds + 7L * 24 * 60 * 60)) <= 5);
+        // exp 与 iatMs 必须由同一次时间采样派生，差值恰为 7 天
+        assertTrue(Math.abs((accessExp - accessIatMs / 1000) - 7L * 24 * 60 * 60) <= 1);
         assertTrue(Math.abs(refreshExp - (nowSeconds + 30L * 24 * 60 * 60)) <= 5);
     }
 
