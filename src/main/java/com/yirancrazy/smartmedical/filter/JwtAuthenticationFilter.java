@@ -1,8 +1,11 @@
 package com.yirancrazy.smartmedical.filter;
 
+import cn.hutool.core.exceptions.ValidateException;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
+import cn.hutool.jwt.JWTValidator;
+import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yirancrazy.smartmedical.config.SecurityConfig;
 import com.yirancrazy.smartmedical.constant.type.RoleEnum;
@@ -93,9 +96,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             // 先验签后解析——parseToken 仅解码 base64 头部，未做签名校验
             JWT jwt = JWTUtil.parseToken(token);
-            jwt.setKey(accessSecretKey.getBytes());
-
-            if (!jwt.verify()) {
+            if (!verifyHs256(jwt, accessSecretKey)) {
                 unauthorized(response, "无效的 access_token");
                 return;
             }
@@ -226,6 +227,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return Long.parseLong(String.valueOf(iatClaim)) * 1000L;
         }
         return 0L;
+    }
+
+    /**
+     * 固定使用 HS256 校验 JWT 算法与签名，禁止由 token header 决定验签算法
+     * @param jwt 已解析 JWT
+     * @param secret 签名密钥
+     * @return 算法与签名是否均通过
+     */
+    private boolean verifyHs256(JWT jwt, String secret) {
+        try {
+            JWTValidator.of(jwt).validateAlgorithm(JWTSignerUtil.hs256(secret.getBytes()));
+            return true;
+        } catch (ValidateException e) {
+            log.warn("[jwt] JWT 算法或签名校验失败: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**

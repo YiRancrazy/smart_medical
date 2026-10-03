@@ -14,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -233,6 +235,20 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void doFilterInternal_algNoneForgedAdminToken_shouldReturn401() throws Exception {
+        Long accountId = 123456789L;
+        String token = buildAlgNoneToken(accountId, 1L);
+        when(request.getRequestURI()).thenReturn("/api/admin/v1/user/profile");
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).setStatus(401);
+        verify(jwtTokenRevoker, never()).findRevokedAtMillis(anyLong());
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
     void doFilterInternal_expiredToken_shouldReturn401() throws Exception {
         Long accountId = 123456789L;
         String token = JWT.create()
@@ -352,5 +368,22 @@ class JwtAuthenticationFilterTest {
             jwt.setPayload("role", role);
         }
         return jwt.sign();
+    }
+
+    private String buildAlgNoneToken(Long accountId, Long role) {
+        String header = encodeJson("{\"alg\":\"none\",\"typ\":\"JWT\"}");
+        String payload = encodeJson("{"
+                + "\"sub\":\"" + accountId + "\","
+                + "\"userId\":\"" + accountId + "\","
+                + "\"role\":" + role + ","
+                + "\"exp\":" + (System.currentTimeMillis() / 1000 + 3600) + ","
+                + "\"iatMs\":" + System.currentTimeMillis()
+                + "}");
+        return header + "." + payload + ".";
+    }
+
+    private String encodeJson(String json) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
 }
