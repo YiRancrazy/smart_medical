@@ -45,7 +45,7 @@ services:
       - smart-medical-net
 
   minio:
-    image: minio/minio:${MINIO_IMAGE_TAG}
+    image: quay.registry.cdn.w7.cc/minio/minio:${MINIO_IMAGE_TAG}
     container_name: smart-medical-minio
     command: server /data --console-address ":9001"
     environment:
