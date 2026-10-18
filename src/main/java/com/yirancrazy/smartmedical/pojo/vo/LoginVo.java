@@ -20,4 +20,5 @@ public class LoginVo {
     private String uid;
     private String phone;
     private String userName;
+    private Boolean profileCompleted;
 }

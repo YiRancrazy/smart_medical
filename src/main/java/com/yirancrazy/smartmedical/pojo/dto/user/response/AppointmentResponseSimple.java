@@ -3,7 +3,6 @@ package com.yirancrazy.smartmedical.pojo.dto.user.response;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springdoc.webmvc.core.fn.SpringdocRouteBuilder;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -28,6 +27,6 @@ public class AppointmentResponseSimple {
     private String departmentId;                // 科室id
     private String departmentName;              // 科室名称
     private String patientName;                 // 用户名称
-    private Double registrationPrice;           // 挂号价格
+    private Integer registrationPrice;          // 挂号价格（分）
 
 }

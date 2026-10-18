@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -19,7 +20,7 @@ import java.util.List;
 @Mapper
 public interface RegistrationScheduleMapper extends BaseMapper<RegistrationSchedule> {
 
-    List<RegistrationSchedule> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList);
+    List<RegistrationScheduleTemplate> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList);
 
     List<RegistrationSchedule> getRegistrationScheduleLastWeekByDoctorId(Long doctorId);
 

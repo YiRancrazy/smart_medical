@@ -1,0 +1,75 @@
+// Primary
+$color-primary: #10B981;
+$color-primary-light: #34D399;
+$color-primary-dark: #059669;
+
+// Functional
+$color-success: #34C759;
+$color-warning: #FF9500;
+$color-danger: #FF3B30;
+$color-info: #5AC8FA;
+
+// Neutral
+$color-text-primary: #1F2937;
+$color-text-secondary: #6B7280;
+$color-text-tertiary: #9CA3AF;
+$color-text-white: #FFFFFF;
+
+// Background
+$color-bg-page: #F0FDF9;
+$color-bg-card: rgba(255, 255, 255, 0.82);
+$color-bg-card-solid: #FFFFFF;
+
+// Border
+$color-border: rgba(0, 0, 0, 0.06);
+$color-divider: rgba(0, 0, 0, 0.04);
+
+// Font
+$font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+
+$font-size-h1: 24px;
+$font-size-h2: 20px;
+$font-size-h3: 17px;
+$font-size-body: 15px;
+$font-size-sm: 13px;
+$font-size-xs: 11px;
+
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-tight: 1.25;
+$line-height-normal: 1.5;
+$line-height-loose: 1.75;
+
+// Spacing
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-base: 16px;
+$spacing-lg: 20px;
+$spacing-xl: 24px;
+$spacing-2xl: 32px;
+$spacing-3xl: 48px;
+
+$page-padding: 16px;
+$section-gap: 24px;
+$card-padding: 16px;
+$card-gap: 12px;
+
+// Radius
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-xl: 20px;
+$radius-round: 999px;
+
+// Shadows
+$shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+$shadow-md: 0 4px 16px rgba(16, 185, 129, 0.06);
+$shadow-lg: 0 8px 32px rgba(16, 185, 129, 0.08);
+$shadow-glass: 0 8px 32px rgba(16, 185, 129, 0.06);
+
+// Gradient
+$gradient-primary: linear-gradient(180deg, #ECFDF5 0%, #F0FDF9 100%);

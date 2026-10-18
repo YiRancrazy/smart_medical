@@ -1,8 +1,28 @@
 package com.yirancrazy.smartmedical.utils;
 
 
-import io.minio.*;
-import io.minio.errors.*;
+import io.minio.BucketExistsArgs;
+import io.minio.CopyObjectArgs;
+import io.minio.CopySource;
+import io.minio.GetBucketPolicyArgs;
+import io.minio.GetObjectArgs;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.ListObjectsArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.MinioClient;
+import io.minio.ObjectWriteResponse;
+import io.minio.PutObjectArgs;
+import io.minio.RemoveBucketArgs;
+import io.minio.RemoveObjectArgs;
+import io.minio.Result;
+import io.minio.StatObjectArgs;
+import io.minio.UploadObjectArgs;
+import io.minio.errors.ErrorResponseException;
+import io.minio.errors.InsufficientDataException;
+import io.minio.errors.InternalException;
+import io.minio.errors.InvalidResponseException;
+import io.minio.errors.ServerException;
+import io.minio.errors.XmlParserException;
 import io.minio.http.Method;
 import io.minio.messages.Bucket;
 import io.minio.messages.DeleteObject;
@@ -32,12 +52,18 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class MinIOUtil {
 
-    private static MinioClient minioClient;
+    /** volatile 防止并发首次初始化读到半构造对象（P1） */
+    private static volatile MinioClient minioClient;
+
+    /** 预签名使用浏览器可达地址，避免签名 Host 指向容器内网或 localdev */
+    private static volatile MinioClient presignMinioClient;
 
     private static String endpoint;
+    private static String fileHost;
     private static String bucketName;
     private static String accessKey;
     private static String secretKey;
+    private static String region;
     private static Integer imgSize;
     private static Integer fileSize;
 
@@ -47,54 +73,71 @@ public class MinIOUtil {
     public MinIOUtil() {
     }
 
-    public MinIOUtil(String endpoint, String bucketName, String accessKey, String secretKey, Integer imgSize, Integer fileSize) {
+    public MinIOUtil(String endpoint, String fileHost, String bucketName, String accessKey, String secretKey,
+                     String region, Integer imgSize, Integer fileSize) {
         MinIOUtil.endpoint = endpoint;
+        MinIOUtil.fileHost = fileHost;
         MinIOUtil.bucketName = bucketName;
         MinIOUtil.accessKey = accessKey;
         MinIOUtil.secretKey = secretKey;
+        MinIOUtil.region = region;
         MinIOUtil.imgSize = imgSize;
         MinIOUtil.fileSize = fileSize;
         createMinioClient();
     }
 
     /**
-     * 创建基于Java端的MinioClient
+     * 创建基于Java端的MinioClient（synchronized 双检锁，防并发重复初始化 P1）
      */
     public void createMinioClient() {
-        try {
-            if (null == minioClient) {
-                log.info("开始创建 MinioClient...");
-                minioClient = MinioClient
-                        .builder()
-                        .endpoint(endpoint)
-                        .credentials(accessKey, secretKey)
-                        .build();
-                createBucket(bucketName);
-                log.info("创建完毕 MinioClient...");
+        if (null == minioClient) {
+            synchronized (MinIOUtil.class) {
+                if (null == minioClient) {
+                    try {
+                        log.info("开始创建 MinioClient...");
+                        minioClient = buildMinioClient(endpoint);
+                        String presignEndpoint = (fileHost == null || fileHost.isBlank()) ? endpoint : fileHost;
+                        presignMinioClient = buildMinioClient(presignEndpoint);
+                        log.info("创建完毕 MinioClient...");
+                    } catch (Exception e) {
+                        log.error("MinIO服务器异常：{}", e);
+                        // 客户端创建失败直接终止启动，避免 minioClient 为 null 留到业务层 NPE
+                        throw new IllegalStateException("MinIO 客户端创建失败", e);
+                    }
+                }
             }
-        } catch (Exception e) {
-            log.error("MinIO服务器异常：{}", e);
         }
     }
 
     /**
-     * 获取上传文件前缀路径
-     * @return
+     * 获取对外访问 URL 前缀（基于 file-host 配置；配置缺失时返回 null）
+     * @return 前缀路径；fileHost 或 bucketName 未配置时返回 null
      */
     public static String getBasisUrl() {
-        return endpoint + SEPARATOR + bucketName + SEPARATOR;
+        if (fileHost == null || bucketName == null) {
+            return null;
+        }
+        return fileHost + SEPARATOR + bucketName + SEPARATOR;
+    }
+
+    /**
+     * 获取配置的 bucket 名称
+     * @return bucket 名；未配置时返回 null
+     */
+    public static String getBucketName() {
+        return bucketName;
     }
 
     /******************************  Operate Bucket Start  ******************************/
 
     /**
-     * 启动SpringBoot容器的时候初始化Bucket
-     * 如果没有Bucket则创建
-     * @throws Exception
+     * 启动时确保 bucket 存在，不存在则创建
+     * @throws Exception MinIO 不可达或建桶失败
      */
-    private static void createBucket(String bucketName) throws Exception {
+    public static void ensureBucketInitialized() throws Exception {
         if (!bucketExists(bucketName)) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+            log.info("MinIO bucket 不存在，已自动创建: {}", bucketName);
         }
     }
 
@@ -225,7 +268,7 @@ public class MinIOUtil {
      * 获取文件流
      * @param bucketName 存储桶
      * @param objectName 文件名
-     * @return 二进制流
+     * @return 二进制流；调用方负责关闭（P2）
      */
     public static InputStream getObject(String bucketName, String objectName) throws Exception {
         return minioClient.getObject(GetObjectArgs.builder().bucket(bucketName).object(objectName).build());
@@ -277,14 +320,15 @@ public class MinIOUtil {
      */
     public static ObjectWriteResponse uploadFile(String bucketName, MultipartFile file,
                                                  String objectName, String contentType) throws Exception {
-        InputStream inputStream = file.getInputStream();
-        return minioClient.putObject(
-                PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(objectName)
-                        .contentType(contentType)
-                        .stream(inputStream, inputStream.available(), -1)
-                        .build());
+        try (InputStream inputStream = file.getInputStream()) { // try-with-resources 关闭流 P2
+            return minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .contentType(contentType)
+                            .stream(inputStream, inputStream.available(), -1)
+                            .build());
+        }
     }
 
     /**
@@ -311,12 +355,14 @@ public class MinIOUtil {
      * @param inputStream 文件流
      */
     public static ObjectWriteResponse uploadFile(String bucketName, String objectName, InputStream inputStream) throws Exception {
-        return minioClient.putObject(
-                PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(objectName)
-                        .stream(inputStream, inputStream.available(), -1)
-                        .build());
+        try (InputStream in = inputStream) { // try-with-resources 关闭入参流 P2
+            return minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .stream(in, in.available(), -1)
+                            .build());
+        }
     }
 
     /**
@@ -404,8 +450,13 @@ public class MinIOUtil {
      * @throws Exception
      */
     public static String getPresignedObjectUrl(String bucketName, String objectName, Integer expires) throws Exception {
-        GetPresignedObjectUrlArgs args = GetPresignedObjectUrlArgs.builder().expiry(expires).bucket(bucketName).object(objectName).build();
-        return minioClient.getPresignedObjectUrl(args);
+        GetPresignedObjectUrlArgs args = GetPresignedObjectUrlArgs.builder()
+                .method(Method.GET)
+                .expiry(expires)
+                .bucket(bucketName)
+                .object(objectName)
+                .build();
+        return getPresignClient().getPresignedObjectUrl(args);
     }
 
     /**
@@ -421,7 +472,7 @@ public class MinIOUtil {
                 .object(objectName)
                 .method(Method.GET)
                 .build();
-        return minioClient.getPresignedObjectUrl(args);
+        return getPresignClient().getPresignedObjectUrl(args);
     }
 
     /**
@@ -439,7 +490,21 @@ public class MinIOUtil {
                 .method(Method.GET)
                 .expiry(expires, TimeUnit.SECONDS)
                 .build();
-        return minioClient.getPresignedObjectUrl(args);
+        return getPresignClient().getPresignedObjectUrl(args);
+    }
+
+    private static MinioClient buildMinioClient(String url) {
+        MinioClient.Builder builder = MinioClient.builder()
+                .endpoint(url)
+                .credentials(accessKey, secretKey);
+        if (region != null && !region.isBlank()) {
+            builder.region(region);
+        }
+        return builder.build();
+    }
+
+    private static MinioClient getPresignClient() {
+        return presignMinioClient == null ? minioClient : presignMinioClient;
     }
 
     /**
@@ -467,7 +532,6 @@ public class MinIOUtil {
             Iterable<Result<Item>> results = minioClient.listObjects(listObjectsArgs);
 
             for (Result<Item> result : results) {
-                System.out.println(size);
                 size += result.get().size();
             }
         } catch (ErrorResponseException | InsufficientDataException | InternalException |
@@ -478,5 +542,3 @@ public class MinIOUtil {
         return size;
     }
 }
-
-

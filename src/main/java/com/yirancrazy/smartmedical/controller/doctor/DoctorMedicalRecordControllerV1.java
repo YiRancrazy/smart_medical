@@ -1,25 +1,25 @@
 package com.yirancrazy.smartmedical.controller.doctor;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yirancrazy.smartmedical.manager.MedicalRecordManager;
-import com.yirancrazy.smartmedical.manager.PrescriptionManager;
-import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.manager.PrescriptionSubmitManager;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.MedicalRecordQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordPageItemVO;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.DraftMedicalRecordRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.request.SubmitPrescriptionRequest;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.MedicalRecordDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.PrescriptionSubmitVO;
-import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -35,33 +35,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class DoctorMedicalRecordControllerV1 {
 
-    private final MedicalRecordService medicalRecordService;
     private final MedicalRecordManager medicalRecordManager;
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionSubmitManager prescriptionSubmitManager;
 
     /**
      * 医生端 - 取病历(按挂号ID)
      * @param regId 挂号记录ID
+     * @param doctorId 当前医生ID
      * @return 病历详情 VO
      */
     @Operation(summary = "医生端 - 取病历(按挂号ID)")
     @GetMapping("/registration/{regId}")
-    public Result<MedicalRecordDetailVO> getByRegistration(@PathVariable Long regId) {
-        MedicalRecord record = medicalRecordService.getOne(
-                new LambdaQueryWrapper<MedicalRecord>()
-                        .eq(MedicalRecord::getRegistrationId, regId)
-                        .last("LIMIT 1"));
-        return Result.success(medicalRecordManager.toDetailVO(record));
+    public Result<MedicalRecordDetailVO> getByRegistration(@PathVariable Long regId,
+                                                           @RequestAttribute("currentDoctorId") Long doctorId) {
+        return Result.success(medicalRecordManager.getByRegistrationId(regId, doctorId));
     }
 
     /**
      * 医生端 - 保存病历草稿
      * @param req 病历草稿请求
+     * @param doctorId 当前医生ID
      */
     @Operation(summary = "医生端 - 保存病历草稿")
     @PostMapping("/draft")
-    public Result<Void> saveDraft(@RequestBody DraftMedicalRecordRequest req) {
-        medicalRecordManager.draft(req);
+    public Result<Void> saveDraft(@Valid @RequestBody DraftMedicalRecordRequest req,
+                                  @RequestAttribute("currentDoctorId") Long doctorId) {
+        medicalRecordManager.draft(req, doctorId);
         return Result.success(null);
     }
 
@@ -73,8 +72,36 @@ public class DoctorMedicalRecordControllerV1 {
      */
     @Operation(summary = "医生端 - 提交病历+开处方")
     @PostMapping("/submit")
-    public Result<PrescriptionSubmitVO> submit(@RequestBody SubmitPrescriptionRequest req,
+    public Result<PrescriptionSubmitVO> submit(@Valid @RequestBody SubmitPrescriptionRequest req,
                                                @RequestAttribute("currentDoctorId") Long doctorId) {
-        return Result.success(prescriptionManager.submit(req.getRegistrationId(), req, doctorId));
+        return Result.success(prescriptionSubmitManager.submit(req.getRegistrationId(), req, doctorId));
+    }
+
+    /**
+     * 医生端 - 历史病历分页列表
+     * @param request 查询条件
+     * @param doctorId 当前医生ID
+     * @return 病历分页列表
+     */
+    @Operation(summary = "医生端 - 历史病历分页列表")
+    @PostMapping("/history/page")
+    public Result<PageResult<MedicalRecordPageItemVO>> historyPage(
+            @Valid @RequestBody MedicalRecordQueryRequest request,
+            @RequestAttribute("currentDoctorId") Long doctorId) {
+        return Result.success(medicalRecordManager.pageMedicalRecords(request, doctorId));
+    }
+
+    /**
+     * 医生端 - 历史病历详情（校验病历归属当前医生）
+     * @param id 病历ID
+     * @param doctorId 当前医生ID
+     * @return 病历详情
+     */
+    @Operation(summary = "医生端 - 历史病历详情")
+    @GetMapping("/history/{id:\\d+}")
+    public Result<com.yirancrazy.smartmedical.pojo.dto.admin.response.MedicalRecordDetailVO> historyDetail(
+            @PathVariable Long id,
+            @RequestAttribute("currentDoctorId") Long doctorId) {
+        return Result.success(medicalRecordManager.getMedicalRecordDetailForAdmin(id, doctorId));
     }
 }

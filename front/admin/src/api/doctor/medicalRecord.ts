@@ -1,0 +1,93 @@
+import request from '../index'
+import type { Result } from '../types'
+
+/**
+ * 医生病历管理 API
+ * @Author: YiRanCrazy@gmail.com
+ * @Description: 病历草稿保存、提交（含开处方）
+ * @Datetime: 2026-07-17 10:26
+ * @Version: 1.0
+ */
+
+export interface PatientInfoVO {
+  patientId: string
+  patientName: string
+  patientPhone: string
+  patientAge?: number
+  patientGender?: number
+}
+
+export interface MedicalRecordDetailVO {
+  id: string
+  registrationId: string
+  doctorId: string
+  patientId: string
+  patientName: string
+  patientPhone: string
+  chiefComplaint: string
+  presentIllness: string
+  pastHistory: string
+  physicalExam: string
+  diagnosis: string
+  treatmentPlan: string
+  status: number // 0-草稿, 1-已提交
+}
+
+export interface DraftMedicalRecordRequest {
+  registrationId: number | string
+  chiefComplaint: string
+  presentIllness: string
+  pastHistory: string
+  physicalExam: string
+  diagnosis: string
+  treatmentPlan: string
+}
+
+export interface PrescriptionItemRequest {
+  drugId: string
+  quantity: number
+  usageMethod: string
+  drugSelectValue?: string | undefined
+  drugOptions?: { label: string; value: string }[]
+  drugLoading?: boolean
+  /** M21: 稳定唯一 key，避免增删行时 v-for 复用导致输入状态错乱 */
+  _uid?: number
+  /** M21: 每行的药品搜索防抖定时器，避免多行共用单一 timer 相互清除 */
+  timer?: ReturnType<typeof setTimeout> | null
+}
+
+export interface SubmitPrescriptionRequest extends DraftMedicalRecordRequest {
+  items: PrescriptionItemRequest[]
+}
+
+export interface PrescriptionSubmitVO {
+  medicalRecordId: string
+  prescriptionId: string
+  orderId: string
+  orderSn: string
+  totalAmount: number
+  registrationStatus: number
+}
+
+/**
+ * 获取病历详情
+ */
+export function getMedicalRecord(registrationId: number | string) {
+  return request.get<any, Result<MedicalRecordDetailVO>>(
+    `/api/doctor/v1/medical-record/registration/${registrationId}`
+  )
+}
+
+/**
+ * 保存病历草稿
+ */
+export function saveDraft(data: DraftMedicalRecordRequest) {
+  return request.post<any, Result<void>>('/api/doctor/v1/medical-record/draft', data)
+}
+
+/**
+ * 提交病历+开处方
+ */
+export function submitMedicalRecord(data: SubmitPrescriptionRequest) {
+  return request.post<any, Result<PrescriptionSubmitVO>>('/api/doctor/v1/medical-record/submit', data)
+}

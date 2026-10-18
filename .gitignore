@@ -28,16 +28,13 @@ target/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
-front/
 
-### VS Code ###
+### IDE ###
 .vscode/
-
-## trae ##
 .trae/
-
-### Claude ###
-.claude
+.claude/
+.workbuddy/
+.codex/
 
 ### Docs ###
 docs
@@ -64,3 +61,7 @@ test-*
 .token
 .user-*
 req-admin.json
+front/e2e
+test/jmeter/registration-load-*.csv
+test/jmeter/results/registration-*.jtl
+test/jmeter/results/html-registration-*/

@@ -3,7 +3,9 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.OrderStatus;
+import com.yirancrazy.smartmedical.constant.PayMethodConstant;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.*;
@@ -11,6 +13,7 @@ import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordSimpleRes
 import com.yirancrazy.smartmedical.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -30,8 +33,6 @@ import java.util.stream.Collectors;
 @Manager
 @RequiredArgsConstructor
 public class PaymentRecordManager {
-    /** 默认支付方式:4 现金 */
-    private static final int DEFAULT_PAYMENT_METHOD_ID = 4;
     /** 支付记录状态:2 成功 */
     private static final int PAYMENT_STATUS_SUCCESS = 2;
 
@@ -43,12 +44,16 @@ public class PaymentRecordManager {
     private final OrderItemService orderItemService;
     private final ProductionTypeService productionTypeService;
     private final PayMethodService paymentMethodService;
-    private final PrescriptionManager prescriptionManager;
+    private final PrescriptionService prescriptionService;
     private final RegistrationService registrationService;
-    private final RegistrationStatusLogManager registrationStatusLogManager;
+    private final RegistrationStatusLogService registrationStatusLogService;
+    private final OrderStatusLogService orderStatusLogService;
+    private final UserPatientRelationService userPatientRelationService;
 
     /**
      * 获取用户所有的缴费记录
+     * ponytail: S25 已知限制 — 已批量查 orders/orderTypes/orderItems/paymentMethods（非 DB N+1），
+     *           但无分页全量返回；数据量增大时需加分页参数 + 前端联动，留待后续
      * @param userId 用户id
      * @return 缴费记录列表
      */
@@ -119,61 +124,135 @@ public class PaymentRecordManager {
     /**
      * 支付成功回调:插入支付记录 + 订单置为已支付 + 联动处方
      * @param orderId 订单ID
+     * @param currentUserId 当前登录用户ID（用于订单归属校验）
      * @param paymentMethodId 支付方式ID(1微信 2支付宝 3医保 4现金)
      * @param transactionSn 第三方交易流水号
      * @param realAmount 实际支付金额(分)
      * @return 成功结果
-     * @throws BizException ORDER_STATUS_INVALID 订单不存在或状态不允许支付
+     * @throws BizException ORDER_STATUS_INVALID 订单不存在/不属于当前用户/状态不允许支付
      */
     @Transactional(rollbackFor = Exception.class)
-    public Result<Void> paySuccess(Long orderId, Integer paymentMethodId,
+    public Result<Void> paySuccess(Long orderId, Long currentUserId, Integer paymentMethodId,
                                    Long transactionSn, Integer realAmount) {
-        // 1. 加载 Order
+        // 幂等由三层 DB 兜底：uk_transaction_sn 唯一索引 + 订单状态守卫 + 挂号/处方状态幂等；
+        // 不设 Redis 前置标记——若 DB 事务回滚而 Redis 已置位，会静默跳过重试导致数据丢失（B3）
+
+        // 1. 校验订单 + 金额
+        Order order = validateOrder(orderId, currentUserId, realAmount);
+        if (order == null) {
+            return Result.success(null);
+        }
+
+        // 2. 创建支付记录
+        createPaymentRecord(orderId, paymentMethodId, transactionSn, realAmount, order);
+
+        // 3. 原子更新订单状态
+        updateOrderToPaid(orderId, order);
+
+        // 4. 同步挂号 + 处方状态
+        syncRegistrationAndPrescription(orderId);
+
+        log.info("[payment-success] orderId={}, paymentMethodId={}, realAmount={}",
+                orderId, paymentMethodId, realAmount);
+        return Result.success(null);
+    }
+
+    // ========== paySuccess() 子方法 ==========
+
+    /**
+     * 校验订单存在性、归属和金额；已支付幂等返回 null
+     */
+    private Order validateOrder(Long orderId, Long currentUserId, Integer realAmount) {
         Order order = orderService.getOrderById(orderId);
         if (order == null) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单不存在");
+        }
+        // 归属校验：本人或已授权代理（家属）可支付，与列表查询 getAccessiblePatientUserIds 语义一致
+        if (currentUserId != null && !currentUserId.equals(order.getUserId())
+                && !userPatientRelationService.hasAuthorization(currentUserId, order.getUserId())) {
+            log.warn("[payment-success] orderId={} 属于 userId={}，currentUserId={} 且无代理授权，拒绝",
+                    orderId, order.getUserId(), currentUserId);
+            throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "无权支付他人订单");
         }
         // 幂等:已支付则联动校验挂号状态并返回
         if (order.getStatus() != null && order.getStatus() == OrderStatus.PAID.getCode()) {
             log.info("[payment-success] orderId={} already paid, skip", orderId);
             syncRegistrationStatusPaid(orderId);
-            return Result.success(null);
+            return null;
         }
         if (order.getStatus() == null || order.getStatus() != OrderStatus.WAITING_FOR_PAYMENT.getCode()) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单当前状态不可支付");
         }
+        // 金额校验
+        Integer expected = order.getTotalAmount() == null ? 0 : order.getTotalAmount();
+        Integer actual = realAmount != null ? realAmount : expected;
+        if (!expected.equals(actual)) {
+            throw new BizException(BizErrorCode.ORDER_STATUS_INVALID,
+                    "支付金额不一致：应付=" + expected + "，实付=" + actual);
+        }
+        return order;
+    }
 
-        // 2. 创建 PaymentRecord (status=2 成功)
+    /**
+     * 创建支付记录 (status=2 成功)
+     */
+    private void createPaymentRecord(Long orderId, Integer paymentMethodId,
+                                      Long transactionSn, Integer realAmount, Order order) {
         PaymentRecord record = new PaymentRecord();
         record.setId(IdUtil.getSnowflakeNextId());
         record.setSn(System.currentTimeMillis());
         record.setOrderId(orderId);
         record.setTotalAmount(order.getTotalAmount());
         record.setRealAmount(realAmount != null ? realAmount : order.getTotalAmount());
-        record.setPaymentMethodId(paymentMethodId != null ? paymentMethodId : DEFAULT_PAYMENT_METHOD_ID);
+        record.setPaymentMethodId(paymentMethodId != null ? paymentMethodId : PayMethodConstant.CASH);
         record.setStatus(PAYMENT_STATUS_SUCCESS);
         record.setTransactionSn(transactionSn);
         record.setPaymentTime(LocalDateTime.now());
-        paymentRecordService.insertPaymentRecord(record);
+        try {
+            paymentRecordService.insertPaymentRecord(record);
+        } catch (DuplicateKeyException e) {
+            log.warn("[payment-success] transactionSn={} 已存在，幂等跳过", transactionSn);
+        }
+    }
 
-        // 3. 改 Order.status: WAITING_FOR_PAYMENT → PAID
-        order.setStatus(OrderStatus.PAID.getCode());
-        orderService.updateOrderById(order);
+    /**
+     * 原子更新订单状态 WAITING_FOR_PAYMENT → PAID
+     */
+    private void updateOrderToPaid(Long orderId, Order order) {
+        int updated = orderService.markOrderPaid(orderId);
+        if (updated == 0) {
+            log.info("[payment-success] orderId={} concurrent paid, skip", orderId);
+            syncRegistrationStatusPaid(orderId);
+            return;
+        }
+        // 写订单状态变更日志
+        OrderStatusLog orderLog = new OrderStatusLog();
+        orderLog.setOrderId(orderId);
+        orderLog.setFromStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        orderLog.setToStatus(OrderStatus.PAID.getCode());
+        orderLog.setOperatorId(0L);
+        orderLog.setOperatorRole(RoleEnum.SYSTEM.getRole());
+        orderLog.setRemark("支付成功");
+        orderStatusLogService.addOrderStatusLog(orderLog);
+    }
 
-        // 4. 联动挂号:标记挂号为支付成功/待就诊
+    /**
+     * 同步挂号 + 处方状态
+     */
+    private void syncRegistrationAndPrescription(Long orderId) {
+        // 联动挂号:标记挂号为支付成功/待就诊
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
         if (registration != null) {
-            registrationStatusLogManager.transition(registration,
-                    RegistrationStatusEnum.SUCCESS.getCode(),
-                    registration.getUserId(), "user", "支付成功");
+            Integer fromStatus = registration.getStatus();
+            int toStatus = RegistrationStatusEnum.SUCCESS.getCode();
+            if (!registrationService.updateStatusIfCurrent(registration, toStatus)) {
+                throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+            }
+            registrationStatusLogService.writeLog(registration.getId(), fromStatus, toStatus,
+                    0L, RoleEnum.SYSTEM.getRole(), "支付成功");
         }
-
-        // 5. 联动处方:标记处方为已支付
-        prescriptionManager.markAsPaid(orderId);
-
-        log.info("[payment-success] orderId={}, paymentMethodId={}, realAmount={}",
-                orderId, paymentMethodId, realAmount);
-        return Result.success(null);
+        // 联动处方:标记处方为已支付
+        prescriptionService.markAsPaid(orderId);
     }
 
     /**
@@ -182,11 +261,17 @@ public class PaymentRecordManager {
      */
     private void syncRegistrationStatusPaid(Long orderId) {
         Registration registration = registrationService.getRegistrationByOrderId(orderId);
+        // 仅当挂号仍处于待支付时才补同步，避免回退已报到/就诊中等状态
         if (registration != null
-                && !Integer.valueOf(RegistrationStatusEnum.SUCCESS.getCode()).equals(registration.getStatus())) {
-            registrationStatusLogManager.transition(registration,
-                    RegistrationStatusEnum.SUCCESS.getCode(),
-                    registration.getUserId(), "user", "支付成功(补同步)");
+                && Integer.valueOf(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode()).equals(registration.getStatus())) {
+            Integer fromStatus = registration.getStatus();
+            int toStatus = RegistrationStatusEnum.SUCCESS.getCode();
+            if (registrationService.updateStatusIfCurrent(registration, toStatus)) {
+                registrationStatusLogService.writeLog(registration.getId(), fromStatus, toStatus,
+                        0L, RoleEnum.SYSTEM.getRole(), "支付成功(补同步)");
+            } else {
+                log.info("[payment-success] orderId={} 挂号状态已由并发变更，跳过补同步", orderId);
+            }
         }
     }
 }

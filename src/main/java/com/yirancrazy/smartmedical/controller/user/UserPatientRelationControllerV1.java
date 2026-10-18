@@ -5,8 +5,16 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UserPatientRelationRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -26,19 +34,19 @@ public class UserPatientRelationControllerV1 {
     @Operation(summary = "添加就诊人", description = "添加就诊人")
     @PostMapping
     public Result<Integer> insertUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
-                                                     @RequestBody UserPatientRelationRequest request) {
+                                                     @Valid @RequestBody UserPatientRelationRequest request) {
         return userPatientRelationManager.insertUserPatientRelation(currentUserId, request.getName(), request.getIdCard(),
                 request.getPhone(), request.getRelation(), request.getRemark(), request.getDefaulted());
     }
 
-    @Operation(summary = "修改就诊人", description = "修改就诊人")
+    @Operation(summary = "修改就诊人", description = "修改就诊人，支持修改姓名、手机号、身份证号、关系、备注及默认状态")
     @PutMapping("/{id}")
     public Result<Integer> updateUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
                                                      @PathVariable Long id,
-                                                     @RequestParam String relation,
-                                                     @RequestParam(required = false) String remark,
-                                                     @RequestParam String defaulted) {
-        return userPatientRelationManager.updateUserPatientRelationById(currentUserId, id, relation, remark, defaulted);
+                                                     @Valid @RequestBody UserPatientRelationRequest request) {
+        return userPatientRelationManager.updateUserPatientRelationById(currentUserId, id,
+                request.getName(), request.getPhone(), request.getIdCard(),
+                request.getRelation(), request.getRemark(), request.getDefaulted());
     }
 
     @Operation(summary = "设置默认就诊人", description = "设置默认就诊人")
@@ -50,7 +58,8 @@ public class UserPatientRelationControllerV1 {
 
     @Operation(summary = "删除就诊人", description = "删除就诊人")
     @DeleteMapping("/{id}")
-    public Result<Integer> deleteUserPatientRelation(@PathVariable Long id) {
-        return userPatientRelationManager.deleteUserPatientRelationById(id);
+    public Result<Integer> deleteUserPatientRelation(@RequestAttribute("currentUserId") Long currentUserId,
+                                                     @PathVariable Long id) {
+        return userPatientRelationManager.deleteUserPatientRelationById(currentUserId, id);
     }
 }

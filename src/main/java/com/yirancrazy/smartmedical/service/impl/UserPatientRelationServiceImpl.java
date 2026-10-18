@@ -89,10 +89,29 @@ public class UserPatientRelationServiceImpl implements UserPatientRelationServic
         return userPatientRelationMapper.deleteById(id);
     }
 
-//    @Override
-//    public UserPatientRelation getDefaultUserPatientRelationByUserId(Long userId) {
-//        return userPatientRelationMapper.selectOne(new QueryWrapper<UserPatientRelation>()
-//                .eq("user_id", userId)
-//                .eq("is_default", 1));
-//    }
+    /**
+     * 检查当前用户是否为就诊人添加关系（即已添加该就诊人）
+     * <p>已移除"非本人账号需要其他就诊人授权"的门禁：只要存在 user_id → patient_user_id 关系即视为可访问</p>
+     * @param userId 用户ID
+     * @param patientUserId 患者用户ID
+     * @return 是否存在就诊人关系
+     */
+    @Override
+    public boolean hasAuthorization(Long userId, Long patientUserId) {
+        return userPatientRelationMapper.selectCount(new QueryWrapper<UserPatientRelation>()
+                .eq("user_id", userId)
+                .eq("patient_user_id", patientUserId)) > 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Long> listAccessiblePatientUserIds(Long currentUserId) {
+        // 移除 is_authorized 授权门禁：所有已添加就诊人（含本人）均即刻可访问
+        return getUserPatientRelationsByUserId(currentUserId).stream()
+                .map(UserPatientRelation::getPatientUserId)
+                .distinct()
+                .toList();
+    }
 }

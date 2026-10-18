@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.pojo.dto.user.request;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PhoneAndPasswordLoginRequest {
+    @NotBlank(message = "手机号不能为空")
     private String phone;       // 手机号
+
+    @NotBlank(message = "密码不能为空")
     private String password;    // 密码
 }

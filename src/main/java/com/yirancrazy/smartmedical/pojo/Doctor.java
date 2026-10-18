@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.pojo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -43,8 +45,8 @@ public class Doctor {
     @Schema(description = "家庭住址")
     private String address;                       // 家庭住址
 
-    @Schema(description = "评分")
-    private Double scope;                         // 评分
+    @Schema(description = "评分（可空，NULL 表示暂无评分）")
+    private Double scope;                         // 评分，NULL 表示暂无评分
 
     @Schema(description = "标签")
     private String tags;                          // 标签
@@ -62,6 +64,7 @@ public class Doctor {
     private LocalDateTime updateTime;             // 更新日期
 
     @Schema(description = "是否删除")
-    @TableField(value = "is_deleted")
+    @TableLogic
+    @TableField(value = "is_deleted", fill = FieldFill.INSERT)
     private Boolean deleted;
 }

@@ -1,0 +1,18 @@
+import type { RouteRecordRaw } from 'vue-router'
+import { ScheduleOutlined, UserOutlined, FileTextOutlined, FileDoneOutlined } from '@ant-design/icons-vue'
+
+export const doctorRoutes: RouteRecordRaw = {
+  path: '/doctor',
+  name: 'DoctorRoot',
+  component: () => import('@/layouts/DoctorLayout.vue'),
+  meta: { roles: [2] },
+  redirect: '/doctor/schedule',
+  children: [
+    { path: 'schedule', name: 'ScheduleArrange', component: () => import('@/views/doctor/ScheduleArrange.vue'), meta: { title: '排班安排', icon: ScheduleOutlined } },
+    { path: 'waiting', name: 'WaitingList', component: () => import('@/views/doctor/WaitingList.vue'), meta: { title: '候诊列表', icon: UserOutlined } },
+    { path: 'in-progress', name: 'InProgressList', component: () => import('@/views/doctor/InProgressList.vue'), meta: { title: '就诊中', icon: UserOutlined } },
+    { path: 'medical-record', name: 'MedicalRecordEdit', component: () => import('@/views/doctor/MedicalRecordEdit.vue'), meta: { title: '病历编辑', hideMenu: true } },
+    { path: 'medical-records', name: 'DoctorMedicalRecordHistory', component: () => import('@/views/doctor/MedicalRecordHistory.vue'), meta: { title: '病历历史', icon: FileTextOutlined } },
+    { path: 'prescriptions', name: 'DoctorPrescriptionHistory', component: () => import('@/views/doctor/PrescriptionHistory.vue'), meta: { title: '处方历史', icon: FileDoneOutlined } }
+  ]
+}

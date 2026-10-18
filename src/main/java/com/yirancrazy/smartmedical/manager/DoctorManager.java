@@ -1,33 +1,73 @@
 package com.yirancrazy.smartmedical.manager;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.constant.type.RegistrationShiftTypeEnum;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
-import com.yirancrazy.smartmedical.pojo.*;
-import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleVO;
+import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.AppointmentRule;
+import com.yirancrazy.smartmedical.pojo.ConsultationRoom;
+import com.yirancrazy.smartmedical.pojo.Degree;
+import com.yirancrazy.smartmedical.pojo.Department;
+import com.yirancrazy.smartmedical.pojo.Doctor;
+import com.yirancrazy.smartmedical.pojo.DoctorPosition;
+import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.User;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorAddRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorScheduleViewVO;
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminDoctorSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.detail.AdminDoctorDetailResponse;
 import com.yirancrazy.smartmedical.pojo.vo.DoctorVo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorConfirmVo;
-import com.yirancrazy.smartmedical.service.*;
+import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.AppointmentRuleService;
+import com.yirancrazy.smartmedical.service.ConsultationRoomService;
+import com.yirancrazy.smartmedical.service.DegreeService;
+import com.yirancrazy.smartmedical.service.DepartmentService;
+import com.yirancrazy.smartmedical.service.DoctorPositionService;
+import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
+import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
+import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
+import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.DoctorInitPasswordUtil;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.yirancrazy.smartmedical.utils.MinIOUtil;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.*;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -50,15 +90,184 @@ public class DoctorManager {
     private final AppointmentRuleService appointmentRuleService;
     private final DegreeService degreeService;
     private final RegistrationService registrationService;
-    private final RegistrationMapper registrationMapper;
-    private final RegistrationStatusLogManager statusLogManager;
+    private final RegistrationStatusLogService registrationStatusLogService;
     private final UserService userService;
     private final AccountService accountService;
+    private final ConsultationRoomService consultationRoomService;
+    /**
+     * 新增医生（补雪花 ID 后入库）
+     * @param doctor 医生实体
+     * @return 影响行数
+     */
     public int addDoctor(Doctor doctor) {
         doctor.setId(IdUtil.getSnowflakeNextId());
         return doctorService.insertDoctor(doctor);
     }
 
+    /**
+     * 添加医生并创建登录账户（事务：任一步失败整体回滚）
+     * 初始密码 = 姓名拼音首字母大写 + 手机号，BCrypt 入库，明文不落日志
+     * @param req 添加请求
+     * @return 新医生 ID
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Long> addDoctorWithAccount(AdminDoctorAddRequest req) {
+        // 手机号查重（account.phone 唯一）
+        if (CollUtil.isNotEmpty(accountService.getAccountByPhone(req.getPhone()))) {
+            return Result.fail("该手机号已注册");
+        }
+
+        // 1. 插入医生档案（新医生固定在职，评分等由业务后续产生）
+        Long doctorId = IdUtil.getSnowflakeNextId();
+        Doctor doctor = new Doctor();
+        doctor.setId(doctorId);
+        doctor.setName(req.getName());
+        doctor.setDepartmentId(req.getDepartmentId());
+        doctor.setDoctorPositionId(req.getPositionId());
+        doctor.setDegreeId(req.getDegreeId());
+        doctor.setAvatar(req.getAvatar());
+        doctor.setAddress(req.getAddress());
+        doctor.setTags(CollUtil.isEmpty(req.getTags()) ? "" : String.join(",", req.getTags()));
+        doctor.setDescription(req.getDescription());
+        doctor.setStatus(0);
+        doctorService.insertDoctor(doctor);
+
+        // 2. 创建登录账户：userId 约定 == doctor.id，roleId=2 医生
+        Account account = new Account();
+        account.setId(IdUtil.getSnowflakeNextId());
+        account.setUserId(doctorId);
+        account.setRoleId(RoleEnum.DOCTOR.getCodeAsLong());
+        account.setPhone(req.getPhone());
+        account.setEmail(req.getEmail());
+        String initPassword = DoctorInitPasswordUtil.generate(req.getName(), req.getPhone());
+        account.setPassword(BCrypt.hashpw(initPassword, BCrypt.gensalt()));
+        account.setEnabled(true);
+        accountService.insertAccount(account);
+
+        return Result.success(doctorId);
+    }
+
+    /**
+     * 查询全部职称（添加医生表单下拉）
+     * @return 职称列表
+     */
+    public Result<List<DoctorPosition>> listAllDoctorPositions() {
+        return Result.success(doctorPositionService.listDoctorPositions());
+    }
+
+    /**
+     * 查询全部学历（添加医生表单下拉）
+     * @return 学历列表
+     */
+    public Result<List<Degree>> listAllDegrees() {
+        return Result.success(degreeService.listAllDegrees());
+    }
+
+    /**
+     * 上传医生头像到 MinIO
+     * @param file 图片文件
+     * @return 图片 URL
+     * @throws IllegalArgumentException 文件类型 / 大小不合法
+     */
+    public String uploadAvatar(MultipartFile file) throws Exception {
+        // S23: 校验文件类型与大小
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("仅允许上传图片文件");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("图片大小不能超过 5MB");
+        }
+        // 仅用雪花 ID 作为对象名，避免原始文件名含特殊字符或 ../ 注入 MinIO 路径
+        String ext = "";
+        String original = file.getOriginalFilename();
+        if (original != null) {
+            int dot = original.lastIndexOf('.');
+            if (dot >= 0 && dot < original.length() - 1) {
+                String raw = original.substring(dot + 1).toLowerCase();
+                if (raw.matches("[a-z0-9]{1,8}")) {
+                    ext = "." + raw;
+                }
+            }
+        }
+        String objectName = "doctor/avatar/" + IdUtil.getSnowflakeNextId() + ext;
+        MinIOUtil.uploadFile(MinIOUtil.getBucketName(), file, objectName, file.getContentType());
+        String basisUrl = MinIOUtil.getBasisUrl();
+        if (basisUrl == null) {
+            throw new IllegalStateException("MinIO 未配置，无法生成图片地址");
+        }
+        return basisUrl + objectName;
+    }
+
+    /**
+     * 编辑医生信息（null 字段不更新，tags 列表拼逗号入库）
+     * @param id 医生 ID
+     * @param req 编辑请求
+     * @return 影响行数
+     */
+    public Result<Integer> updateDoctor(Long id, AdminDoctorUpdateRequest req) {
+        if (id == null) {
+            return Result.fail("医生ID不能为空");
+        }
+        Doctor doctor = new Doctor();
+        doctor.setId(id);
+        doctor.setName(req.getName());
+        doctor.setDepartmentId(req.getDepartmentId());
+        doctor.setDoctorPositionId(req.getPositionId());
+        doctor.setDegreeId(req.getDegreeId());
+        doctor.setAvatar(req.getAvatar());
+        doctor.setAddress(req.getAddress());
+        doctor.setScope(req.getScope());
+        doctor.setTags(CollUtil.isEmpty(req.getTags()) ? "" : String.join(",", req.getTags()));
+        doctor.setDescription(req.getDescription());
+        doctor.setStatus(req.getStatus());
+        return Result.success(doctorService.updateDoctorById(doctor));
+    }
+
+    /**
+     * 删除医生（逻辑删除，is_deleted 置 1）
+     * @param id 医生 ID
+     * @return 影响行数
+     */
+    public Result<Integer> deleteDoctor(Long id) {
+        if (id == null) {
+            return Result.fail("医生ID不能为空");
+        }
+        return Result.success(doctorService.deleteDoctorById(id));
+    }
+
+    /**
+     * 按 ID 查询医生详情（管理员端，字段与列表接口保持一致）
+     * @param id 医生 ID
+     * @return 医生详情响应；医生不存在返回 404
+     */
+    public Result<AdminDoctorDetailResponse> getAdminDoctorDetailById(Long id) {
+        if (id == null) {
+            return Result.fail("医生ID不能为空");
+        }
+        Doctor doctor = doctorService.getDoctorById(id);
+        if (doctor == null) {
+            return Result.info(404, "医生不存在", null);
+        }
+        Department department = doctor.getDepartmentId() == null
+                ? null : departmentService.getDepartmentById(doctor.getDepartmentId());
+        DoctorPosition position = doctor.getDoctorPositionId() == null
+                ? null : doctorPositionService.getPositionById(doctor.getDoctorPositionId());
+        Degree degree = doctor.getDegreeId() == null
+                ? null : degreeService.getDegreeById(doctor.getDegreeId());
+        List<Department> departments = department == null ? Collections.emptyList() : Collections.singletonList(department);
+        List<DoctorPosition> positions = position == null ? Collections.emptyList() : Collections.singletonList(position);
+        List<Degree> degrees = degree == null ? Collections.emptyList() : Collections.singletonList(degree);
+        List<AdminDoctorDetailResponse> details = mergeAdminDoctorDetailResponseByDoctorsAndDepartmentAndPositionAndDegrees(
+                Collections.singletonList(doctor), departments, positions, degrees);
+        return Result.success(details.get(0));
+    }
+
+    /**
+     * 按 ID 查询医生详情（拼装科室 / 职称 / 学历名称）
+     * @param id 医生 ID
+     * @return 医生详情 VO；医生不存在返回 404
+     */
     public Result<DoctorVo> getDoctorById(Long id) {
         Doctor doctor = doctorService.getDoctorById(id);
 
@@ -110,12 +319,7 @@ public class DoctorManager {
                 .filter(item -> Objects.equals(item.getStatus(), AppointmentRuleStatusEnum.NORMAL.getCode()))    // 获取正常状态的挂号配置
                 .filter(item -> Objects.equals(item.getRuleType(), AppointmentRuleTypeEnum.OUT_PATIENT.getCode())) // 获取门诊挂号配置
                 .filter(item -> Objects.equals(item.getDepartmentId(), departmentId) || Objects.equals(item.getDepartmentId(), null)) // 获取指定科室的挂号配置,如果没有则获取所有科室的挂号配置
-                .sorted(new Comparator<AppointmentRule>() {
-                    @Override
-                    public int compare(AppointmentRule o1, AppointmentRule o2) {
-                        return o2.getPriority() - o1.getPriority();
-                    }
-                })
+                .sorted(Comparator.comparing(AppointmentRule::getPriority, Comparator.nullsLast(Integer::compare)).reversed())
                 .toList();
 
         if (enableAppointmentRules.isEmpty()) {
@@ -137,7 +341,7 @@ public class DoctorManager {
         log.debug("doctorList by departmentId={}", doctorList);
         Department department = departmentService.getDepartmentById(departmentId);
 
-        List<RegistrationSchedule> recentRegistrationListByDoctorIdList = registrationScheduleService.getRecentRegistrationListByDoctorIdList(
+        List<RegistrationScheduleTemplate> recentRegistrationListByDoctorIdList = registrationScheduleService.getRecentRegistrationListByDoctorIdList(
                 doctorList
                         .stream()
                         .map(Doctor::getId)
@@ -153,32 +357,34 @@ public class DoctorManager {
             temp.setDepartmentId(String.valueOf(doctor.getDepartmentId()));
             temp.setDepartmentName(department == null ? "" : department.getName());
             String tags = doctor.getTags();
-            temp.setTags(tags == null || tags.isEmpty() ? List.of() : Arrays.stream(tags.split(",")).toList());
+            temp.setTags(tags == null || tags.isEmpty()
+                    ? List.of()
+                    : Arrays.stream(tags.split(",")).filter(s -> !s.isEmpty()).toList());
             temp.setDescription(doctor.getDescription());
             temp.setAvatar(doctor.getAvatar());
             DoctorPosition position = doctor.getDoctorPositionId() == null ? null : doctorPositions.stream()
                     .filter(p -> p.getId().equals(doctor.getDoctorPositionId())).findFirst().orElse(null);
             temp.setPosition(position == null ? "" : position.getName());
-           for (RegistrationSchedule registrationSchedule : recentRegistrationListByDoctorIdList){
-               if (registrationSchedule.getDoctorId().equals(doctor.getId())){
-//                   temp.setRecentWorkTime(registrationSchedule.getStartTime());
-                   // 注意：getRecentRegistrationListByDoctorIdList 查询的是模板行，id 字段即为模板 ID
-                   Long templateId = registrationSchedule.getRegistrationScheduleTemplateId() != null
-                           ? registrationSchedule.getRegistrationScheduleTemplateId()
-                           : registrationSchedule.getId();
-                   RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                           .getRegistrationScheduleTemplateById(templateId);
-                   int price = template == null || template.getPrice() == null ? 0 : template.getPrice();
-                   temp.setPrice(BigDecimal.valueOf(price).divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP));
+           for (RegistrationScheduleTemplate template : recentRegistrationListByDoctorIdList){
+               if (template.getDoctorId().equals(doctor.getId())){
+                   // 数据库存储为"分"，直接返回
+                   int price = template.getPrice() == null ? 0 : template.getPrice();
+                   temp.setPrice(BigDecimal.valueOf(price));
                 break;
                }
            }
+           // 数据库与实体中 scope 可空，NULL 表示暂无评分；此处不做默认值兜底，由展示层决定
            temp.setScore(doctor.getScope());
            result.add(temp);
         }
         return Result.success(result);
     }
 
+    /**
+     * 获取确认挂号页的医生信息（医生 / 科室 / 职称）
+     * @param doctorId 医生 ID
+     * @return 确认页医生信息 VO；医生不存在返回失败
+     */
     public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(Long doctorId) {
         Doctor doctor = doctorService.getDoctorById(doctorId);
         if (doctor == null) {
@@ -197,12 +403,24 @@ public class DoctorManager {
         ));
     }
 
+    /**
+     * 按医生名称模糊查询医生列表（拼装科室名称，供管理员选择医生用）
+     * @param name 医生名称（模糊）
+     * @return 医生简单响应列表
+     */
     public Result<List<AdminDoctorSimpleResponse>> listDoctorsSimpleResponseByDoctorName(String name){
         List<Doctor> doctorList = doctorService.listDoctorsSimpleResponseByDoctorName(name);
+        List<Long> departmentIds = doctorList.stream()
+                .map(Doctor::getDepartmentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Department> departmentMap = departmentService.listDepartmentsByIds(departmentIds).stream()
+                .collect(Collectors.toMap(Department::getId, d -> d));
         List<AdminDoctorSimpleResponse> result = doctorList
                 .stream()
                 .map(item -> {
-                    Department dept = item.getDepartmentId() == null ? null : departmentService.getDepartmentById(item.getDepartmentId());
+                    Department dept = departmentMap.get(item.getDepartmentId());
                     return new AdminDoctorSimpleResponse(
                         String.valueOf(item.getId()),
                         item.getName(),
@@ -232,7 +450,10 @@ public class DoctorManager {
         List<DoctorPosition> positions = doctorPositionService.listDoctorPositions();
         List<Degree> degrees = degreeService.listAllDegrees();
 
-        return Result.success(new PageResult<>(doctorsPageInfo, mergeAdminDoctorDetailResponseByDoctorsAndDepartmentAndPositionAndDegrees(doctors, departments, positions, degrees)));
+        return Result.success(PageUtils.toResult(
+                doctorsPageInfo,
+                mergeAdminDoctorDetailResponseByDoctorsAndDepartmentAndPositionAndDegrees(doctors, departments, positions, degrees)
+        ));
 
     }
 
@@ -301,53 +522,94 @@ public class DoctorManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
+        // B09: 与 MedicalRecordManager.assertDoctorOwnsRegistration 对齐，
+        // 统一以 registration_schedule_template.doctor_id 为唯一来源，
+        // 避免排班生成时 schedule.doctor_id 未正确回填导致叫号与开方/病历校验不一致
+        if (reg.getRegistrationScheduleId() == null) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "挂号记录无排班信息");
+        }
+        RegistrationSchedule schedule = registrationScheduleService.getRegistrationScheduleById(reg.getRegistrationScheduleId());
+        if (schedule == null || schedule.getRegistrationScheduleTemplateId() == null) {
+            throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH, "排班或模板不存在");
+        }
         RegistrationScheduleTemplate template = registrationScheduleTemplateService
-                .getRegistrationScheduleTemplateById(reg.getRegistrationScheduleTemplateId());
-        Long regDoctorId = template == null ? null : template.getDoctorId();
-        if (!doctorId.equals(regDoctorId)) {
+                .getRegistrationScheduleTemplateById(schedule.getRegistrationScheduleTemplateId());
+        if (template == null || !doctorId.equals(template.getDoctorId())) {
             throw new BizException(BizErrorCode.DOCTOR_NOT_MATCH);
         }
         if (!Integer.valueOf(RegistrationStatusEnum.REPORTED.getCode()).equals(reg.getStatus())) {
             throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "该挂号未报到");
         }
-        statusLogManager.transition(reg, RegistrationStatusEnum.IN_TREATMENT.getCode(),
-                doctorId, "doctor", "叫号接诊");
+        Integer fromStatus = reg.getStatus();
+        int toStatus = RegistrationStatusEnum.IN_TREATMENT.getCode();
+        if (!registrationService.updateStatusIfCurrent(reg, toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID, "状态已变更，请刷新");
+        }
+        registrationStatusLogService.writeLog(reg.getId(), fromStatus, toStatus,
+                doctorId, RoleEnum.DOCTOR.getRole(), "叫号接诊");
     }
 
     /**
-     * 医生今日排班列表（按 registration_schedule_template.doctorId 过滤）
+     * 医生月度排班列表（含跨月日历首尾日期，纯排班信息，无患者数据）
      * @param doctorId 医生ID
-     * @return 当日挂号 VO 列表
+     * @param month 月份，格式 yyyy-MM
+     * @return 排班视图 VO 列表；月份格式非法返回 null
      */
-    public List<DoctorScheduleVO> listTodaySchedule(Long doctorId) {
+    public Result<List<DoctorScheduleViewVO>> listMonthSchedule(Long doctorId, String month) {
+        YearMonth yearMonth;
+        try {
+            yearMonth = YearMonth.parse(month);
+        } catch (DateTimeParseException e) {
+            return Result.fail("月份格式应为 yyyy-MM");
+        }
         List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
-                .getRegistrationScheduleTemplateByDoctorIdAndDate(doctorId, LocalDate.now());
+                .listRegistrationScheduleTemplatesByDoctorIdListAndDate(List.of(doctorId),
+                        yearMonth.atDay(1), yearMonth.atEndOfMonth());
+        return Result.success(toScheduleViewVOList(templates));
+    }
+
+    /**
+     * 模板列表转排班视图 VO 列表（拼装班次类型 / 出诊地点，无患者数据）
+     * @param templates 排班模板列表
+     * @return 排班视图 VO 列表
+     */
+    private List<DoctorScheduleViewVO> toScheduleViewVOList(List<RegistrationScheduleTemplate> templates) {
         if (templates == null || templates.isEmpty()) {
             return Collections.emptyList();
         }
-        Map<Long, RegistrationScheduleTemplate> templateMap = templates.stream()
-                .collect(Collectors.toMap(RegistrationScheduleTemplate::getId, t -> t));
-        List<Long> templateIds = new ArrayList<>(templateMap.keySet());
-        List<Registration> registrations = registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
-                        .orderByAsc(Registration::getRegistrationTime));
-        Map<Long, User> userMap = batchLoadUsers(registrations);
-        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
-        return registrations.stream().map(reg -> {
-            DoctorScheduleVO vo = new DoctorScheduleVO();
-            vo.setRegistrationId(reg.getId());
-            vo.setStatus(reg.getStatus());
-            vo.setRegistrationTime(reg.getRegistrationTime());
-            RegistrationScheduleTemplate t = templateMap.get(reg.getRegistrationScheduleTemplateId());
-            if (t != null) {
-                vo.setShiftName(t.getName());
-                vo.setStartTime(t.getStartTime() != null ? t.getStartTime().atDate(LocalDate.now()) : null);
-                vo.setEndTime(t.getEndTime() != null ? t.getEndTime().atDate(LocalDate.now()) : null);
-            }
-            fillPatientInfo(vo, reg, userMap, accountMap);
-            return vo;
-        }).collect(Collectors.toList());
+        List<Long> roomIds = templates.stream()
+                .map(RegistrationScheduleTemplate::getConsultationRoomId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, ConsultationRoom> roomMap = roomIds.isEmpty() ? Collections.emptyMap()
+                : consultationRoomService.listAllConsultationRooms().stream()
+                        .filter(room -> roomIds.contains(room.getId()))
+                        .collect(Collectors.toMap(ConsultationRoom::getId, room -> room, (a, b) -> a));
+        return templates.stream()
+                .sorted(Comparator.comparing(RegistrationScheduleTemplate::getRegistrationDate)
+                        .thenComparing(RegistrationScheduleTemplate::getStartTime,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(template -> {
+                    DoctorScheduleViewVO vo = new DoctorScheduleViewVO();
+                    vo.setScheduleId(String.valueOf(template.getId()));
+                    vo.setScheduleDate(template.getRegistrationDate());
+                    vo.setShiftName(template.getRegistrationType() == null ? "-"
+                            : Arrays.stream(RegistrationShiftTypeEnum.values())
+                                    .filter(t -> t.getCode().equals(template.getRegistrationType()))
+                                    .findFirst()
+                                    .map(RegistrationShiftTypeEnum::getMessage)
+                                    .orElse("-"));
+                    vo.setStartTime(template.getStartTime());
+                    vo.setEndTime(template.getEndTime());
+                    ConsultationRoom room = template.getConsultationRoomId() == null ? null
+                            : roomMap.get(template.getConsultationRoomId());
+                    vo.setLocation(room == null ? "-" : room.getName());
+                    vo.setRemark(template.getRemark());
+                    vo.setStatus(Boolean.TRUE.equals(template.getEnabled()) ? 1 : 0);
+                    return vo;
+                })
+                .toList();
     }
 
     /**
@@ -365,51 +627,49 @@ public class DoctorManager {
     }
 
     /**
-     * 医生就诊中列表（status=IN_TREATMENT 或 PENDING_PAYMENT，按当前医生过滤）
+     * 医生就诊中列表（status=IN_TREATMENT，按当前医生过滤）
      * @param doctorId 医生ID
      * @return 就诊中 VO 列表
      */
     public List<WaitingPatientVO> listInProgress(Long doctorId) {
-        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
-                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
-        if (templates == null || templates.isEmpty()) {
+        List<Long> scheduleIds = getScheduleIdsByDoctor(doctorId);
+        if (scheduleIds.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Long> templateIds = templates.stream()
-                .map(RegistrationScheduleTemplate::getId)
-                .collect(Collectors.toList());
-        List<Registration> registrations = registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
-                        .and(w -> w.eq(Registration::getStatus, RegistrationStatusEnum.IN_TREATMENT.getCode())
-                                .or().eq(Registration::getStatus, RegistrationStatusEnum.PENDING_PAYMENT.getCode()))
-                        .orderByAsc(Registration::getCheckInTime));
+        List<Registration> registrations = registrationService.listByScheduleIdsAndStatus(
+                scheduleIds, RegistrationStatusEnum.IN_TREATMENT.getCode());
         Map<Long, User> userMap = batchLoadUsers(registrations);
         Map<Long, Account> accountMap = batchLoadAccounts(registrations);
         return registrations.stream().map(reg -> toWaitingVO(reg, userMap, accountMap))
                 .collect(Collectors.toList());
     }
 
-    private List<Registration> listRegistrationsByDoctorIdAndStatus(Long doctorId, Integer status) {
-        List<RegistrationScheduleTemplate> templates = registrationScheduleTemplateService
-                .listRegistrationScheduleTemplatesByDoctorId(doctorId);
-        if (templates == null || templates.isEmpty()) {
+    private List<Long> getScheduleIdsByDoctor(Long doctorId) {
+        List<RegistrationSchedule> schedules = registrationScheduleService
+                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
+        if (schedules == null || schedules.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Long> templateIds = templates.stream()
-                .map(RegistrationScheduleTemplate::getId)
+        return schedules.stream()
+                .map(RegistrationSchedule::getId)
                 .collect(Collectors.toList());
-        return registrationMapper.selectList(
-                new LambdaQueryWrapper<Registration>()
-                        .in(Registration::getRegistrationScheduleTemplateId, templateIds)
-                        .eq(Registration::getStatus, status)
-                        .orderByAsc(Registration::getCheckInTime));
+    }
+
+    private List<Registration> listRegistrationsByDoctorIdAndStatus(Long doctorId, Integer status) {
+        List<RegistrationSchedule> schedules = registrationScheduleService
+                .getRegistrationSchedulesByDoctorIdAndDate(doctorId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
+        if (schedules == null || schedules.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> scheduleIds = schedules.stream()
+                .map(RegistrationSchedule::getId).collect(Collectors.toList());
+        return registrationService.listByScheduleIdsAndStatus(scheduleIds, status);
     }
 
     private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, User> userMap, Map<Long, Account> accountMap) {
         WaitingPatientVO vo = new WaitingPatientVO();
-        vo.setRegistrationId(reg.getId());
-        vo.setPatientId(reg.getUserId());
+        vo.setRegistrationId(String.valueOf(reg.getId()));
+        vo.setPatientId(String.valueOf(reg.getUserId()));
         vo.setStatus(reg.getStatus());
         vo.setCheckInTime(reg.getCheckInTime());
         vo.setRegistrationTime(reg.getRegistrationTime());
@@ -418,15 +678,6 @@ public class DoctorManager {
         vo.setPatientName(user != null ? user.getNickname() : null);
         vo.setPatientPhone(account != null ? account.getPhone() : null);
         return vo;
-    }
-
-    private void fillPatientInfo(DoctorScheduleVO vo, Registration reg,
-                                  Map<Long, User> userMap, Map<Long, Account> accountMap) {
-        vo.setPatientId(reg.getUserId());
-        User user = userMap.get(reg.getUserId());
-        Account account = accountMap.get(reg.getUserId());
-        vo.setPatientName(user != null ? user.getNickname() : null);
-        vo.setPatientPhone(account != null ? account.getPhone() : null);
     }
 
     /** 批量加载用户信息（userId → User） */
@@ -438,12 +689,12 @@ public class DoctorManager {
                 .collect(Collectors.toMap(User::getId, u -> u));
     }
 
-    /** 批量加载账户信息（userId → Account） */
+    /** 批量加载账户信息（userId → Account，同一 userId 多账号时保留第一个） */
     private Map<Long, Account> batchLoadAccounts(List<Registration> registrations) {
         List<Long> userIds = registrations.stream()
                 .map(Registration::getUserId).distinct().collect(Collectors.toList());
         if (userIds.isEmpty()) return Collections.emptyMap();
         return accountService.listAccountsByUserIds(userIds).stream()
-                .collect(Collectors.toMap(Account::getUserId, a -> a));
+                .collect(Collectors.toMap(Account::getUserId, a -> a, (a1, a2) -> a1));
     }
 }

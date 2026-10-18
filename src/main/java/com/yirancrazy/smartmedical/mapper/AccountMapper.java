@@ -3,9 +3,7 @@ package com.yirancrazy.smartmedical.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Select;
 
-import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com

@@ -1,14 +1,20 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.RegistrationScheduleManager;
 import com.yirancrazy.smartmedical.manager.RegistrationScheduleTemplateManager;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminRegistrationScheduleTemplateDetail;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminRegistrationScheduleTemplateDetail;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -27,13 +33,13 @@ public class AdminRegistrationScheduleTemplateControllerV1 {
 
     @Operation(summary = "管理员端 - 获取所有挂号排班模板列表")
     @GetMapping("/list/page/{pageNum}/{pageSize}")
-    public Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByPage(@PathVariable Integer pageNum, @PathVariable Integer pageSize) {
+    public Result<PageResult<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByPage(@PathVariable Integer pageNum, @PathVariable Integer pageSize) {
         return registrationScheduleTemplateManager.listRegistrationScheduleTemplatesByPage(pageNum, pageSize);
     }
 
     @Operation(summary = "管理员端 - 查询挂号排班模板（分页）")
     @GetMapping("/list/page")
-    public Result<PageInfo<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByPage(
+    public Result<PageResult<AdminRegistrationScheduleTemplateDetail>> listRegistrationScheduleTemplatesByPage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) Long doctorId,

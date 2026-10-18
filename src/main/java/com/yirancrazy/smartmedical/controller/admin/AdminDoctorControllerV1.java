@@ -1,23 +1,34 @@
 package com.yirancrazy.smartmedical.controller.admin;
 
 import com.yirancrazy.smartmedical.manager.DoctorManager;
+import com.yirancrazy.smartmedical.pojo.Degree;
+import com.yirancrazy.smartmedical.pojo.DoctorPosition;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminDoctorSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.detail.AdminDoctorDetailResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorAddRequest;
+import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminDoctorSimpleResponse;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.detail.AdminDoctorDetailResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 管理员端 - 医生管理接口
  * @Datetime: 2026-03-06 12:53
  * @Version: 1.0
  */
@@ -57,6 +68,88 @@ public class AdminDoctorControllerV1 {
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size) {
         return doctorManager.listDoctorsSimpleResponseByLikeDoctorNameAndDepartmentIdAndPage( username, departmentId, current, size );
+    }
+
+    /**
+     * 查询医生详情
+     * @param id 医生ID
+     * @return 医生详情
+     */
+    @Operation(summary = "管理员端 - 查询医生详情")
+    @GetMapping("/{id:\\d+}")
+    public Result<AdminDoctorDetailResponse> getDoctorDetailById(@PathVariable Long id) {
+        return doctorManager.getAdminDoctorDetailById(id);
+    }
+
+    /**
+     * 编辑医生信息
+     * @param id 医生ID
+     * @param request 编辑请求
+     * @return 影响行数
+     */
+    @Operation(summary = "管理员端 - 编辑医生信息")
+    @PutMapping("/{id:\\d+}")
+    public Result<Integer> updateDoctor(@PathVariable Long id, @Valid @RequestBody AdminDoctorUpdateRequest request) {
+        return doctorManager.updateDoctor(id, request);
+    }
+
+    /**
+     * 添加医生并创建登录账户
+     * @param request 添加请求
+     * @return 新医生 ID
+     */
+    @Operation(summary = "管理员端 - 添加医生")
+    @PostMapping("/")
+    public Result<Long> addDoctor(@Valid @RequestBody AdminDoctorAddRequest request) {
+        return doctorManager.addDoctorWithAccount(request);
+    }
+
+    /**
+     * 删除医生（逻辑删除）
+     * @param id 医生ID
+     * @return 影响行数
+     */
+    @Operation(summary = "管理员端 - 删除医生")
+    @DeleteMapping("/{id:\\d+}")
+    public Result<Integer> deleteDoctor(@PathVariable Long id) {
+        return doctorManager.deleteDoctor(id);
+    }
+
+    /**
+     * 查询全部职称（表单下拉数据源）
+     * @return 职称列表
+     */
+    @Operation(summary = "管理员端 - 查询全部医生职称")
+    @GetMapping("/positions")
+    public Result<List<DoctorPosition>> listAllDoctorPositions() {
+        return doctorManager.listAllDoctorPositions();
+    }
+
+    /**
+     * 查询全部学历（表单下拉数据源）
+     * @return 学历列表
+     */
+    @Operation(summary = "管理员端 - 查询全部学历")
+    @GetMapping("/degrees")
+    public Result<List<Degree>> listAllDegrees() {
+        return doctorManager.listAllDegrees();
+    }
+
+    /**
+     * 上传医生头像
+     * @param file 图片文件
+     * @return 图片 URL
+     */
+    @Operation(summary = "管理员端 - 上传医生头像")
+    @PostMapping("/upload/image")
+    public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        try {
+            return Result.success(doctorManager.uploadAvatar(file));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(e.getMessage());
+        } catch (Exception e) {
+            return Result.fail("图片上传失败");
+        }
     }
 
 }

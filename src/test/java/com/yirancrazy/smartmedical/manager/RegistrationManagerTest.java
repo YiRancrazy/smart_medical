@@ -3,11 +3,14 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.DoctorPosition;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Registration;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorPositionService;
 import com.yirancrazy.smartmedical.service.DoctorService;
@@ -19,8 +22,10 @@ import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
+import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -47,6 +53,7 @@ class RegistrationManagerTest {
     @Mock private RedisUtil redisUtil;
     @Mock private PatientCardService patientCardService;
     @Mock private PatientService patientService;
+    @Mock private UserPatientRelationService userPatientRelationService;
     @Mock private OrderService orderService;
     @Mock private OrderTypeService orderTypeService;
     @Mock private OrderItemService orderItemService;
@@ -60,15 +67,20 @@ class RegistrationManagerTest {
     @InjectMocks
     private RegistrationManager registrationManager;
 
+    @BeforeEach
+    void setUp() {
+        lenient().when(userPatientRelationService.listAccessiblePatientUserIds(7L)).thenReturn(List.of(7L));
+    }
+
     @Test
     void getRegistrationByUid_emptyList_returnsEmptyResult() {
-        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(Collections.emptyList());
+        when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(Collections.emptyList());
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
         assertNotNull(result.getData());
-        assertTrue(result.getData().isEmpty());
+        assertTrue(result.getData().getList().isEmpty());
     }
 
     @Test
@@ -76,17 +88,25 @@ class RegistrationManagerTest {
         Registration registration = new Registration();
         registration.setId(101L);
         registration.setUserId(7L);
-        registration.setRegistrationScheduleTemplateId(99L);
+        registration.setRegistrationScheduleId(99L);
         registration.setStatus(1);
 
-        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(List.of(registration));
-        when(userService.getUserById(7L)).thenReturn(new User());
-        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(99L)).thenReturn(null);
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(99L);
+        schedule.setRegistrationScheduleTemplateId(88L);
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+        User user = new User();
+        user.setId(7L);
+
+        when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
+        when(userService.listUsersByUserIds(List.of(7L))).thenReturn(List.of(user));
+        when(registrationScheduleService.listRegistrationSchedulesByIds(List.of(99L))).thenReturn(List.of(schedule));
+        when(registrationScheduleTemplateService.listAllRegistrationScheduleTemplateByIdList(List.of(88L))).thenReturn(Collections.emptyList());
+
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
-        assertTrue(result.getData().isEmpty(), "registration with missing template should be skipped, not NPE");
+        assertTrue(result.getData().getList().isEmpty(), "registration with missing template should be skipped, not NPE");
     }
 
     @Test
@@ -94,10 +114,15 @@ class RegistrationManagerTest {
         Registration registration = new Registration();
         registration.setId(101L);
         registration.setUserId(7L);
-        registration.setRegistrationScheduleTemplateId(99L);
+        registration.setRegistrationScheduleId(99L);
         registration.setStatus(1);
 
+        RegistrationSchedule schedule = new RegistrationSchedule();
+        schedule.setId(99L);
+        schedule.setRegistrationScheduleTemplateId(88L);
+
         RegistrationScheduleTemplate template = new RegistrationScheduleTemplate();
+        template.setId(88L);
         template.setDoctorId(55L);
 
         Doctor doctor = new Doctor();
@@ -119,18 +144,19 @@ class RegistrationManagerTest {
         user.setId(7L);
         user.setNickname("李四");
 
-        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(List.of(registration));
-        when(userService.getUserById(7L)).thenReturn(user);
-        when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(99L)).thenReturn(template);
-        when(doctorService.getDoctorById(55L)).thenReturn(doctor);
-        lenient().when(departmentService.getDepartmentById(11L)).thenReturn(department);
-        lenient().when(doctorPositionService.getPositionById(22L)).thenReturn(position);
+        when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
+        when(userService.listUsersByUserIds(List.of(7L))).thenReturn(List.of(user));
+        when(registrationScheduleService.listRegistrationSchedulesByIds(List.of(99L))).thenReturn(List.of(schedule));
+        when(registrationScheduleTemplateService.listAllRegistrationScheduleTemplateByIdList(List.of(88L))).thenReturn(List.of(template));
+        when(doctorService.listDoctorsByIds(List.of(55L))).thenReturn(List.of(doctor));
+        when(departmentService.listDepartmentsByIds(List.of(11L))).thenReturn(List.of(department));
+        when(doctorPositionService.listPositionsByIds(List.of(22L))).thenReturn(List.of(position));
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
-        assertEquals(1, result.getData().size());
-        AppointmentResponseSimple item = result.getData().get(0);
+        assertEquals(1, result.getData().getList().size());
+        AppointmentResponseSimple item = result.getData().getList().get(0);
         assertEquals("101", item.getId());
         assertEquals("55", item.getDoctorId());
         assertEquals("张三", item.getDoctorName());
@@ -147,12 +173,34 @@ class RegistrationManagerTest {
         registration.setUserId(7L);
         // registrationScheduleTemplateId 留空
 
-        when(registrationService.listRegistrationsByUserId(7L)).thenReturn(List.of(registration));
-        when(userService.getUserById(7L)).thenReturn(new User());
+        User user = new User();
+        user.setId(7L);
 
-        Result<List<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L);
+        when(registrationService.listRegistrationsByUserIds(List.of(7L))).thenReturn(List.of(registration));
+        when(userService.listUsersByUserIds(List.of(7L))).thenReturn(List.of(user));
+        when(registrationScheduleService.listRegistrationSchedulesByIds(Collections.emptyList())).thenReturn(Collections.emptyList());
+
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(7L, null, null, null);
 
         assertEquals(200, result.getCode());
-        assertTrue(result.getData().isEmpty());
+        assertTrue(result.getData().getList().isEmpty());
+    }
+
+    @Test
+    void getRegistrationByUid_patientCardId_resolvesAuthorizedPatientUserId() {
+        Patient patient = new Patient();
+        patient.setUserId(8L);
+
+        when(patientService.getPatientByPatientCardId(100L)).thenReturn(patient);
+        when(userPatientRelationService.hasAuthorization(7L, 8L)).thenReturn(true);
+        when(registrationService.listRegistrationsByUserIds(List.of(8L))).thenReturn(Collections.emptyList());
+
+        Result<PageResult<AppointmentResponseSimple>> result = registrationManager.getRegistrationByUid(
+                7L, 100L, null, null);
+
+        assertEquals(200, result.getCode());
+        assertTrue(result.getData().getList().isEmpty());
+        verify(registrationService).listRegistrationsByUserIds(List.of(8L));
+        verify(userPatientRelationService).hasAuthorization(7L, 8L);
     }
 }

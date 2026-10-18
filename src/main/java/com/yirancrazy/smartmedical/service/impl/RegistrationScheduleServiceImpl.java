@@ -2,10 +2,13 @@ package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
 import com.yirancrazy.smartmedical.mapper.RegistrationScheduleMapper;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -82,7 +85,7 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return registrationScheduleMapper.deleteBatchIds(ids);
+        return registrationScheduleMapper.deleteByIds(ids);
     }
 
     /**
@@ -113,7 +116,11 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      * {@inheritDoc}
      */
     @Override
-    public List<RegistrationSchedule> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList) {
+    public List<RegistrationScheduleTemplate> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList) {
+        // XML 中 doctorIdList 为空时 <if> 不生效会退化为查询全部排班，此处短路避免越权返回全量
+        if (doctorIdList == null || doctorIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
         return registrationScheduleMapper.getRecentRegistrationListByDoctorIdList(doctorIdList);
     }
 
@@ -138,12 +145,18 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
      */
     @Override
     public List<RegistrationSchedule> listRegistrationSchedulesByIds(List<Long> registrationScheduleIdList) {
+        if (registrationScheduleIdList == null || registrationScheduleIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
         return registrationScheduleMapper.selectByIds(registrationScheduleIdList);
     }
 
     @Override
-    public List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleTemplateIdList(List<Long> registrationScheduleTemplateIdList) {
-        return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>().in(RegistrationSchedule::getRegistrationScheduleTemplateId, registrationScheduleTemplateIdList));
+    public List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleIdList(List<Long> registrationScheduleIdList) {
+        if (registrationScheduleIdList == null || registrationScheduleIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>().in(RegistrationSchedule::getRegistrationScheduleTemplateId, registrationScheduleIdList));
     }
 
     @Override
@@ -153,17 +166,53 @@ public class RegistrationScheduleServiceImpl implements RegistrationScheduleServ
     }
 
     @Override
-    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateId(Long id) {
+    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleId(Long id) {
         return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
                 .eq(RegistrationSchedule::getRegistrationScheduleTemplateId, id));
     }
 
     @Override
-    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateIdList(List<Long> idList) {
+    public List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleIdList(List<Long> idList) {
         if (idList == null || idList.isEmpty()) {
             return new ArrayList<>();
         }
         return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
                 .in(RegistrationSchedule::getRegistrationScheduleTemplateId, idList));
+    }
+
+    @Override
+    public List<RegistrationSchedule> getRegistrationScheduleListByTemplateIdList(List<Long> templateIdList) {
+        if (templateIdList == null || templateIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return registrationScheduleMapper.selectList(new LambdaQueryWrapper<RegistrationSchedule>()
+                .in(RegistrationSchedule::getRegistrationScheduleTemplateId, templateIdList));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int deductRemainingQuota(Long scheduleId) {
+        return registrationScheduleMapper.update(null,
+                new UpdateWrapper<RegistrationSchedule>()
+                        .eq("id", scheduleId)
+                        .gt("remaining_quota", 0)
+                        .setSql("remaining_quota = remaining_quota - 1")
+                        // 扣减后为 0 则置为满号(2)
+                        .setSql("status = IF(remaining_quota - 1 = 0, "
+                                + RegistrationScheduleStatusEnum.FULL.getCode() + ", status)"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int releaseQuota(Long scheduleId) {
+        return registrationScheduleMapper.update(null,
+                new UpdateWrapper<RegistrationSchedule>()
+                        .eq("id", scheduleId)
+                        .setSql("remaining_quota = remaining_quota + 1")
+                        .setSql("status = IF(status = 2, 1, status)"));
     }
 }

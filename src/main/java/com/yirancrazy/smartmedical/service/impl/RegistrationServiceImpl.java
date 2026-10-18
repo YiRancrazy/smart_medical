@@ -2,18 +2,25 @@ package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.mapper.RegistrationMapper;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -24,9 +31,35 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RegistrationServiceImpl implements RegistrationService {
 
     private final RegistrationMapper registrationMapper;
+
+    /**
+     * 允许的状态转移白名单（from -> 可达 to 集合）
+     * 对应状态机文档定义，禁止任意状态互转
+     */
+    private static final Map<Integer, Set<Integer>> ALLOWED_TRANSITIONS = Map.of(
+            RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
+            Set.of(RegistrationStatusEnum.SUCCESS.getCode(),
+                    RegistrationStatusEnum.FAILED.getCode(),
+                    RegistrationStatusEnum.CANCELED.getCode()),
+            RegistrationStatusEnum.SUCCESS.getCode(),
+            Set.of(RegistrationStatusEnum.REPORTED.getCode(),
+                    RegistrationStatusEnum.CANCELED.getCode()),
+            RegistrationStatusEnum.FAILED.getCode(),
+            Set.of(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
+                    RegistrationStatusEnum.CANCELED.getCode()),
+            RegistrationStatusEnum.REPORTED.getCode(),
+            Set.of(RegistrationStatusEnum.IN_TREATMENT.getCode()),
+            RegistrationStatusEnum.IN_TREATMENT.getCode(),
+            Set.of(RegistrationStatusEnum.PENDING_PAYMENT.getCode(),
+                    RegistrationStatusEnum.COMPLETED.getCode()),
+            RegistrationStatusEnum.PENDING_PAYMENT.getCode(),
+            Set.of(RegistrationStatusEnum.IN_TREATMENT.getCode(),
+                    RegistrationStatusEnum.COMPLETED.getCode())
+    );
 
     /**
      * {@inheritDoc}
@@ -83,7 +116,7 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return registrationMapper.deleteBatchIds(ids);
+        return registrationMapper.deleteByIds(ids);
     }
 
     /**
@@ -91,8 +124,10 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Integer getTodayRegistrationCount() {
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        LocalDateTime todayEnd = LocalDate.now().plusDays(1).atStartOfDay();
+        // B13: 强制 Asia/Shanghai 时区
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        LocalDateTime todayStart = today.atStartOfDay();
+        LocalDateTime todayEnd = today.plusDays(1).atStartOfDay();
         QueryWrapper<Registration> queryWrapper = new QueryWrapper<>();
         queryWrapper.between("registration_time", todayStart, todayEnd);
         return registrationMapper.selectCount(queryWrapper).intValue();
@@ -118,21 +153,42 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     /**
      * 根据挂号排班模板id和用户id获取挂号记录
-     * @param registrationScheduleTemplateId 挂号排班模板id
+     * @param registrationScheduleId 挂号排班模板id
      * @param userId 用户id
      * @return 挂号记录
      */
     @Override
-    public Registration getRegistrationByRegistrationScheduleTemplateIdAndUserId(Long registrationScheduleTemplateId, Long userId) {
-        return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
-                .eq(Registration::getRegistrationScheduleTemplateId, registrationScheduleTemplateId)
+    public Registration getRegistrationByRegistrationScheduleIdAndUserId(Long registrationScheduleId, Long userId) {
+        List<Registration> list = registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .eq(Registration::getRegistrationScheduleId, registrationScheduleId)
                 .eq(Registration::getUserId, userId)
-                .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode()));
+                .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode())
+                .last("LIMIT 1"));
+        return list.isEmpty() ? null : list.get(0);
     }
 
     @Override
     public List<Registration> listRegistrationsByUserId(Long userId) {
         return registrationMapper.selectList(new QueryWrapper<Registration>().eq("user_id", userId));
+    }
+
+    @Override
+    public List<Registration> listRegistrationsByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .in(Registration::getUserId, userIds)
+                .orderByDesc(Registration::getCreateTime));
+    }
+
+    @Override
+    public List<Registration> listRegistrationsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .in(Registration::getId, ids));
     }
 
     /**
@@ -142,7 +198,110 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     @Override
     public Registration getRegistrationByOrderId(Long orderId) {
-        return registrationMapper.selectOne(new LambdaQueryWrapper<Registration>()
-                .eq(Registration::getOrderId, orderId));
+        List<Registration> list = registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .eq(Registration::getOrderId, orderId)
+                .last("LIMIT 1"));
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Long countTodayRegistrations(LocalDateTime start, LocalDateTime end) {
+        return registrationMapper.selectCount(new QueryWrapper<Registration>()
+                .ge("registration_time", start)
+                .lt("registration_time", end)
+                .ne("status", RegistrationStatusEnum.CANCELED.getCode()));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Long countByStatuses(Collection<Integer> statuses) {
+        return registrationMapper.selectCount(new QueryWrapper<Registration>()
+                .in("status", statuses));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Long countByStatus(Integer status) {
+        return registrationMapper.selectCount(new QueryWrapper<Registration>()
+                .eq("status", status));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Registration> listByScheduleIdsAndStatuses(List<Long> scheduleIds, Collection<Integer> statuses) {
+        if (scheduleIds == null || scheduleIds.isEmpty() || statuses == null || statuses.isEmpty()) {
+            return List.of();
+        }
+        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .in(Registration::getRegistrationScheduleId, scheduleIds)
+                .in(Registration::getStatus, statuses)
+                .orderByAsc(Registration::getRegistrationTime));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Registration> listByScheduleIdsAndStatus(List<Long> scheduleIds, Integer status) {
+        if (scheduleIds == null || scheduleIds.isEmpty()) {
+            return List.of();
+        }
+        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                .in(Registration::getRegistrationScheduleId, scheduleIds)
+                .eq(Registration::getStatus, status)
+                .orderByAsc(Registration::getCheckInTime));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean updateStatusIfCurrent(Registration reg, int toStatus) {
+        Integer fromStatus = reg.getStatus();
+        if (fromStatus == null) {
+            fromStatus = -1;
+        }
+
+        // 业务白名单校验：禁止任意状态互转
+        Set<Integer> allowedTo = ALLOWED_TRANSITIONS.get(fromStatus);
+        if (allowedTo == null || !allowedTo.contains(toStatus)) {
+            throw new BizException(BizErrorCode.REGISTRATION_STATUS_INVALID,
+                    "非法状态流转：" + fromStatus + " -> " + toStatus);
+        }
+
+        // 带乐观守门的 UPDATE：WHERE id=? AND status=fromStatus
+        // 使用 UpdateWrapper(字符串列名)而非 LambdaUpdateWrapper(实体方法引用)，
+        // 后者依赖 MyBatis-Plus lambda cache，单元测试场景下未初始化会抛 MybatisPlusException。
+        LocalDateTime now = LocalDateTime.now();
+        UpdateWrapper<Registration> uw = new UpdateWrapper<Registration>()
+                .eq("id", reg.getId())
+                .eq("status", fromStatus)
+                .set("status", toStatus);
+        if (toStatus == RegistrationStatusEnum.REPORTED.getCode()) {
+            uw.set("check_in_time", now);
+        } else if (toStatus == RegistrationStatusEnum.IN_TREATMENT.getCode()) {
+            uw.set("visit_start_time", now);
+        } else if (toStatus == RegistrationStatusEnum.COMPLETED.getCode()) {
+            uw.set("visit_end_time", now);
+        }
+        int rows = registrationMapper.update(null, uw);
+        if (rows == 0) {
+            return false;
+        }
+
+        // 同步内存中状态，便于后续可能继续使用 reg
+        reg.setStatus(toStatus);
+        log.info("[registration-status] regId={} {}->{}",
+                reg.getId(), fromStatus, toStatus);
+        return true;
     }
 }

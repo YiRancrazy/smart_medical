@@ -1,13 +1,5 @@
-/*
- * Copyright (C) 2018 Zhejiang xiaominfo Technology CO.,LTD.
- * All rights reserved.
- * Official Web Site: http://www.xiaominfo.com.
- * Developer Web Site: http://open.xiaominfo.com.
- */
-
 package com.yirancrazy.smartmedical.config;
 
-import cn.hutool.core.util.RandomUtil;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
@@ -16,15 +8,13 @@ import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.HashMap;
-import java.util.Map;
+/**
+ * @Author: YiRanCrazy@gmail.com
+ * @Description: Swagger 配置类
+ * @DateTime: 2024/4/10 12:01
+ * @Version: 1.0
+ **/
 
-/***
- * 创建Swagger配置
- * @since:knife4j-springdoc-openapi-demo 1.0
- * @author <a href="mailto:xiaoymin@foxmail.com">xiaoymin@foxmail.com</a> 
- * 2020/03/15 20:40
- */
 @Configuration
 public class SwaggerConfig {
     /**

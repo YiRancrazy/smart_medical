@@ -1,18 +1,14 @@
 package com.yirancrazy.smartmedical.pojo.excel;
 
 import com.alibaba.excel.annotation.ExcelProperty;
-import com.alibaba.excel.annotation.format.DateTimeFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-
 /**
+ * 挂号排班导入模板
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 挂号排班 Excel 导入行对象，按列索引读取
  * @Datetime: 2026-03-18 17:42
  * @Version: 1.0
  */
@@ -21,29 +17,36 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExcelRegistrationTemplate {
-    @ExcelProperty("医生id")
+    @ExcelProperty(index = 0)
     private String doctorId;
-    @ExcelProperty("医生姓名")
-    private String doctorName;             // 医生名称
-    @ExcelProperty("科室")
-    private String departmentName;         // 科室名称
-    @DateTimeFormat("yyyy-MM-dd")
-    @ExcelProperty("排班日期")
-    private String registrationDate;    // 挂号日期
-    @ExcelProperty("班次类型")
-    private String registrationType;       // 挂号类型
-    @DateTimeFormat("HH:mm:ss")
-    @ExcelProperty("开始时间")
-    private String startTime;           // 开始时间
-    @DateTimeFormat("HH:mm:ss")
-    @ExcelProperty("结束时间")
-    private String endTime;             // 结束时间
-    @ExcelProperty("号源数量")
-    private Integer total;                 // 总数
-    @ExcelProperty("挂号价格")
-    private String price;                 // 价格
-    @ExcelProperty("诊室编号")
-    private String sn;                // 地址
-    @ExcelProperty("备注")
-    private String remark;                 // 备注
+
+    @ExcelProperty(index = 1)
+    private String doctorName;
+
+    @ExcelProperty(index = 2)
+    private String departmentName;
+
+    @ExcelProperty(index = 3)
+    private String registrationDate;
+
+    @ExcelProperty(index = 4)
+    private String registrationType;
+
+    @ExcelProperty(index = 5)
+    private String startTime;
+
+    @ExcelProperty(index = 6)
+    private String endTime;
+
+    @ExcelProperty(index = 7)
+    private Integer total;
+
+    @ExcelProperty(index = 8)
+    private String price;
+
+    @ExcelProperty(index = 9)
+    private String sn;
+
+    @ExcelProperty(index = 10)
+    private String remark;
 }

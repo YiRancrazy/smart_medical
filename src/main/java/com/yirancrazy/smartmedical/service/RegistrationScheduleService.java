@@ -2,6 +2,7 @@ package com.yirancrazy.smartmedical.service;
 
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -89,7 +90,7 @@ public interface RegistrationScheduleService {
      * @param doctorIdList 医生ID列表
      * @return 挂号排班列表
      */
-    List<RegistrationSchedule> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList);
+    List<RegistrationScheduleTemplate> getRecentRegistrationListByDoctorIdList(List<Long> doctorIdList);
 
     /**
      * 获取指定医生上周的挂号排班列表
@@ -118,7 +119,7 @@ public interface RegistrationScheduleService {
      * @param registrationScheduleTemplateIdList 挂号排班模板ID列表
      * @return 挂号排班信息
      */
-    List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleTemplateIdList(List<Long> registrationScheduleTemplateIdList);
+    List<RegistrationSchedule> listRegistrationScheduleByRegistrationScheduleIdList(List<Long> registrationScheduleIdList);
 
     /**
      * 批量插入挂号排班信息
@@ -131,12 +132,33 @@ public interface RegistrationScheduleService {
      * @param id 挂号排班模板ID
      * @return 挂号排班信息列表
      */
-    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateId(Long id);
+    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleId(Long id);
 
     /**
      * 根据挂号排班模板ID列表获取挂号排班信息
      * @param idList 挂号排班模板ID列表
      * @return 挂号排班信息列表
      */
-    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleTemplateIdList(List<Long> idList);
+    List<RegistrationSchedule> getRegistrationScheduleListByRegistrationScheduleIdList(List<Long> idList);
+
+    /**
+     * 根据挂号排班模板ID列表获取挂号排班信息（语义别名）
+     * @param templateIdList 挂号排班模板ID列表
+     * @return 挂号排班信息列表
+     */
+    List<RegistrationSchedule> getRegistrationScheduleListByTemplateIdList(List<Long> templateIdList);
+
+    /**
+     * 原子扣减号源：WHERE remaining_quota > 0 防止并发超卖；扣减后为 0 则置为已满(2)
+     * @param scheduleId 排班ID
+     * @return 影响行数（0 表示无号源）
+     */
+    int deductRemainingQuota(Long scheduleId);
+
+    /**
+     * 恢复号源：remaining_quota + 1，已满(2)则恢复为正常(1)
+     * @param scheduleId 排班ID
+     * @return 影响行数
+     */
+    int releaseQuota(Long scheduleId);
 }

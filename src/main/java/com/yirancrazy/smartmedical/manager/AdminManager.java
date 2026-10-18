@@ -7,11 +7,12 @@ import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.admin.AdminAdminSimpleResponse;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.admin.response.AdminAdminSimpleResponse;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,11 +36,21 @@ public class AdminManager {
     private final AccountService accountService;
     private final DepartmentService departmentService;
 
+    /**
+     * 新增管理员（补雪花 ID 后入库）
+     * @param admin 管理员实体
+     * @return 影响行数
+     */
     public int addAdmin(Admin admin) {
         admin.setId(IdUtil.getSnowflakeNextId());
         return adminService.insertAdmin(admin);
     }
 
+    /**
+     * 按 ID 查询管理员
+     * @param id 管理员 ID
+     * @return 管理员实体；不存在返回 null
+     */
     public Admin getAdminById(Long id) {
         return adminService.getAdminById(id);
     }
@@ -51,7 +62,13 @@ public class AdminManager {
      */
     public Result<AdminAdminSimpleResponse> getAdminAdminSimpleResponseByAdminId(Long adminId){
         Admin admin = adminService.getAdminById(adminId);
+        if (admin == null) {
+            return Result.fail("管理员不存在");
+        }
         Account account = accountService.getAccountByUserId(adminId);
+        if (account == null) {
+            return Result.fail("管理员账号不存在");
+        }
         Department department = departmentService.getDepartmentById(admin.getDepartmentId());
 
         AdminAdminSimpleResponse result = new AdminAdminSimpleResponse();
@@ -61,7 +78,7 @@ public class AdminManager {
         result.setAvatar(admin.getAvatar());
         result.setRemark(admin.getRemark());
         result.setDepartmentId(String.valueOf(admin.getDepartmentId()));
-        result.setDepartmentName(department.getName());
+        result.setDepartmentName(department == null ? "" : department.getName());
         result.setRole(account.getRoleId().toString());
         result.setRoleId(account.getRoleId().toString());
         result.setStatus(account.getEnabled().toString());
@@ -148,7 +165,6 @@ public class AdminManager {
             result.add(item);
         }
 
-        PageResult<AdminAdminSimpleResponse> result1 = new PageResult<>(adminsByPage,result);
-        return Result.success(result1);
+        return Result.success(PageUtils.toResult(adminsByPage, result));
     }
 }

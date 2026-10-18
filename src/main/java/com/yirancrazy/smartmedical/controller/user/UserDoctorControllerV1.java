@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.DoctorManager;
-import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.DoctorVo;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
@@ -10,13 +9,17 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户端 - 医生与挂号医生查询接口
  * @Datetime: 2026-02-02 13:57
  * @Version: 1.0
  */
@@ -29,25 +32,18 @@ public class UserDoctorControllerV1 {
 
     private final DoctorManager doctorManager;
 
-//    @PostMapping("/add")
-//    @Operation(summary = "添加医生", description = "添加新医生")
-//    public int addDoctor(@RequestBody Doctor doctor) {
-//        return doctorManager.addDoctor(doctor);
-//    }
-//
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取医生", description = "根据医生ID获取医生信息")
     @Parameter(name = "id", description = "医生ID", required = true)
-    public Result<DoctorVo
-            > getDoctorById(@PathVariable String id) {
-        return doctorManager.getDoctorById(Long.parseLong(id));
+    public Result<DoctorVo> getDoctorById(@PathVariable Long id) {
+        return doctorManager.getDoctorById(id);
     }
 
     @GetMapping("/registration/baseInfo")
-    @Operation(summary = "根据科室ID获取科室下医生挂号的基本信息", description = "根据科室ID获取科室下医生挂号的基本信息")
+    @Operation(summary = "根据科室ID获取科室下医生挂号的基本信息", description = "根据科室ID获取科室下医生挂号的基本信息；score 为 null 表示暂无评分")
     @Parameter(name = "departmentId", description = "科室ID", required = true)
-    public Result<List<RegistrationDoctorBaseInfo>> getRegistrationDoctorBaseInfoByDepartmentId(@RequestParam("departmentId") String departmentId){
-        return doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(Long.parseLong(departmentId));
+    public Result<List<RegistrationDoctorBaseInfo>> getRegistrationDoctorBaseInfoByDepartmentId(@RequestParam("departmentId") Long departmentId){
+        return doctorManager.getRegistrationDoctorBaseInfoByDepartmentId(departmentId);
     }
 
 
@@ -70,7 +66,7 @@ public class UserDoctorControllerV1 {
     @GetMapping("/registration/confirm")
     @Operation(summary = "获取挂号确认信息", description = "根据医生ID获取挂号确认信息")
     @Parameter(name = "doctorId", description = "医生ID", required = true)
-    public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(@RequestParam("doctorId") String doctorId){
-        return doctorManager.getRegistrationDoctorConfirmInfo(Long.parseLong(doctorId));
+    public Result<RegistrationDoctorConfirmVo> getRegistrationDoctorConfirmInfo(@RequestParam("doctorId") Long doctorId){
+        return doctorManager.getRegistrationDoctorConfirmInfo(doctorId);
     }
 }

@@ -1,12 +1,11 @@
 package com.yirancrazy.smartmedical.constant.type;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.Getter;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 挂号类型
  * @Datetime: 2026-03-18 19:16
  * @Version: 1.0
  */

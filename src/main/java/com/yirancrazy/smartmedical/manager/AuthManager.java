@@ -1,27 +1,41 @@
 package com.yirancrazy.smartmedical.manager;
 
-import cn.hutool.crypto.digest.DigestUtil;
+import cn.hutool.core.exceptions.ValidateException;
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.json.JSONUtil;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.crypto.CryptoException;
+import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
+import cn.hutool.jwt.JWTValidator;
+import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
-import com.yirancrazy.smartmedical.constant.RoleConstant;
-import com.yirancrazy.smartmedical.pojo.*;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
+import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.Patient;
+import com.yirancrazy.smartmedical.pojo.PatientCard;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
+import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
+import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.NicknameGenerator;
+import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
-import jakarta.annotation.PostConstruct;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.bcrypt.BCrypt;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -29,11 +43,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户鉴权业务编排：登录 / 注册 / 验证码 / 令牌签发与刷新
  * @Datetime: 2026-02-02 13:15
  * @Version: 1.0
  */
@@ -43,130 +56,269 @@ import static com.yirancrazy.smartmedical.constant.RoleConstant.ROLE_LIST;
 @Slf4j
 public class AuthManager {
 
-    @Value("${jwt.accessSecretKey}")
+    @Value("${jwt.accessSecretKey}")                       // 访问 jwt 加密密钥
     private String accessSecretKey;
-    @Value("${jwt.refreshSecretKey}")
+    @Value("${jwt.refreshSecretKey}")                      // 刷新 jwt 加密密钥
     private String refreshSecretKey;
-    @Value("${jwt.admin.adminAccessTokenPrefix}")
-    private String adminAccessTokenPrefix;
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
-    private String adminRefreshTokenPrefix;
+    private String adminRefreshTokenPrefix;                // 管理员 jwt 刷新加密密钥
     @Value("${cookie.secure:false}")
-    private boolean cookieSecure;
+    private boolean cookieSecure;                          // 决定 cookie 是否只允许通过 https 传输
+    @Value("${auth.login-rate.enabled:true}")
+    private boolean loginRateEnabled = true;               // 开发 / 测试环境可关闭登录限流
     private final AccountService accountService;
     private final UserService userService;
     private final RedisUtil redisUtil;
+    private final JwtTokenRevoker jwtTokenRevoker;
     private final PatientCardService patientCardService;
     private final PatientService patientService;
-    private final Long USER_ROLE = 4L;
+    private final SmsService smsService;
+    /** S22: 登录限流窗口 5 分钟 */
+    private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
+    /** S22: 登录限流阈值 5 次/窗口 */
+    private static final long LOGIN_RATE_MAX = 5L;
+    /** access token 有效期 7 天，不再写入 Redis */
+    private static final long ACCESS_TOKEN_TTL_SECONDS = 7L * 24 * 60 * 60;
 
+    /**
+     * S22: 登录限流 — 同手机号 5 分钟内最多 5 次，超限抛 BizException
+     * @param phone 手机号
+     */
+    private void checkLoginRate(String phone) {
+        if (!loginRateEnabled) {
+            return;
+        }
+        String key = "login:rate:user:" + phone;
+        Long count = redisUtil.incrAndExpireOnFirst(key, 1L, LOGIN_RATE_WINDOW_MINUTES, TimeUnit.MINUTES);
+        if (count != null && count > LOGIN_RATE_MAX) {
+            log.warn("[login-rate] phone={} count={} 限流", phone, count);
+            throw new BizException(BizErrorCode.LOGIN_RATE_LIMITED);
+        }
+    }
+
+    /**
+     * 用户登录
+     * @param phone 用户手机号
+     * @param password 用户密码
+     * @param response HttpServletResponse 响应对象
+     * @return 登录结果
+     */
     public Result<LoginVo> login(String phone, String password, HttpServletResponse response) {
-        try{
-
-            List<Account> accountByPhone = accountService.getAccountByPhone(phone);
+        // S21: 不再 catch Exception 吞掉系统异常，DB/Redis 等异常往上抛由 GlobalExceptionHandler 处理
+        // S22: 登录限流
+        checkLoginRate(phone);
+        List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
             // 过滤出用户账户
             Account account = accountByPhone
                     .stream()
-                    .filter(account1 -> USER_ROLE
+                    .filter(account1 -> RoleEnum.PATIENT.getCodeAsLong()
                             .equals(account1.getRoleId()))
                     .findFirst()
                     .orElse(null);
 
             if(account==null){
+                log.warn("[login] 账号不存在, phone={}", phone);
                 return Result.info(10001,"账号不存在", null);
             }
-            if(!checkPassword(password, account.getPassword())){
+
+            // 校验原始密码和加密后的密码
+            if(!PasswordUtil.verify(password, account.getPassword())){
+                log.warn("[login] 密码错误, phone={}", phone);
                 return Result.info(10002,"用户名或密码错误", null);
             }
+
+            // 历史弱密码（MD5/明文）登录后自动升级为 BCrypt，逐步消除弱密码存储
+            if (PasswordUtil.needsBcryptUpgrade(account.getPassword())) {
+                account.setPassword(PasswordUtil.encode(password));
+                accountService.updateAccountById(account);
+                log.info("[login] 密码已升级为 BCrypt, accountId={}", account.getId());
+            }
+
+            // 获取用户信息
             User user = userService.getUserById(account.getUserId());
 
-            Map<String, Object> accessHeader = new HashMap<>();
-            accessHeader.put("alg", "HS256");
-            accessHeader.put("typ", "JWT");
-            Map<String, Object> accessPayload = new HashMap<>();
-            accessPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
-            accessPayload.put(JWTPayload.SUBJECT, account.getId().toString());
-            accessPayload.put("role_id", account.getRoleId());
-            Long currentTimeMillis = System.currentTimeMillis();
-            accessPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000 * 60 * 60 * 24 *7);
-            accessPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-            accessPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
-            accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
-            String accessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
+            return Result.success(issueTokens(account, user, response));
+    }
 
-            redisUtil.setEx(adminAccessTokenPrefix + account.getId().toString(), accessJwt, 7, TimeUnit.DAYS);
-
-            Map<String, Object> refreshHeader = new HashMap<>();
-            refreshHeader.put("alg", "HS256");
-            refreshHeader.put("typ", "JWT");
-            Map<String, Object> refreshPayload = new HashMap<>();
-            refreshPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
-            refreshPayload.put(JWTPayload.SUBJECT, account.getId().toString());
-            refreshPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000 * 60 * 60 * 24 * 7);
-            refreshPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-            refreshPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
-            refreshPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
-            String refreshJwt = JWTUtil.createToken(refreshHeader, refreshPayload, refreshSecretKey.getBytes());
-
-            redisUtil.setEx("refresh_token_"+account.getId().toString(),refreshJwt,7, TimeUnit.DAYS);
-
-            LoginVo loginVo = new LoginVo(String.valueOf(account.getId()), accessJwt, String.valueOf(user.getId()), account.getPhone(), user.getNickname());
-
-            response.setHeader("Authorization", "Bearer " + accessJwt);
-
-            Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-            cookie.setMaxAge(7 * 24 * 60 * 60);
-            cookie.setPath("/api");
-            cookie.setHttpOnly(true);
-            cookie.setSecure(cookieSecure);
-            response.addCookie(cookie);
-            logInitialize(user);
-
-            return Result.success(loginVo);
-        } catch (Exception e){
-            log.error("登录异常", e);
-            return Result.fail("登录失败");
+    /**
+     * 发送短信验证码（未登录，60s 冷却防短信轰炸）
+     * @param phone 用户手机号
+     * @param scene 场景：login（验证码登录，账号必须已存在）/ register（注册，默认，账号不能已存在）
+     * @return 发送结果
+     */
+    public Result<String> sendSmsCode(String phone, String scene) {
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
         }
+        boolean isLogin = "login".equalsIgnoreCase(scene);
+        boolean isForgot = "forgot".equalsIgnoreCase(scene); // 忘记密码：账号必须已存在
+        List<Account> existing = accountService.getAccountByPhone(phone);
+        boolean exists = existing != null && !existing.isEmpty();
+        if (isLogin || isForgot) {
+            // 验证码登录：账号必须已存在，未注册提示去注册
+            if (!exists) {
+                return Result.info(10001, "账号不存在", null);
+            }
+        } else {
+            // 注册：账号不能已存在
+            if (exists) {
+                return Result.info(10001, "账号已存在", null);
+            }
+        }
+        // 冷却/发送失败由 SmsService 抛 BizException，GlobalExceptionHandler 统一转 Result
+        return Result.success(smsService.sendCode(phone));
     }
 
-    private void logInitialize(User user) {
-        redisUtil.setEx("uid_"+String.valueOf(user.getId()),user.getId().toString(),30, TimeUnit.DAYS);
-
+    /**
+     * 用户验证码登录（手机号 + 短信验证码，登录成功签发 token）
+     * @param phone 用户手机号
+     * @param code 短信验证码
+     * @param response HttpServletResponse 响应对象（用于签发 token）
+     * @return 登录结果
+     */
+    public Result<LoginVo> loginByCode(String phone, String code, HttpServletResponse response) {
+        checkLoginRate(phone);
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        // 校验验证码（过期/错误抛 BizException，GlobalExceptionHandler 统一转 Result）
+        smsService.verifyCode(phone, code);
+        Account account = accountService.getAccountByPhone(phone)
+                .stream()
+                .filter(a -> RoleEnum.PATIENT.getCodeAsLong().equals(a.getRoleId()))
+                .findFirst()
+                .orElse(null);
+        if (account == null) {
+            log.warn("[login-by-code] 账号不存在, phone={}", phone);
+            return Result.info(10001, "账号不存在", null);
+        }
+        User user = userService.getUserById(account.getUserId());
+        return Result.success(issueTokens(account, user, response));
     }
 
-    @Transactional
-    public Result<String> register(String phone, String password) {
+    /**
+     * 用户注册（手机号 + 短信验证码，注册成功自动登录）
+     * @param phone 用户手机号
+     * @param code 短信验证码
+     * @param response HttpServletResponse 响应对象（用于签发 token）
+     * @return 注册结果（自动登录返回 LoginVo）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Result<LoginVo> register(String phone, String code, HttpServletResponse response) {
+        // 手机号格式校验
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        // 校验验证码（过期/错误抛 BizException）
+        smsService.verifyCode(phone, code);
 
-        if (accountService.getAccountByPhone(phone) != null && !accountService.getAccountByPhone(phone).isEmpty()) {
+        // 缓存查询结果避免重复调用
+        List<Account> existing = accountService.getAccountByPhone(phone);
+        if (existing != null && !existing.isEmpty()) {
             return Result.info(10001,"账号已存在", null);
         }
 
+        // 生成用户
         User user = new User();
         user.setId(IdUtil.getSnowflakeNextId());
-        user.setUsername(NicknameGenerator.generateRandomNickname());
-        user.setAvatar("");
+        user.setNickname(NicknameGenerator.generateRandomNickname());  // 生成随机昵称（默认展示名）
+        user.setAvatar("");   // todo 后续添加随机头像
         userService.insertUser(user);
 
-
-
+        // 生成账号
         Account account = new Account();
         account.setId(IdUtil.getSnowflakeNextId());
         account.setUserId(user.getId());
-        account.setRoleId(USER_ROLE);
+        account.setRoleId(RoleEnum.PATIENT.getCodeAsLong());
         account.setPhone(phone);
-        account.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
-        accountService.insertAccount(account);
+        // 注册不设密码：写入不可猜的随机 BCrypt 占位，之后可通过「忘记密码」流程设置登录密码
+        account.setPassword(PasswordUtil.encode(RandomUtil.randomString(16)));
+        try {
+            accountService.insertAccount(account);
+        } catch (DuplicateKeyException e) {
+            // 并发同手机号注册时由唯一索引兜底，抛出业务异常触发事务回滚，避免残留孤儿 User
+            log.warn("[register] 手机号重复注册竞态 phone={}, roleId={}", phone, account.getRoleId());
+            throw new BizException(BizErrorCode.ACCOUNT_ALREADY_EXISTS);
+        }
 
         registerInit(user.getId());
 
-        return Result.success("注册成功");
+        return Result.success(issueTokens(account, user, response));
     }
 
-    public Result<String> logout(Long userId) {
-        redisUtil.delete(adminAccessTokenPrefix + userId);
-        redisUtil.delete(adminRefreshTokenPrefix + userId);
+    /**
+     * 用户登出：记录账号级吊销时间并使 refresh token 失效
+     * @param accountId 账号ID（JWT sub，与 login 时 Redis key 一致）
+     * @return 登出结果
+     */
+    public Result<String> logout(Long accountId) {
+        jwtTokenRevoker.revoke(accountId);
+        redisUtil.delete(adminRefreshTokenPrefix + accountId);
         return Result.success("登出成功");
+    }
+
+    /**
+     * 用户忘记密码重置（未登录，须短信验证码校验，防止任意账号被接管）
+     * @param phone 用户手机号
+     * @param code 短信验证码
+     * @param newPassword 新密码
+     * @return 重置结果
+     */
+    public Result<String> forgotPassword(String phone, String code, String newPassword) {
+        checkLoginRate(phone);
+        if (phone == null || !phone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            return Result.fail("密码长度至少 6 位");
+        }
+        // 校验短信验证码（过期/错误抛 BizException），杜绝无身份校验的改密接管
+        smsService.verifyCode(phone, code);
+        Account account = accountService.getAccountByPhone(phone)
+                .stream()
+                .filter(a -> RoleEnum.PATIENT.getCodeAsLong().equals(a.getRoleId()))
+                .findFirst()
+                .orElse(null);
+        if (account == null) {
+            return Result.info(10001, "账号不存在", null);
+        }
+        // 直接以 BCrypt 覆盖，消除历史弱密码
+        account.setPassword(PasswordUtil.encode(newPassword));
+        accountService.updateAccountById(account);
+        // 记录账号级吊销时间并清理 refresh token，强制旧会话失效、重新登录
+        jwtTokenRevoker.revoke(account.getId());
+        redisUtil.delete(adminRefreshTokenPrefix + account.getId());
+        log.info("[forgot-password] 密码已重置, accountId={}", account.getId());
+        return Result.success("重置成功");
+    }
+
+    /**
+     * 用户登录态修改密码，校验原密码后更新
+     * @param accountId 账号ID
+     * @param oldPassword 原密码
+     * @param newPassword 新密码
+     * @return 修改结果
+     */
+    public Result<String> changePassword(Long accountId, String oldPassword, String newPassword) {
+        Account account = accountService.getAccountById(accountId);
+        if (account == null) {
+            return Result.info(10001, "账号不存在", null);
+        }
+        if (!PasswordUtil.verify(oldPassword, account.getPassword())) {
+            log.warn("[change-password] 原密码错误, accountId={}", accountId);
+            return Result.info(10002, "原密码不正确", null);
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            return Result.fail("新密码长度至少 6 位");
+        }
+        account.setPassword(PasswordUtil.encode(newPassword));
+        accountService.updateAccountById(account);
+        // 强制重新登录：记录账号级吊销时间并清理 refresh token
+        jwtTokenRevoker.revoke(accountId);
+        redisUtil.delete(adminRefreshTokenPrefix + accountId);
+        log.info("[change-password] 密码已修改, accountId={}", accountId);
+        return Result.success("密码修改成功");
     }
 
     /**
@@ -180,55 +332,194 @@ public class AuthManager {
             return Result.fail("Refresh token 缺失");
         }
         try {
-            if (!JWTUtil.verify(refreshToken, refreshSecretKey.getBytes())) {
+            JWT jwt = JWTUtil.parseToken(refreshToken);
+            if (!verifyHs256(jwt, refreshSecretKey)) {
                 return Result.fail("Refresh token 无效");
             }
-            JWTPayload payload = JWTUtil.parseToken(refreshToken).getPayload();
+            JWTPayload payload = jwt.getPayload();
             String accountId = String.valueOf(payload.getClaim("sub"));
-            Long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
-            if (exp == null || exp < System.currentTimeMillis()) {
+
+            Long exp;
+            try {
+                Object expObj = payload.getClaim("exp");
+                if (expObj == null) {
+                    return Result.fail("Refresh token 无效");
+                }
+                exp = Long.parseLong(String.valueOf(expObj));
+            } catch (NumberFormatException e) {
+                return Result.fail("Refresh token 无效");
+            }
+            if (exp < System.currentTimeMillis() / 1000) {
                 return Result.fail("Refresh token 已过期");
             }
+
+            // 从refresh token直接解析role，不依赖旧access token
+            Long roleId;
+            try {
+                Object roleObj = payload.getClaim("role");
+                roleId = roleObj != null ? Long.parseLong(String.valueOf(roleObj))
+                        : RoleEnum.PATIENT.getCodeAsLong();
+            } catch (NumberFormatException e) {
+                roleId = RoleEnum.PATIENT.getCodeAsLong();
+            }
+
+            // 角色变更后 refresh 必须以 DB 当前角色为准，防止降权后 30 天内仍持旧权限
+            try {
+                Account account = accountService.getAccountById(Long.parseLong(accountId));
+                if (account == null) {
+                    return Result.fail("账号不存在");
+                }
+                if (Boolean.FALSE.equals(account.getEnabled())) {
+                    // 禁用账号不可刷新令牌，旧会话立即失效
+                    redisUtil.delete(adminRefreshTokenPrefix + accountId);
+                    jwtTokenRevoker.revoke(Long.parseLong(accountId));
+                    return Result.fail("账号已被禁用，请重新登录");
+                }
+                if (account.getRoleId() == null || !account.getRoleId().equals(roleId)) {
+                    // 角色已变更，旧 refresh token 不再可信，清除并要求重新登录
+                    redisUtil.delete(adminRefreshTokenPrefix + accountId);
+                    jwtTokenRevoker.revoke(Long.parseLong(accountId));
+                    return Result.fail("账号角色已变更，请重新登录");
+                }
+            } catch (NumberFormatException e) {
+                return Result.fail("Refresh token 无效");
+            }
+
+            // 从refresh token解析userId，用于生成新access token
+            Long userId;
+            try {
+                Object userIdObj = payload.getClaim("userId");
+                userId = userIdObj != null ? Long.parseLong(String.valueOf(userIdObj)) : Long.parseLong(accountId);
+            } catch (NumberFormatException e) {
+                userId = Long.parseLong(accountId);
+            }
+
             // Redis 比对：统一用 adminRefreshTokenPrefix + accountId（所有角色共用）
             String redisRefresh = redisUtil.get(adminRefreshTokenPrefix + accountId);
             if (redisRefresh == null || !redisRefresh.equals(refreshToken)) {
                 return Result.fail("Refresh token 已失效");
             }
+            // 签发新 access JWT（7 天有效期，不写入 Redis）
+            String newAccessJwt = generateAccessJwt(accountId, userId, roleId);
 
-            // 签发新 access JWT（从旧 access JWT 取 role_id）
-            Map<String, Object> accessHeader = new HashMap<>();
-            accessHeader.put("alg", "HS256");
-            accessHeader.put("typ", "JWT");
-            Map<String, Object> accessPayload = new HashMap<>();
-            Long currentTimeMillis = System.currentTimeMillis();
-            accessPayload.put(JWTPayload.ISSUER, "YiRanCrazy");
-            accessPayload.put(JWTPayload.SUBJECT, accountId);
-            // 从 Redis 旧 access JWT 解析 role_id
-            Long roleId = 4L; // 默认 user
-            String oldAccessJwt = redisUtil.get(adminAccessTokenPrefix + accountId);
-            if (oldAccessJwt != null) {
-                try {
-                    JWTPayload oldPayload = JWTUtil.parseToken(oldAccessJwt).getPayload();
-                    Object rid = oldPayload.getClaim("role_id");
-                    if (rid != null) roleId = Long.parseLong(String.valueOf(rid));
-                } catch (Exception ignored) {}
-            }
-            accessPayload.put("role_id", roleId);
-            accessPayload.put(JWTPayload.EXPIRES_AT, currentTimeMillis + 1000L * 60 * 60 * 24 * 7);
-            accessPayload.put(JWTPayload.NOT_BEFORE, currentTimeMillis);
-            accessPayload.put(JWTPayload.ISSUED_AT, currentTimeMillis);
-            accessPayload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
-            String newAccessJwt = JWTUtil.createToken(accessHeader, accessPayload, accessSecretKey.getBytes());
-
-            // 覆盖旧 access（旧 token 立即失效）
-            redisUtil.setEx(adminAccessTokenPrefix + accountId, newAccessJwt, 7, TimeUnit.DAYS);
-
+            // 清理历史吊销记录，避免新 token 因 iatMs <= 吊销时间戳被 filter 拒绝
+            jwtTokenRevoker.clear(Long.parseLong(accountId));
             response.setHeader("Authorization", "Bearer " + newAccessJwt);
             return Result.success(newAccessJwt);
-        } catch (Exception e) {
+        } catch (CryptoException | DataAccessException | IllegalArgumentException e) {
             log.error("[refresh] 刷新token异常", e);
             return Result.fail("刷新token失败");
         }
+    }
+
+    /**
+     * 固定使用 HS256 校验 refresh token 算法与签名，禁止由 token header 决定验签算法
+     * @param jwt 已解析 JWT
+     * @param secret 签名密钥
+     * @return 算法与签名是否均通过
+     */
+    private boolean verifyHs256(JWT jwt, String secret) {
+        try {
+            JWTValidator.of(jwt).validateAlgorithm(JWTSignerUtil.hs256(secret.getBytes()));
+            return true;
+        } catch (ValidateException e) {
+            log.warn("[refresh] Refresh token 算法或签名校验失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 签发访问/刷新 token 并写入响应头与 Cookie，返回登录信息（登录、注册自动登录共用）
+     * @param account 账号
+     * @param user 用户
+     * @param response 响应对象
+     * @return 登录信息
+     */
+    private LoginVo issueTokens(Account account, User user, HttpServletResponse response) {
+        Long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        String accessJwt = generateAccessJwt(account.getId().toString(), account.getUserId(), account.getRoleId());
+
+        String refreshJwt = generateRefreshJwt(account.getId().toString(), account.getUserId(), account.getRoleId(), currentTimeSeconds);
+        // 登录成功即解除账号级吊销，保证登出 / 改密后重新登录能立即使用新 token
+        jwtTokenRevoker.clear(account.getId());
+        // 存储JWT刷新令牌（admin前缀用于所有角色，统一管理）
+        redisUtil.setEx(adminRefreshTokenPrefix + account.getId(), refreshJwt, 30, TimeUnit.DAYS);
+
+        // 展示名：本人就诊卡姓名 > 账号默认昵称 > "-"，与「我的」页头像右侧保持一致
+        UserBaseInfo baseInfo = userService.getUserBaseInfoByUserId(user.getId());
+        String displayName = (baseInfo != null && baseInfo.getDisplayName() != null)
+                ? baseInfo.getDisplayName()
+                : user.getNickname();
+
+        LoginVo loginVo = new LoginVo(
+                String.valueOf(account.getId()),
+                accessJwt,
+                String.valueOf(user.getId()),
+                account.getPhone(),
+                displayName,
+                isProfileCompleted(user));
+
+        // 统一通过响应头返回access token，前端从Authorization头提取
+        response.setHeader("Authorization", "Bearer " + accessJwt);
+
+        // 设置 Refresh-token Cookie，带回jwt 刷新token
+        Cookie cookie = new Cookie("Refresh-token", refreshJwt);
+        cookie.setMaxAge(30 * 24 * 60 * 60);
+        cookie.setPath("/api");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(cookieSecure);
+        // SameSite=None 必须配合 Secure=true（HTTPS），开发环境（HTTP）不设置让浏览器用默认 Lax
+        if (cookieSecure) {
+            cookie.setAttribute("SameSite", "None");
+        }
+        response.addCookie(cookie);
+        return loginVo;
+    }
+
+    /**
+     * 生成访问 JWT（7 天有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
+     */
+    private String generateAccessJwt(String accountId, Long userId, Long roleId) {
+        long nowMillis = System.currentTimeMillis();
+        long currentTimeSeconds = nowMillis / 1000;
+
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
+        payload.put("role", roleId);
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + ACCESS_TOKEN_TTL_SECONDS);
+        payload.put("iatMs", nowMillis);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, accessSecretKey.getBytes());
+    }
+
+    /**
+     * 生成刷新JWT（30天有效期，包含role信息），exp 使用秒级 Unix 时间戳符合 JWT 标准
+     */
+    private String generateRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
+        payload.put("role", roleId); // refresh token包含role，刷新时直接解析
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30L * 24 * 60 * 60);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());
     }
 
     private void registerInit(Long userId){
@@ -250,18 +541,13 @@ public class AuthManager {
     }
 
     /**
-     * 密码校验：BCrypt > MD5 > 明文（兼容种子数据）
+     * 判断用户个人信息是否已完善
      */
-    private boolean checkPassword(String rawPassword, String encodedPassword) {
-        if (encodedPassword == null || encodedPassword.isBlank()) {
-            return false;
-        }
-        if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
-            return BCrypt.checkpw(rawPassword, encodedPassword);
-        }
-        if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
-            return true;
-        }
-        return rawPassword.equals(encodedPassword);
+    private boolean isProfileCompleted(User user) {
+        return user != null
+                && user.getUsername() != null && !user.getUsername().isBlank()
+                && user.getIdCard() != null && !user.getIdCard().isBlank()
+                && user.getSex() != null;
     }
+
 }

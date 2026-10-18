@@ -62,4 +62,46 @@ public interface DrugInventoryService {
      * @return 库存记录(已加排他锁，需在事务内调用)
      */
     DrugInventory selectForUpdate(Long drugId);
+
+    /**
+     * 统计库存预警数量（available_quantity < min_stock）
+     * @return 预警库存条数
+     */
+    Long countLowStock();
+
+    /**
+     * 库存预警列表（stock_quantity < min_stock，按缺口升序）
+     * @return 预警库存列表
+     */
+    List<DrugInventory> listLowStock();
+
+    /**
+     * 按药品ID集合批量查询库存
+     * @param drugIds 药品ID集合
+     * @return 库存列表
+     */
+    List<DrugInventory> listByDrugIds(List<Long> drugIds);
+
+    /**
+     * 按药品ID集合批量查询库存（FOR UPDATE 行锁，需在事务内调用，防并发释放）
+     * @param drugIds 药品ID集合
+     * @return 库存列表
+     */
+    List<DrugInventory> listByDrugIdsForUpdate(List<Long> drugIds);
+
+    /**
+     * 原子锁定库存：WHERE available_quantity >= qty 时 locked+q、available-q（防并发超锁）
+     * @param inventoryId 库存ID
+     * @param quantity 锁定数量
+     * @return 影响行数（0 表示库存不足，锁定失败）
+     */
+    int lockInventory(Long inventoryId, int quantity);
+
+    /**
+     * 原子释放库存：locked-q、available+q
+     * @param inventoryId 库存ID
+     * @param quantity 释放数量
+     * @return 影响行数
+     */
+    int releaseInventory(Long inventoryId, int quantity);
 }

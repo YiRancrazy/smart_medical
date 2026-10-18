@@ -55,4 +55,18 @@ public interface DrugService {
      * @return 分页结果
      */
     PageInfo<Drug> listDrugsByPage(Integer pageNum, Integer pageSize);
+
+    /**
+     * 根据药品通用名或商品名模糊搜索
+     * @param keyword 关键词
+     * @return 药品列表
+     */
+    List<Drug> listDrugsByKeyword(String keyword);
+
+    /**
+     * 根据ID列表批量查询药品
+     * @param ids 药品ID列表
+     * @return 药品列表
+     */
+    List<Drug> listDrugsByIds(List<Long> ids);
 }

@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.constant.status;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.Getter;
 
 /**

@@ -2,17 +2,24 @@ package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.RegistrationCheckInManager;
 import com.yirancrazy.smartmedical.manager.RegistrationManager;
-import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.InsertRegistrationRequest;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -30,17 +37,12 @@ public class UserRegistrationControllerV1 {
     private final RegistrationManager registrationManager;
     private final RegistrationCheckInManager registrationCheckInManager;
 
-    @PostMapping("/add")
-    @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
-    public Result<Integer> addRegistration(@RequestBody Registration registration) {
-        return registrationManager.addRegistration(registration);
-    }
-
     @GetMapping("/{id:\\d+}")
-    @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息")
+    @Operation(summary = "根据ID获取挂号记录", description = "根据挂号记录ID获取挂号信息（U14: 返回包含医生/科室/排班的展示VO）")
     @Parameter(name = "id", description = "挂号记录ID", required = true)
-    public Result<Registration> getRegistrationById(@PathVariable String id) {
-        return registrationManager.getRegistrationById(Long.parseLong(id));
+    public Result<AppointmentResponseSimple> getRegistrationById(@PathVariable Long id,
+                                                                 @RequestAttribute("currentUserId") Long userId) {
+        return registrationManager.getRegistrationById(id, userId);
     }
 
     /**
@@ -48,25 +50,39 @@ public class UserRegistrationControllerV1 {
      * @param request 挂号信息
      * @return 订单编号
      */
-    @PostMapping("/")
+    // U03: @PostMapping("/") 在 PathPatternParser 下映射为 /registration/，前端 POST /registration 可能 404，改为无参匹配类级路径
+    @PostMapping
     @Operation(summary = "添加挂号记录", description = "添加新挂号记录")
-    public Result<String> insertRegistration(@RequestBody InsertRegistrationRequest request,
+    public Result<String> insertRegistration(@Valid @RequestBody InsertRegistrationRequest request,
                                              @RequestAttribute("currentUserId") Long userId) {
-        return registrationManager.addRegistration(Long.valueOf(request.getPaymentMethodId()),
-                Long.valueOf(request.getRegistrationScheduleId()),
+        // 参数校验
+        if (request.getRegistrationScheduleId() == null) {
+            return Result.fail("排班ID不能为空");
+        }
+        if (request.getPatientCardId() == null) {
+            return Result.fail("就诊卡ID不能为空");
+        }
+        return registrationManager.addRegistration(
+                request.getRegistrationScheduleId(),
                 userId,
-                Long.valueOf(request.getPatientCardId()));
+                request.getPatientCardId());
     }
 
     /**
      * 根据用户ID获取挂号记录
-     * @param patientId 用户ID
+     * @param userId 当前登录用户ID
+     * @param patientCardId 就诊卡ID（可选，传入则只返回该就诊人挂号记录）
      * @return 挂号记录
      */
     @GetMapping("/simple/list")
-    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录")
-    public Result<List<AppointmentResponseSimple>> getRegistrationByUid(@RequestAttribute("currentUserId") Long userId) {
-        return registrationManager.getRegistrationByUid(userId);
+    @Operation(summary = "获取当前用户挂号记录", description = "获取当前用户挂号记录；可指定就诊卡过滤；U27支持可选分页(pageNum/pageSize)")
+    @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
+    public Result<PageResult<AppointmentResponseSimple>> getRegistrationByUid(
+            @RequestAttribute("currentUserId") Long userId,
+            @RequestParam(required = false) Long patientCardId,
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer pageSize) {
+        return registrationManager.getRegistrationByUid(userId, patientCardId, pageNum, pageSize);
     }
 
     /**

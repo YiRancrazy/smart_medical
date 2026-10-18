@@ -1,0 +1,43 @@
+package com.yirancrazy.smartmedical.pojo.dto.admin.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+/**
+ * 管理端 - 处方列表项
+ * @Author: YiRanCrazy@gmail.com
+ * @Description: 处方历史记录分页列表项
+ * @Datetime: 2026-07-25 20:10
+ * @Version: 1.0
+ */
+
+@Data
+@Schema(description = "处方列表项")
+public class PrescriptionPageItemVO {
+
+    @Schema(description = "处方ID")
+    private Long id;
+
+    @Schema(description = "病历ID")
+    private Long medicalRecordId;
+
+    @Schema(description = "患者姓名")
+    private String patientName;
+
+    @Schema(description = "医生姓名")
+    private String doctorName;
+
+    @Schema(description = "处方金额(分)")
+    private Integer totalAmount;
+
+    @Schema(description = "处方状态(0待支付 1已支付 2已发药 3已取消)")
+    private Integer status;
+
+    @Schema(description = "药品项数量")
+    private Integer itemCount;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createTime;
+}

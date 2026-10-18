@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.pojo.dto.doctor.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.List;
 @Schema(description = "提交病历 + 开处方请求")
 public class SubmitPrescriptionRequest {
 
+    @NotNull(message = "挂号记录ID不能为空")
     @Schema(description = "挂号记录ID")
     private Long registrationId;
 
@@ -32,6 +35,7 @@ public class SubmitPrescriptionRequest {
     @Schema(description = "查体")
     private String physicalExam;
 
+    @NotBlank(message = "诊断不能为空")
     @Schema(description = "诊断")
     private String diagnosis;
 

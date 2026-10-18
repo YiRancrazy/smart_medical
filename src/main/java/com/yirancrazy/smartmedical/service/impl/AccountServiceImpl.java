@@ -2,13 +2,10 @@ package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.AccountMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
-import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -117,7 +114,11 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public Account getAccountByUserId(Long userId) {
-        return accountMapper.selectOne(new QueryWrapper<Account>().eq("user_id", userId));
+        List<Account> accounts = accountMapper.selectList(
+                new QueryWrapper<Account>()
+                        .eq("user_id", userId)
+                        .last("LIMIT 1"));
+        return accounts.isEmpty() ? null : accounts.get(0);
     }
 
     /**
@@ -127,6 +128,10 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public List<Account> listAccountsByUserIds(List<Long> userIdList) {
+        // MyBatis-Plus in() 收到空集合会生成 "IN ()" 非法 SQL，此处统一兜底
+        if (userIdList == null || userIdList.isEmpty()) {
+            return List.of();
+        }
         return accountMapper.selectList(new QueryWrapper<Account>().in("user_id", userIdList));
     }
 
@@ -136,7 +141,8 @@ public class AccountServiceImpl implements AccountService {
     }
 
     /**
-     * 根据用户名、角色ID、是否启用分页查询账户
+     * 根据用户ID过滤、角色ID、是否启用分页查询账户
+     * @param userIds  用户ID列表；null=不按用户过滤，空集合=无匹配
      * @param roleId   角色ID（精确匹配，可为空）
      * @param enabled  是否启用（精确匹配，可为空）
      * @param pageNum  页码
@@ -144,11 +150,15 @@ public class AccountServiceImpl implements AccountService {
      * @return 分页账户列表
      */
     @Override
-    public PageInfo<Account> listAllAccountsByRoleIdAndEnabledAndPage(String username, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+    public PageInfo<Account> listAllAccountsByUserIdFilterAndRoleIdAndEnabledAndPage(
+            List<Long> userIds, Long roleId, Boolean enabled, Integer pageNum, Integer pageSize) {
+        if (userIds != null && userIds.isEmpty()) {
+            PageHelper.clearPage();
+            return new PageInfo<>(List.of());
+        }
         LambdaQueryWrapper<Account> wrapper = new LambdaQueryWrapper<>();
-        if (username != null && !username.isEmpty()) {
-            wrapper.like(Account::getPhone, username);
+        if (userIds != null) {
+            wrapper.in(Account::getUserId, userIds);
         }
         if (roleId != null) {
             wrapper.eq(Account::getRoleId, roleId);
@@ -156,6 +166,7 @@ public class AccountServiceImpl implements AccountService {
         if (enabled != null) {
             wrapper.eq(Account::getEnabled, enabled);
         }
+        PageHelper.startPage(pageNum, pageSize);
         return new PageInfo<>(accountMapper.selectList(wrapper));
     }
 
@@ -176,6 +187,27 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public List<Account> listAdminByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
         return accountMapper.selectList(new LambdaQueryWrapper<Account>().in(Account::getUserId,userIds));
+    }
+
+    /**
+     * 按手机号模糊 + 角色ID查询账户
+     * @param phone 手机号（模糊，可为空）
+     * @param roleId 角色ID（精确，可为空）
+     * @return 账户列表
+     */
+    @Override
+    public List<Account> listAccountsByPhoneLikeAndRole(String phone, Long roleId) {
+        LambdaQueryWrapper<Account> wrapper = new LambdaQueryWrapper<>();
+        if (phone != null && !phone.isBlank()) {
+            wrapper.like(Account::getPhone, phone);
+        }
+        if (roleId != null) {
+            wrapper.eq(Account::getRoleId, roleId);
+        }
+        return accountMapper.selectList(wrapper);
     }
 }

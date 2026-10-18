@@ -1,7 +1,6 @@
 package com.yirancrazy.smartmedical.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.DoctorPosition;
 import org.apache.ibatis.annotations.Mapper;
 

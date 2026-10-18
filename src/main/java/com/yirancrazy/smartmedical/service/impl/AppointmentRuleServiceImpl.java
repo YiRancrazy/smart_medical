@@ -6,7 +6,7 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.AppointmentRuleMapper;
 import com.yirancrazy.smartmedical.pojo.AppointmentRule;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,10 +19,10 @@ import java.util.List;
  */
 
 @Service
+@RequiredArgsConstructor
 public class AppointmentRuleServiceImpl implements AppointmentRuleService {
 
-    @Autowired
-    private AppointmentRuleMapper appointmentRuleMapper;
+    private final AppointmentRuleMapper appointmentRuleMapper;
 
     /**
      * 插入预约规则
@@ -65,6 +65,18 @@ public class AppointmentRuleServiceImpl implements AppointmentRuleService {
     public List<AppointmentRule> listAppointmentsRulesByDoctorId(Long doctorId) {
         return appointmentRuleMapper.selectList(new LambdaQueryWrapper<AppointmentRule>()
                 .eq(AppointmentRule::getDoctorId, doctorId)
+                .orderBy(true,true,AppointmentRule::getPriority));
+    }
+
+    /**
+     * 获取全院默认预约规则（department_id 与 doctor_id 均为 NULL）
+     * @return 预约规则列表
+     */
+    @Override
+    public List<AppointmentRule> listGlobalAppointmentRules() {
+        return appointmentRuleMapper.selectList(new LambdaQueryWrapper<AppointmentRule>()
+                .isNull(AppointmentRule::getDepartmentId)
+                .isNull(AppointmentRule::getDoctorId)
                 .orderBy(true,true,AppointmentRule::getPriority));
     }
 

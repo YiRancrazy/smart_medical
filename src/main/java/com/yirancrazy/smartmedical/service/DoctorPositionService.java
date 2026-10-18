@@ -43,6 +43,13 @@ public interface DoctorPositionService {
     DoctorPosition getPositionById(Long id);
 
     /**
+     * 根据ID列表批量查询医生职位
+     * @param ids 医生职位ID列表
+     * @return 医生职位列表
+     */
+    List<DoctorPosition> listPositionsByIds(List<Long> ids);
+
+    /**
      * 获取所有医生职位
      * @return 医生职位列表
      */

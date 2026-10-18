@@ -2,7 +2,6 @@ package com.yirancrazy.smartmedical.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yirancrazy.smartmedical.pojo.Doctor;
-import com.yirancrazy.smartmedical.pojo.Registration;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
@@ -22,7 +21,7 @@ public interface DoctorMapper extends BaseMapper<Doctor> {
     @Select("SELECT DISTINCT d.doctor_id " +
             "FROM doctor d " +
             "INNER JOIN registration_schedule rs ON d.id = rs.doctor_id " +
-            "WHERE d.department_id = 1000000000000000101 " +
+            "WHERE d.department_id = #{departmentId} " +
             "AND rs.schedule_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY);")
     List<Long> getDoctorIdListByDepartmentIdLastWeek(Long departmentId);
 

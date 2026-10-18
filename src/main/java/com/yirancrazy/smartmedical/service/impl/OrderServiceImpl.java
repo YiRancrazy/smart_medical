@@ -1,14 +1,18 @@
 package com.yirancrazy.smartmedical.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.OrderStatus;
 import com.yirancrazy.smartmedical.mapper.OrdersMapper;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -51,7 +55,7 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public Order getOrderByOrderSn(String orderSn) {
-        return ordersMapper.selectOne(new QueryWrapper<Order>().eq("order_sn", orderSn));
+        return ordersMapper.selectOne(new QueryWrapper<Order>().eq("sn", orderSn));
     }
 
     /**
@@ -103,7 +107,7 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public int deleteBatch(List<Long> ids) {
-        return ordersMapper.deleteBatchIds(ids);
+        return ordersMapper.deleteByIds(ids);
     }
 
     /**
@@ -114,6 +118,32 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<Order> getOrdersByUserId(Long userId) {
         return ordersMapper.selectList(new QueryWrapper<Order>().eq("user_id", userId));
+    }
+
+    /**
+     * 根据用户ID和订单类型ID获取订单列表
+     * @param userId 用户ID
+     * @param orderTypeId 订单类型ID
+     * @return 订单列表
+     */
+    @Override
+    public List<Order> getOrdersByUserIdAndOrderTypeId(Long userId, Long orderTypeId) {
+        return ordersMapper.selectList(new QueryWrapper<Order>()
+                .eq("user_id", userId)
+                .eq("order_type_id", orderTypeId));
+    }
+
+    /**
+     * 根据用户ID和订单类型ID列表获取订单列表
+     * @param userId 用户ID
+     * @param orderTypeIds 订单类型ID列表
+     * @return 订单列表
+     */
+    @Override
+    public List<Order> getOrdersByUserIdAndOrderTypeIds(Long userId, List<Long> orderTypeIds) {
+        return ordersMapper.selectList(new QueryWrapper<Order>()
+                .eq("user_id", userId)
+                .in("order_type_id", orderTypeIds));
     }
 
     /**
@@ -152,6 +182,45 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public List<Order> listOrdersByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return ordersMapper.selectList(new QueryWrapper<Order>().in("id", ids));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int markOrderPaid(Long orderId) {
+        return ordersMapper.update(null,
+                new UpdateWrapper<Order>()
+                        .eq("id", orderId)
+                        .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                        .set("status", OrderStatus.PAID.getCode()));
+    }
+
+    /**
+     * 根据当前时间获取过期的待处理订单
+     * @param deadline 截止时间（create_time 早于该时间即视为过期）
+     * @return 过期的待处理订单列表
+     */
+    @Override
+    public List<Order> listExpiredNotPayOrders(LocalDateTime deadline) {
+        return ordersMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                .lt(Order::getCreateTime, deadline));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int cancelOrderIfWaitingPayment(Long orderId) {
+        return ordersMapper.update(null,
+                new UpdateWrapper<Order>()
+                        .eq("id", orderId)
+                        .eq("status", OrderStatus.WAITING_FOR_PAYMENT.getCode())
+                        .set("status", OrderStatus.CANCELED.getCode()));
     }
 }

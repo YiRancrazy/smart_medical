@@ -73,4 +73,24 @@ public class DrugServiceImpl implements DrugService {
         List<Drug> drugs = drugMapper.selectList(new LambdaQueryWrapper<>());
         return new PageInfo<>(drugs);
     }
+
+    @Override
+    public List<Drug> listDrugsByKeyword(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return drugMapper.selectList(new LambdaQueryWrapper<Drug>().last("LIMIT 20"));
+        }
+        return drugMapper.selectList(new LambdaQueryWrapper<Drug>()
+                .like(Drug::getCommonName, keyword)
+                .or()
+                .like(Drug::getTradeName, keyword)
+                .last("LIMIT 20"));
+    }
+
+    @Override
+    public List<Drug> listDrugsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return drugMapper.selectByIds(ids);
+    }
 }

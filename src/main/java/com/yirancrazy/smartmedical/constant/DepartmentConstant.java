@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 所有部门（启动时自动获取）
  * @Datetime: 2026-03-06 10:28
  * @Version: 1.0
  */

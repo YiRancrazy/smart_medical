@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.pojo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -56,6 +58,7 @@ public class PaymentRecord {
     private LocalDateTime updateTime;
 
     @Schema(description = "逻辑删除: 0未删除 1已删除")
-    @TableField(value = "is_deleted")
+    @TableLogic
+    @TableField(value = "is_deleted", fill = FieldFill.INSERT)
     private Boolean deleted;
 }

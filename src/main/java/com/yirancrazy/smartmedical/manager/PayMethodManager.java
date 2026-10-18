@@ -6,17 +6,19 @@ import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.booking.confirm.PayMethodVo;
 import com.yirancrazy.smartmedical.service.PayMethodService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 支付方式业务编排：支付方式查询与父子层级组装
  * @Datetime: 2026-02-20 15:22
  * @Version: 1.0
  */
 
+@Slf4j
 @Manager
 @RequiredArgsConstructor
 public class PayMethodManager {
@@ -99,6 +101,9 @@ public class PayMethodManager {
      * @return 二级支付类型列表
      */
     public Result<List<PayMethodVo>> listAllChildPayMethods(String parentId) {
+        if (parentId == null || parentId.isBlank() || !parentId.matches("\\d+")) {
+            return Result.fail("parentId 参数不合法");
+        }
         List<PayMethodVo> bookingConfirmPayMethods = new ArrayList<>();
         List<PaymentMethod> paymentMethods = payMethodService.listChildPayMethodByParentId(Long.valueOf(parentId));
         if(paymentMethods == null){

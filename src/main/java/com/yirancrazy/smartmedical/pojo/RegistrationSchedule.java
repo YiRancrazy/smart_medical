@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.pojo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -29,6 +31,7 @@ public class RegistrationSchedule {
     private Long doctorId;
 
     @Schema(description = "生成模板id")
+    @TableField("registration_schedule_template_id")
     private Long registrationScheduleTemplateId;
 
     @Schema(description = "排班开始时间")
@@ -51,6 +54,7 @@ public class RegistrationSchedule {
     private LocalDateTime updateTime;
 
     @Schema(description = "是否删除")
-    @TableField(value = "is_deleted")
+    @TableLogic
+    @TableField(value = "is_deleted", fill = FieldFill.INSERT)
     private Boolean deleted;
 }

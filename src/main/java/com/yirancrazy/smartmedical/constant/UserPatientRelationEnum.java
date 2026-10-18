@@ -5,7 +5,7 @@ import lombok.Getter;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户患者关系类
  * @Datetime: 2026-03-01 16:30
  * @Version: 1.0
  */

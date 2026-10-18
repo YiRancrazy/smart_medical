@@ -1,6 +1,5 @@
 package com.yirancrazy.smartmedical.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.OrderItemMapper;
@@ -58,11 +57,14 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     @Override
     public int deleteBatch(List<Long> ids) {
-        return orderItemMapper.deleteBatchIds(ids);
+        return orderItemMapper.deleteByIds(ids);
     }
 
     @Override
     public List<OrderItem> listOrdersItemByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
         return orderItemMapper.selectByIds(ids);
     }
 }

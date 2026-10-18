@@ -3,7 +3,6 @@ package com.yirancrazy.smartmedical.pojo.vo.registration.confirm;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springdoc.webmvc.core.fn.SpringdocRouteBuilder;
 
 /**
  * @Author: YiRanCrazy@gmail.com

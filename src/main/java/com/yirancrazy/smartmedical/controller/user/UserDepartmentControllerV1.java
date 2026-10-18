@@ -1,17 +1,20 @@
 package com.yirancrazy.smartmedical.controller.user;
 
-import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.manager.DepartmentManager;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.request.admin.AdminDepartmentRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.pojo.vo.ChildDepartmentBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.ParentDepartmentBaseInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -39,33 +42,8 @@ public class UserDepartmentControllerV1 {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "根据ID获取科室", description = "根据科室ID获取科室信息")
     @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Department> getDepartmentById(@PathVariable String id) {
-        return departmentManager.getDepartmentById(Long.parseLong(id));
-    }
-
-    /**
-     * 更新科室信息
-     * @param id 科室ID
-     * @param adminDepartmentRequest 科室信息请求参数
-     * @return 更新结果
-     */
-    @PutMapping("/{id:\\d+}")
-    @Operation(summary = "更新科室", description = "更新科室信息")
-    @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Integer> updateDepartment(@PathVariable Long id, @RequestBody AdminDepartmentRequest adminDepartmentRequest) {
-        return departmentManager.updateDepartment(id, adminDepartmentRequest);
-    }
-
-    /**
-     * 根据ID删除科室
-     * @param id 科室ID
-     * @return 删除结果
-     */
-    @DeleteMapping("/{id}")
-    @Operation(summary = "删除科室", description = "根据科室ID删除科室")
-    @Parameter(name = "id", description = "科室ID", required = true)
-    public Result<Integer> deleteDepartmentById(@PathVariable Long id) {
-        return departmentManager.deleteDepartmentById(id);
+    public Result<Department> getDepartmentById(@PathVariable Long id) {
+        return departmentManager.getDepartmentById(id);
     }
 
     /**
@@ -94,21 +72,10 @@ public class UserDepartmentControllerV1 {
     @Operation(summary = "分页查询科室", description = "分页查询科室列表")
     @Parameter(name = "pageNum", description = "页码", required = true)
     @Parameter(name = "pageSize", description = "页面大小", required = true)
-    public Result<PageInfo<Department>> getDepartmentPage(
+    public Result<PageResult<Department>> getDepartmentPage(
             @RequestParam Integer pageNum,
             @RequestParam Integer pageSize) {
         return departmentManager.getDepartmentPage(pageNum, pageSize);
-    }
-
-    /**
-     * 批量删除科室
-     * @param ids 科室ID列表
-     * @return 删除结果
-     */
-    @DeleteMapping("/batch")
-    @Operation(summary = "批量删除科室", description = "批量删除科室")
-    public Result<Integer> deleteBatch(@RequestBody List<Long> ids) {
-        return departmentManager.deleteBatch(ids);
     }
 
     /**
@@ -171,7 +138,7 @@ public class UserDepartmentControllerV1 {
     @GetMapping("/child/baseInfo/list/parentId")
     @Operation(summary = "根据一级科室获取二级科室基本信息", description = "根据一级科室ID获取所有二级科室基本信息列表")
     @Parameter(name = "parentId", description = "一级科室ID", required = true)
-    public Result<List<ChildDepartmentBaseInfo>> listAllDepartmentBaseInfoByParentDepartmentId(@RequestParam("parentId") String parentId) {
-        return departmentManager.listAllDepartmentBaseInfoByParentDepartmentId(Long.parseLong(parentId));
+    public Result<List<ChildDepartmentBaseInfo>> listAllDepartmentBaseInfoByParentDepartmentId(@RequestParam("parentId") Long parentId) {
+        return departmentManager.listAllDepartmentBaseInfoByParentDepartmentId(parentId);
     }
 }

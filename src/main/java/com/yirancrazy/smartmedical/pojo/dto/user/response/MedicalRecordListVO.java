@@ -21,8 +21,23 @@ public class MedicalRecordListVO {
     @Schema(description = "挂号记录ID")
     private Long registrationId;
 
+    @Schema(description = "患者姓名")
+    private String patientName;
+
+    @Schema(description = "科室名称")
+    private String departmentName;
+
+    @Schema(description = "医生姓名")
+    private String doctorName;
+
     @Schema(description = "初步诊断")
     private String diagnosis;
+
+    @Schema(description = "就诊日期")
+    private LocalDateTime visitDate;
+
+    @Schema(description = "关联处方ID")
+    private Long prescriptionId;
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;

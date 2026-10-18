@@ -3,14 +3,21 @@ package com.yirancrazy.smartmedical.controller.doctor;
 import com.yirancrazy.smartmedical.manager.AdminAuthManager;
 import com.yirancrazy.smartmedical.manager.AuthManager;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.dto.user.request.AdminLoginByPhoneAndPasswordRequest;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
+import com.yirancrazy.smartmedical.pojo.dto.common.request.AdminLoginByPhoneAndPasswordRequest;
+import com.yirancrazy.smartmedical.pojo.dto.common.response.AdminResponseSimple;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -33,7 +40,7 @@ public class DoctorAuthControllerV1 {
 
     @PostMapping("/login")
     @Operation(summary = "医生端 - 手机号密码登录")
-    public Result<String> login(@RequestBody AdminLoginByPhoneAndPasswordRequest loginRequest,
+    public Result<String> login(@Valid @RequestBody AdminLoginByPhoneAndPasswordRequest loginRequest,
                                  HttpServletRequest request,
                                  HttpServletResponse response) {
         return authManager.loginByPhoneAndPasswordAndRoleId(
@@ -47,20 +54,20 @@ public class DoctorAuthControllerV1 {
 
     @PostMapping("/refresh")
     @Operation(summary = "医生端 - 刷新token")
-    public Result<String> refresh(@CookieValue("Refresh-token") String refreshToken,
+    public Result<String> refresh(@CookieValue(value = "Refresh-token", required = false) String refreshToken,
                                    HttpServletResponse response) {
         return userAuthManager.refresh(refreshToken, response);
     }
 
     @PostMapping("/logout")
     @Operation(summary = "医生端 - 登出")
-    public Result<String> logout(@RequestAttribute("currentUserId") Long userId) {
-        return userAuthManager.logout(userId);
+    public Result<String> logout(@RequestAttribute("currentAccountId") Long accountId) {
+        return userAuthManager.logout(accountId);
     }
 
     @GetMapping("/current")
     @Operation(summary = "医生端 - 获取当前登录用户信息")
-    public Result<AdminResponseSimple> getCurrentUser(HttpServletRequest request) {
-        return authManager.getCurrentAdminBaseInfo(request);
+    public Result<AdminResponseSimple> getCurrentUser(@RequestAttribute("currentAccountId") Long currentAccountId) {
+        return authManager.getCurrentAdminBaseInfo(currentAccountId);
     }
 }

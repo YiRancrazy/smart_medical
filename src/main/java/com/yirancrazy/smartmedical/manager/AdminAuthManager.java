@@ -1,21 +1,25 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.crypto.digest.DigestUtil;
-import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
-import com.yirancrazy.smartmedical.constant.RoleConstant;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Admin;
+import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.Role;
-import com.yirancrazy.smartmedical.pojo.dto.user.response.AdminResponseSimple;
-import com.yirancrazy.smartmedical.manager.loader.impl.RoleTypeLoaderManage;
+import com.yirancrazy.smartmedical.pojo.dto.common.response.AdminResponseSimple;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AdminService;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.RoleService;
+import com.yirancrazy.smartmedical.service.UserService;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
+import com.yirancrazy.smartmedical.utils.PasswordUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
@@ -24,7 +28,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.bcrypt.BCrypt;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,8 +47,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class AdminAuthManager {
 
-    @Value("${jwt.admin.adminAccessTokenPrefix}")
-    private String adminAccessTokenPrefix;   // 固定管理员登录令牌前缀\
     @Value("${jwt.admin.adminRefreshTokenPrefix}")
     private String adminRefreshTokenPrefix;   // 固定管理员刷新令牌前缀
     @Value("${jwt.accessSecretKey}")
@@ -54,13 +55,37 @@ public class AdminAuthManager {
     private String refreshSecretKey;
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
+    @Value("${auth.login-rate.enabled:true}")
+    private boolean loginRateEnabled = true;               // 开发 / 测试环境可关闭登录限流
 
     private final AccountService accountService;
     private final AdminService adminService;
+    private final DoctorService doctorService;
+    private final UserService userService;
+    private final RoleService roleService;
     private final RedisUtil redisUtil;
-    private final RoleTypeLoaderManage roleTypeLoaderManage;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
-    private Role adminRole;
+    /** S22: 登录限流窗口 5 分钟 */
+    private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
+    /** S22: 登录限流阈值 5 次/窗口 */
+    private static final long LOGIN_RATE_MAX = 5L;
+
+    /**
+     * S22: 登录限流 — 同手机号 5 分钟内最多 5 次，超限抛 BizException
+     * @param phone 手机号
+     */
+    private void checkLoginRate(String phone) {
+        if (!loginRateEnabled) {
+            return;
+        }
+        String key = "login:rate:admin:" + phone;
+        Long count = redisUtil.incrAndExpireOnFirst(key, 1L, LOGIN_RATE_WINDOW_MINUTES, TimeUnit.MINUTES);
+        if (count != null && count > LOGIN_RATE_MAX) {
+            log.warn("[login-rate] phone={} count={} 限流", phone, count);
+            throw new BizException(BizErrorCode.LOGIN_RATE_LIMITED);
+        }
+    }
 
     /**
      * 启动时校验 JWT 密钥与 token 前缀已注入，避免运行时 NPE
@@ -73,17 +98,9 @@ public class AdminAuthManager {
         if (refreshSecretKey == null || refreshSecretKey.isBlank()) {
             throw new IllegalStateException("jwt.refreshSecretKey 未配置");
         }
-        if (adminAccessTokenPrefix == null || adminAccessTokenPrefix.isBlank()) {
-            throw new IllegalStateException("jwt.admin.adminAccessTokenPrefix 未配置");
-        }
         if (adminRefreshTokenPrefix == null || adminRefreshTokenPrefix.isBlank()) {
             throw new IllegalStateException("jwt.admin.adminRefreshTokenPrefix 未配置");
         }
-        this.adminRole = RoleConstant.ROLE_LIST
-                .stream()
-                .filter(role -> role.getId().equals(1L))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("未找到系统管理员角色"));
     }
     /**
      * 管理员手机号密码登录
@@ -95,7 +112,7 @@ public class AdminAuthManager {
      * @return 结果
      */
     public Result<String> loginByPhoneAndPassword(String phone, String password,Boolean remember, HttpServletRequest request, HttpServletResponse response){
-        return loginByPhoneAndPasswordAndRoleId(phone, password, adminRole.getId(), remember, request, response);
+        return loginByPhoneAndPasswordAndRoleId(phone, password, RoleEnum.ADMIN.getCodeAsLong(), remember, request, response);
     }
 
     /**
@@ -109,6 +126,8 @@ public class AdminAuthManager {
      * @return 结果
      */
     public Result<String> loginByPhoneAndPasswordAndRoleId(String phone, String password, Long roleId, Boolean remember, HttpServletRequest request, HttpServletResponse response) {
+        // S22: 登录限流
+        checkLoginRate(phone);
         List<Account> accountByPhone = accountService.getAccountByPhone(phone);
 
         // 查找出指定角色的账号
@@ -121,111 +140,156 @@ public class AdminAuthManager {
         if (roleAccount == null) {
             return Result.fail("账号不存在或无权限");
         }
-        if (!checkPassword(password, roleAccount.getPassword())) {
+        if (Boolean.FALSE.equals(roleAccount.getEnabled())) {
+            log.warn("[admin-login] 账号已禁用, phone={}", phone);
+            return Result.fail("账号已被禁用，请联系管理员");
+        }
+        if (!PasswordUtil.verify(password, roleAccount.getPassword())) {
             return Result.fail("用户名或密码错误");
         }
 
-        // accessJWT 和 refreshJwt 写入 redis 中
-        String accessJwt = createAccessJwt(roleAccount.getPhone(), roleAccount.getId().toString(), roleAccount.getRoleId());
-        String refreshJwt = createRefreshJwt(roleAccount.getPhone(), roleAccount.getId().toString());
-        redisUtil.setEx(adminAccessTokenPrefix + roleAccount.getId(), accessJwt, 7, TimeUnit.DAYS);
-        redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 7, TimeUnit.DAYS);
+        // B06: 医生角色登录时校验 doctor 表存在 id=account.userId 的记录，
+        // 确保 JwtAuthenticationFilter 设的 currentDoctorId=userId 真等于 doctor.id，
+        // 避免账号-医生档案错配导致开方/叫号命中错误医生
+        if (Long.valueOf(2L).equals(roleAccount.getRoleId()) && roleAccount.getUserId() != null) {
+            Doctor doctor = doctorService.getDoctorById(roleAccount.getUserId());
+            if (doctor == null) {
+                log.warn("[admin-login] 医生账号 userId={} 在 doctor 表无对应记录，拒绝登录", roleAccount.getUserId());
+                return Result.fail("医生档案不存在，请联系管理员");
+            }
+        }
 
+        // 历史弱密码（MD5/明文）登录后自动升级为 BCrypt，逐步消除弱密码存储
+        if (PasswordUtil.needsBcryptUpgrade(roleAccount.getPassword())) {
+            roleAccount.setPassword(PasswordUtil.encode(password));
+            accountService.updateAccountById(roleAccount);
+            log.info("[admin-login] 密码已升级为 BCrypt, accountId={}", roleAccount.getId());
+        }
+
+        // accessJwt 不写入 Redis，refreshJwt 仍写入 Redis 用于刷新校验
+        Long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        String accessJwt = createAccessJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId());
+        String refreshJwt = createRefreshJwt(roleAccount.getId().toString(), roleAccount.getUserId(), roleAccount.getRoleId(), currentTimeSeconds);
+        // 登录成功即解除账号级吊销，保证登出 / 改密后重新登录能立即使用新 token
+        jwtTokenRevoker.clear(roleAccount.getId());
+        redisUtil.setEx(adminRefreshTokenPrefix + roleAccount.getId(), refreshJwt, 30, TimeUnit.DAYS);
+
+        // 统一通过响应头返回access token，前端从Authorization头提取
         response.setHeader("Authorization", "Bearer " + accessJwt);
 
         Cookie cookie = new Cookie("Refresh-token", refreshJwt);
-        cookie.setMaxAge(7 * 24 * 60 * 60);
+        cookie.setMaxAge(30 * 24 * 60 * 60);
         cookie.setPath("/api");
         cookie.setHttpOnly(true);
         cookie.setSecure(cookieSecure);
+        // G18: 与 AuthManager 保持一致，cookieSecure=true(HTTPS) 时设 SameSite=None；dev HTTP 不设让浏览器用默认 Lax
+        if (cookieSecure) {
+            cookie.setAttribute("SameSite", "None");
+        }
         response.addCookie(cookie);
 
         return Result.success(accessJwt);
     }
 
-    private  String createAccessJwt(String username, String accountId, Long roleId){
-        Map<String,Object> accessJwtHeader = new HashMap<>();
-        accessJwtHeader.put("alg","HS256");
-        accessJwtHeader.put("typ","JWT");
-        Map<String,Object> accessJwtPayload = new HashMap<>();
-        accessJwtPayload.put(JWTPayload.ISSUER,username);
-        accessJwtPayload.put(JWTPayload.SUBJECT,accountId);
-        accessJwtPayload.put("role_id", roleId);
-        accessJwtPayload.put(JWTPayload.EXPIRES_AT,System.currentTimeMillis()+1000*60*60*24*7);
-        accessJwtPayload.put(JWTPayload.NOT_BEFORE,System.currentTimeMillis());
-        accessJwtPayload.put(JWTPayload.ISSUED_AT,System.currentTimeMillis());
-        accessJwtPayload.put(JWTPayload.JWT_ID,String.valueOf(IdUtil.getSnowflakeNextId()));
-        return JWTUtil.createToken(accessJwtHeader,accessJwtPayload,accessSecretKey.getBytes());
-    }
+    /**
+     * 生成访问 JWT（7 天有效期），exp 使用秒级 Unix 时间戳符合 JWT 标准
+     */
+    private String createAccessJwt(String accountId, Long userId, Long roleId) {
+        long nowMillis = System.currentTimeMillis();
+        long currentTimeSeconds = nowMillis / 1000;
 
-    private  String createRefreshJwt(String username, String accountId){
-        Map<String,Object> refreshJwtHeader = new HashMap<>();
-        refreshJwtHeader.put("alg","HS256");
-        refreshJwtHeader.put("typ","JWT");
-        Map<String,Object> refreshJwtPayload = new HashMap<>();
-        refreshJwtPayload.put(JWTPayload.EXPIRES_AT,System.currentTimeMillis()+1000*60*60*24*7);
-        refreshJwtPayload.put(JWTPayload.NOT_BEFORE,System.currentTimeMillis());
-        refreshJwtPayload.put(JWTPayload.ISSUER,username);
-        refreshJwtPayload.put(JWTPayload.SUBJECT,accountId);
-        refreshJwtPayload.put(JWTPayload.ISSUED_AT,System.currentTimeMillis());
-        refreshJwtPayload.put(JWTPayload.JWT_ID,String.valueOf(IdUtil.getSnowflakeNextId()));
-        return JWTUtil.createToken(refreshJwtHeader,refreshJwtPayload,refreshSecretKey.getBytes());
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
+        payload.put("role", roleId); // 统一字段名为role
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 7L * 24 * 60 * 60);
+        payload.put("iatMs", nowMillis);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, accessSecretKey.getBytes());
     }
 
     /**
-     * 通过 access_token中存储的 accountId 获取当前管理员基础信息
-     * @param request 请求
-     * @return 管理员基础信息
+     * 生成刷新JWT（30天有效期，包含role信息），exp 使用秒级 Unix 时间戳符合 JWT 标准
      */
-    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(HttpServletRequest request) {
-        String accessToken = request.getHeader("Authorization");   // 获取 access_token
-        if(accessToken == null || accessToken.isEmpty()){
+    private String createRefreshJwt(String accountId, Long userId, Long roleId, Long currentTimeSeconds) {
+        Map<String, Object> header = new HashMap<>();
+        header.put("alg", "HS256");
+        header.put("typ", "JWT");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(JWTPayload.ISSUER, "YiRanCrazy");
+        payload.put(JWTPayload.SUBJECT, accountId);
+        payload.put("userId", userId);
+        payload.put("role", roleId); // refresh token包含role，刷新时直接解析
+        payload.put(JWTPayload.EXPIRES_AT, currentTimeSeconds + 30L * 24 * 60 * 60);
+        payload.put(JWTPayload.NOT_BEFORE, currentTimeSeconds);
+        payload.put(JWTPayload.ISSUED_AT, currentTimeSeconds);
+        payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
+
+        return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());
+    }
+
+    /**
+     * 获取当前登录用户基础信息（支持管理员/医生/药师）
+     * <p>B17: 不再二次解析 JWT，直接读 JwtAuthenticationFilter 已校验并 setAttribute 的 currentAccountId，
+     * 避免未验签的 parseToken 被未来 filter 链变更绕过。</p>
+     * <p>同时按 account.roleId 分流加载 Admin/Doctor/其他，修复 G09 误删导致的医生/药师 /auth/current 永远 "管理员不存在"。</p>
+     * @param currentAccountId JwtAuthenticationFilter 注入的 accountId
+     * @return 当前登录用户基础信息
+     */
+    public Result<AdminResponseSimple> getCurrentAdminBaseInfo(Long currentAccountId) {
+        if (currentAccountId == null) {
             return Result.fail("未登录");
         }
-        // 去掉 "Bearer " 前缀
-        if (accessToken.startsWith("Bearer ")) {
-            accessToken = accessToken.substring(7);
-        }
-        JWT jwt = JWTUtil.parseToken(accessToken);  // 解析 access_token
-        String accountId = jwt.getPayload("sub").toString(); // 获取 accountId
-        Account account = accountService.getAccountById(Long.parseLong(accountId)); // 通过 accountId 获取账号信息
-        if(account == null){
+        Account account = accountService.getAccountById(currentAccountId);
+        if (account == null) {
             return Result.fail("账号不存在");
         }
-        Admin admin = adminService.getAdminById(account.getUserId()); // 通过 adminId 获取管理员信息
-        if(admin == null){
-            return Result.fail("管理员不存在");
+        Role role = roleService.getRoleById(account.getRoleId());
+        if (role == null) {
+            return Result.fail("账号角色异常");
         }
-        AdminResponseSimple result = new AdminResponseSimple(); // 创建返回结果
-        result.setId(String.valueOf(admin.getId()));
-        result.setUsername(admin.getName());
-        result.setNickname(admin.getName());
-        result.setAvatar(admin.getAvatar());
+
+        AdminResponseSimple result = new AdminResponseSimple();
+        result.setId(String.valueOf(account.getUserId()));
         result.setPhone(account.getPhone());
         result.setEmail(account.getEmail());
-        result.setRole(adminRole.getName()); // 获取角色名称
-        return Result.success(result);
-    }
+        result.setRole(role.getName());
 
-    /**
-     * 校验密码，兼容 BCrypt / MD5 / 历史明文三种存储格式
-     * @param rawPassword 明文密码
-     * @param encodedPassword 数据库存储的密码
-     * @return 是否匹配
-     */
-    private boolean checkPassword(String rawPassword, String encodedPassword) {
-        if (encodedPassword == null || encodedPassword.isBlank()) {
-            return false;
+        // 按 role 加载对应档案表，取 name/avatar
+        long roleId = account.getRoleId() == null ? 0L : account.getRoleId();
+        if (roleId == RoleEnum.ADMIN.getCodeAsLong()) {
+            // 管理员
+            Admin admin = adminService.getAdminById(account.getUserId());
+            if (admin == null) {
+                return Result.fail("管理员档案不存在");
+            }
+            result.setUsername(admin.getName());
+            result.setNickname(admin.getName());
+            result.setAvatar(admin.getAvatar());
+        } else if (roleId == RoleEnum.DOCTOR.getCodeAsLong()) {
+            // 医生：account.userId 约定等于 doctor.id
+            Doctor doctor = doctorService.getDoctorById(account.getUserId());
+            if (doctor == null) {
+                return Result.fail("医生档案不存在");
+            }
+            result.setUsername(doctor.getName());
+            result.setNickname(doctor.getName());
+            result.setAvatar(doctor.getAvatar());
+        } else {
+            // 药师(6)等其他角色无独立档案表，回退用账号手机号
+            result.setUsername(account.getPhone());
+            result.setNickname(account.getPhone());
+            result.setAvatar(null);
         }
-        // BCrypt 哈希以 $2a$/$2b$/$2y$ 开头
-        if (encodedPassword.startsWith("$2a$") || encodedPassword.startsWith("$2b$") || encodedPassword.startsWith("$2y$")) {
-            return BCrypt.checkpw(rawPassword, encodedPassword);
-        }
-        // MD5
-        if (encodedPassword.equalsIgnoreCase(DigestUtil.md5Hex(rawPassword))) {
-            return true;
-        }
-        // 兼容历史明文（种子数据）
-        return rawPassword.equals(encodedPassword);
+        return Result.success(result);
     }
 }

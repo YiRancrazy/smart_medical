@@ -1,7 +1,7 @@
 package com.yirancrazy.smartmedical.utils;
 
 import com.github.pagehelper.PageInfo;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

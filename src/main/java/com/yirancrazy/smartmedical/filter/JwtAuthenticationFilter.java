@@ -1,10 +1,16 @@
 package com.yirancrazy.smartmedical.filter;
 
+import cn.hutool.core.exceptions.ValidateException;
+import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTPayload;
 import cn.hutool.jwt.JWTUtil;
+import cn.hutool.jwt.JWTValidator;
+import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yirancrazy.smartmedical.config.SecurityConfig;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
+import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +24,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -28,7 +35,7 @@ import java.util.List;
 /**
  * JWT 认证过滤器
  * @Author: YiRanCrazy@gmail.com
- * @Description: 从 Authorization 头读取 Bearer token → 校验 JWT 签名 + Redis 中是否仍存在；
+ * @Description: 从 Authorization 头读取 Bearer token → 校验 JWT 签名、过期时间和账号级吊销时间戳；
  *              通过后将主体写入 SecurityContext；失败统一返回 401 JSON。
  * @Datetime: 2026-02-02 12:50
  * @Version: 1.0
@@ -42,34 +49,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Value("${jwt.accessSecretKey}")
     private String accessSecretKey;
 
-    @Value("${jwt.admin.adminAccessTokenPrefix:admin-access-token}")
-    private String adminAccessTokenPrefix;
-
-    private final RedisUtil redisUtil;
+    private final JwtTokenRevoker jwtTokenRevoker;
 
     private static final String BEARER_PREFIX = "Bearer ";
 
-    private static final String[] WHITE_LIST = {
-            "/api/admin/v1/auth/login",
-            "/api/admin/v1/auth/refresh",
-            "/api/user/v1/auth/login",
-            "/api/user/v1/auth/register",
-            "/api/user/v1/auth/refresh",
-            "/api/doctor/v1/auth/login",
-            "/api/doctor/v1/auth/refresh",
-            "/api/pharmacy/v1/auth/login",
-            "/api/pharmacy/v1/auth/refresh",
-            "/doc.html",
-            "/swagger-ui",
-            "/swagger-ui.html",
-            "/swagger-resources",
-            "/v2/api-docs",
-            "/v3/api-docs",
-            "/webjars",
-            "/favicon.ico",
-            "/error"
-    };
+    /**
+     * 白名单统一由 SecurityConfig.PERMIT_ALL_PATHS 控制，避免 Filter 与 SecurityFilterChain 两份清单不一致
+     */
+    private static final List<String> PERMIT_ALL_PATHS = List.of(SecurityConfig.PERMIT_ALL_PATHS);
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
+    /**
+     * 过滤器主逻辑
+     * @param request 请求
+     * @param response 响应
+     * @param filterChain 过滤器链
+     * @throws ServletException 抛给过滤器链
+     * @throws IOException 抛给过滤器链
+     */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -82,91 +79,191 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
         String token = null;
+
+        // 获取token
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             token = header.substring(BEARER_PREFIX.length()).trim();
         }
+
+        // token为空时，返回401
         if (token == null || token.isEmpty()) {
-            unauthorized(response, "Token is required");
+            unauthorized(response, "缺少 access_token");
             return;
         }
+
+
+        // 验证token
         try {
-            if (!JWTUtil.verify(token, accessSecretKey.getBytes())) {
-                unauthorized(response, "Invalid token");
-                return;
-            }
-            JWTPayload payload = JWTUtil.parseToken(token).getPayload();
-            String userId = String.valueOf(payload.getClaim("sub"));
-            Long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
-            if (exp == null || exp < System.currentTimeMillis()) {
-                unauthorized(response, "Token expired");
-                return;
-            }
-            String redisToken = redisUtil.get(resolveTokenKey(uri, userId));
-            if (redisToken == null || !redisToken.equals(token)) {
-                unauthorized(response, "Token expired or invalid");
+            // 先验签后解析——parseToken 仅解码 base64 头部，未做签名校验
+            JWT jwt = JWTUtil.parseToken(token);
+            if (!verifyHs256(jwt, accessSecretKey)) {
+                unauthorized(response, "无效的 access_token");
                 return;
             }
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, resolveAuthorities(payload));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            // 桥接 JWT 上下文到 controller request attributes,
-            // 让 controller 可用 @RequestAttribute("currentUserId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
-            // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
-            try {
-                Long currentUserId = Long.parseLong(userId);
-                request.setAttribute("currentUserId", currentUserId);
-                request.setAttribute("currentDoctorId", currentUserId);
-                request.setAttribute("currentPharmacistId", currentUserId);
-            } catch (NumberFormatException e) {
-                log.warn("[jwt] userId 非数字,跳过 request attribute 桥接: {}", userId);
+            // 安全解析 payload（此时签名已验证通过）
+            JWTPayload payload = jwt.getPayload();
+            String sub = String.valueOf(payload.getClaim("sub"));
+            long exp = Long.parseLong(String.valueOf(payload.getClaim("exp")));
+
+            // exp 使用秒级 Unix 时间戳，与 JWT 标准保持一致
+            if (exp < System.currentTimeMillis() / 1000) {
+                unauthorized(response, "access_token 过期");
+                return;
             }
-            log.debug("JWT 认证通过：userId={}, uri={}", userId, uri);
+
+            // 解析 accountId（JWT sub）与 userId claim；登录时以 accountId 为 Redis key 存 token
+            Long accountId;
+            Long currentUserId;
+            try {
+                accountId = Long.parseLong(sub);
+                Object userIdClaim = payload.getClaim("userId");
+                currentUserId = userIdClaim != null ? Long.parseLong(String.valueOf(userIdClaim)) : accountId;
+            } catch (NumberFormatException e) {
+                unauthorized(response, "无效的 access_token 身份标识");
+                return;
+            }
+
+            // 账号级吊销：Redis 只保存吊销时间戳，账号在吊销时间点之前签发的 access token 全部失效。
+            // access token 本身不再写入 Redis，Redis 不可达时降级为仅校验签名和过期时间，避免全站 500。
+            long issuedAtMillis = resolveIssuedAtMillis(payload);  // 解析 token 签发时间（毫秒）
+            Long revokedAtMillis; // 账号最近一次吊销时间戳（毫秒）
+            try {
+                revokedAtMillis = jwtTokenRevoker.findRevokedAtMillis(accountId);
+            } catch (NumberFormatException e) {
+                log.warn("[jwt] 吊销时间戳格式异常，拒绝该 token: accountId={}, value={}", accountId, e.getMessage());
+                unauthorized(response, "access_token 已失效");
+                return;
+            } catch (Exception e) {
+                log.warn("[jwt] Redis 吊销校验失败，降级为仅校验签名和过期时间: {}", e.getMessage());
+                revokedAtMillis = null;
+            }
+            if (revokedAtMillis != null && issuedAtMillis <= revokedAtMillis) {
+                unauthorized(response, "access_token 已失效");
+                return;
+            }
+
+            // todo 后续自定义一个JwtAuthenticationToken
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(sub, null, resolveAuthorities(payload));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // 桥接 JWT 上下文到 controller request attributes,
+            // 让 controller 可用 @RequestAttribute("currentUserId"/"currentAccountId"/"currentDoctorId"/"currentPharmacistId") 读取已认证身份,
+            // 避免 caller-supplied @RequestParam 伪造他人身份。URL 级 role 守卫已由 SecurityConfig 配置。
+            request.setAttribute("currentUserId", currentUserId);
+            request.setAttribute("currentAccountId", accountId);
+            // L4: currentDoctorId 仅对医生角色(2)设置，其余角色置空，避免用户域接口误取到患者 userId
+            boolean isDoctor = resolveRoleId(payload) == 2L;
+            if (isDoctor) {
+                // B06: 登录时已校验 doctor 表存在 id=userId 的记录，约定 account.userId == doctor.id，
+                // 因此 currentDoctorId=currentUserId 安全
+                request.setAttribute("currentDoctorId", currentUserId);
+            } else {
+                request.removeAttribute("currentDoctorId");
+            }
+            // pharmacist 无独立表，currentPharmacistId 用 userId 作操作者ID
+            request.setAttribute("currentPharmacistId", currentUserId);
+            log.debug("JWT 认证通过：accountId={}, userId={}, uri={}", accountId, currentUserId, request.getRequestURI());
             filterChain.doFilter(request, response);
         } catch (Exception e) {
             log.warn("[jwt] 解析 token 失败: {}", e.getMessage());
-            unauthorized(response, "Invalid token format");
+            unauthorized(response, "无效的 access_token 格式");
         }
     }
 
     /**
      * 将 JWT payload 中的 role_id 映射为 Spring Security 角色权限（ROLE_xxx）
-     * 角色 ID 映射以 role 表为准：1=系统管理员 / 2=医生 / 4=患者 / 6=药师
+     * 角色 ID 映射以 RoleEnum 为准
+     * @param payload JWT payload
+     * @return Spring Security 角色权限列表
      */
     private List<SimpleGrantedAuthority> resolveAuthorities(JWTPayload payload) {
-        Object roleClaim = payload.getClaim("role_id");
-        if (roleClaim == null) {
+        long roleId = resolveRoleId(payload);
+        if (roleId < 0) {
             return Collections.emptyList();
         }
-        long roleId;
-        try {
-            roleId = Long.parseLong(String.valueOf(roleClaim));
-        } catch (NumberFormatException e) {
+        RoleEnum role = RoleEnum.getByCode((int) roleId);
+        // G10: 未知 roleId 不再兜底为 ROLE_user（会错误授权），改为拒绝所有访问
+        if (role == null || role.getSecurityRole() == null) {
+            log.warn("[jwt] 未知 roleId={}，拒绝授权", roleId);
             return Collections.emptyList();
         }
-        String authority = switch ((int) roleId) {
-            case 1 -> "ROLE_admin";
-            case 2 -> "ROLE_doctor";
-            case 6 -> "ROLE_pharmacist";
-            default -> "ROLE_user";
-        };
-        return List.of(new SimpleGrantedAuthority(authority));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.getSecurityRole()));
     }
 
+    /**
+     * 将 JWT payload 中的 role claim 规范化为数字角色 ID（兼容 Long / Integer / String 类型，
+     * 与 resolveAuthorities 共用，避免类型比较不一致导致角色误判）
+     * @param payload JWT payload
+     * @return 角色 ID；claim 缺失或非数字时返回 -1
+     */
+    private long resolveRoleId(JWTPayload payload) {
+        Object roleClaim = payload.getClaim("role");
+        if (roleClaim == null) {
+            return -1;
+        }
+        try {
+            return Long.parseLong(String.valueOf(roleClaim));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /**
+     * 解析 token 签发时间（毫秒）
+     * <p>新 token 使用 iatMs；历史 token 回退到秒级 iat，均缺失时返回 0，
+     * 保证存在吊销记录时历史 token 不会被放行。</p>
+     * @param payload JWT payload
+     * @return 签发时间戳（毫秒）
+     */
+    private long resolveIssuedAtMillis(JWTPayload payload) {
+        Object iatMsClaim = payload.getClaim("iatMs");
+        if (iatMsClaim != null) {
+            return Long.parseLong(String.valueOf(iatMsClaim));
+        }
+        Object iatClaim = payload.getClaim(JWTPayload.ISSUED_AT);
+        if (iatClaim != null) {
+            return Long.parseLong(String.valueOf(iatClaim)) * 1000L;
+        }
+        return 0L;
+    }
+
+    /**
+     * 固定使用 HS256 校验 JWT 算法与签名，禁止由 token header 决定验签算法
+     * @param jwt 已解析 JWT
+     * @param secret 签名密钥
+     * @return 算法与签名是否均通过
+     */
+    private boolean verifyHs256(JWT jwt, String secret) {
+        try {
+            JWTValidator.of(jwt).validateAlgorithm(JWTSignerUtil.hs256(secret.getBytes()));
+            return true;
+        } catch (ValidateException e) {
+            log.warn("[jwt] JWT 算法或签名校验失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 判断 URI 是否在白名单中
+     * @param uri 请求 URI
+     * @return 是否在白名单中
+     */
     private boolean isWhitelisted(String uri) {
-        for (String allowPath : WHITE_LIST) {
-            if (uri.startsWith(allowPath)) {
+        for (String pattern : PERMIT_ALL_PATHS) {
+            if (PATH_MATCHER.match(pattern, uri)) {
                 return true;
             }
         }
         return false;
     }
 
-    private String resolveTokenKey(String uri, String userId) {
-        // 登录时所有角色都写入 adminAccessTokenPrefix + userId，filter 一致读取
-        return adminAccessTokenPrefix + userId;
-    }
-
+    /**
+     * 返回 401 JSON
+     * @param response HttpServletResponse
+     * @param message 提示信息
+     */
     private void unauthorized(HttpServletResponse response, String message) throws IOException {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());

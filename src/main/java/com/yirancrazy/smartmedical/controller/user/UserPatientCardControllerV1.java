@@ -1,22 +1,25 @@
 package com.yirancrazy.smartmedical.controller.user;
 
 import com.yirancrazy.smartmedical.manager.PatientCardManager;
-import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PatientCardSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
+import com.yirancrazy.smartmedical.pojo.vo.SelfPatientCardStatus;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmPatientCardVo;
-import com.yirancrazy.smartmedical.service.PatientCardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 用户端 - 就诊人 / 就诊卡管理接口
  * @Datetime: 2026-02-14 10:47
  * @Version: 1.0
  */
@@ -60,5 +63,31 @@ public class UserPatientCardControllerV1 {
     @Operation(summary = "获取所有患者卡信息简单响应", description = "获取所有患者卡信息简单响应接口")
     public Result<List<PatientCardSimpleResponse>> listPatientCardSimpleResponseByUserId(@RequestAttribute("currentUserId") Long userId){
         return patientCardManager.listPatientCardSimpleResponseByUserId(userId);
+    }
+
+    /**
+     * 按关系ID查询单条就诊人详情（含 remark）
+     * @param userId 账号id
+     * @param relationId 用户患者关系ID
+     * @return 单条就诊人详情
+     */
+    @GetMapping("/detail/{relationId}")
+    @Operation(summary = "用户端 - 按关系ID查询单条就诊人详情", description = "F24: 替代拉全列表 find by id，含 remark 字段")
+    public Result<PatientCardSimpleResponse> getPatientCardDetailByRelationId(
+            @RequestAttribute("currentUserId") Long userId,
+            @PathVariable Long relationId) {
+        return patientCardManager.getPatientCardDetailByRelationId(userId, relationId);
+    }
+
+    /**
+     * 获取当前用户本人就诊卡状态
+     * @param userId 当前登录用户ID
+     * @return 本人就诊卡状态
+     */
+    @GetMapping("/self/status")
+    @Operation(summary = "用户端 - 获取本人就诊卡状态", description = "返回当前用户本人就诊卡完善状态与表单回填信息")
+    public Result<SelfPatientCardStatus> getSelfPatientCardStatus(
+            @RequestAttribute("currentUserId") Long userId) {
+        return patientCardManager.getSelfPatientCardStatus(userId);
     }
 }

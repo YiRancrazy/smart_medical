@@ -2,7 +2,7 @@ package com.yirancrazy.smartmedical.utils;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import com.yirancrazy.smartmedical.pojo.dto.user.result.PageResult;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -10,8 +10,7 @@ import java.util.function.Supplier;
 /**
  * 分页工具
  * <p>
- * 替换项目内散落的 {@code PageHelper.startPage(...)} + {@code new PageInfo<>(rows)}
- * + {@code new PageResult<>(pageInfo, list)} 三行模板（38 处）。
+ * 统一项目内的 PageHelper 分页查询和 PageResult 转换。
  *
  * @Author: YiRanCrazy@gmail.com
  * @Description: 分页工具
@@ -43,12 +42,18 @@ public final class PageUtils {
     }
 
     /**
-     * PageInfo → 项目内 PageResult（dto.user.result 版本，承载 pageNum/pageSize/total/totalPages/list）
+     * PageInfo → 项目内统一分页响应 PageResult
      *
      * @param pageInfo   PageHelper 分页结果
      * @param targetList 已转换的目标 VO/DTO 列表
      */
     public static <T> PageResult<T> toResult(PageInfo<?> pageInfo, List<T> targetList) {
-        return new PageResult<>(pageInfo, targetList);
+        return new PageResult<>(
+                pageInfo.getPageNum(),
+                pageInfo.getPageSize(),
+                pageInfo.getTotal(),
+                pageInfo.getPages(),
+                targetList
+        );
     }
 }

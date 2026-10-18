@@ -28,7 +28,7 @@ public class RegistrationDoctorBaseInfo {
     private String avatar;                           // 头像
     private String position;                         // 职位
     private LocalDateTime recentWorkTime;             // 最近工作时间
-    private double score;                             // 评分
+    private Double score;                             // 评分，null 表示暂无评分
     private Integer consultationCount;                  // 咨询次数
     private BigDecimal price;                               // 价格
 }

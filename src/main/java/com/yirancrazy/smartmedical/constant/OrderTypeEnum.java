@@ -1,34 +1,37 @@
 package com.yirancrazy.smartmedical.constant;
 
-import com.yirancrazy.smartmedical.pojo.OrderType;
-
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
- * @Datetime: 2026-02-22 16:59
+ * @Description: 订单类型枚举（与 order_type 表主键保持一致）
+ * @Datetime: 2026-10-02 12:00
  * @Version: 1.0
  */
 
 public enum OrderTypeEnum {
 
-    OUTPATIENT_REGISTRATION("3110236876932865049", "门诊挂号单"),
-    EXAMINATION_ORDER("0889228332644175818", "检查检验单"),
-    PRESCRIPTION_ORDER("0657962839979386732", "药品处方单"),
-    INPATIENT_PAYMENT("2247797221752133703", "住院缴费单"),
-    SURGERY_APPOINTMENT("1289740951459473931", "手术预约单");
+    REGISTRATION(1L, "挂号订单"),
+    DRUG(2L, "药品订单"),
+    EXAMINATION(3L, "检查订单"),
+    INPATIENT_DEPOSIT(4L, "住院押金"),
+    PHYSICAL_EXAMINATION(5L, "体检订单");
 
-    private final String orderTypeSn;
+    private final Long code;
     private final String name;
 
-    OrderTypeEnum(String orderTypeSn, String name) {
-        this.orderTypeSn = orderTypeSn;
+    OrderTypeEnum(Long code, String name) {
+        this.code = code;
         this.name = name;
     }
 
-    // 根据code获取枚举
-    public static OrderTypeEnum getByOrderTypeSn(String orderTypeSn) {
+    /**
+     * 根据订单类型ID获取枚举
+     */
+    public static OrderTypeEnum getByCode(Long code) {
+        if (code == null) {
+            return null;
+        }
         for (OrderTypeEnum type : values()) {
-            if (type.getOrderTypeSn().equals(orderTypeSn)) {
+            if (type.getCode().equals(code)) {
                 return type;
             }
         }
@@ -36,6 +39,6 @@ public enum OrderTypeEnum {
     }
 
     // Getters
-    public String getOrderTypeSn() { return orderTypeSn; }
+    public Long getCode() { return code; }
     public String getName() { return name; }
 }

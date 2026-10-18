@@ -1,6 +1,8 @@
 package com.yirancrazy.smartmedical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.mapper.DrugInventoryMapper;
@@ -62,5 +64,74 @@ public class DrugInventoryServiceImpl implements DrugInventoryService {
     @Override
     public DrugInventory selectForUpdate(Long drugId) {
         return drugInventoryMapper.selectForUpdate(drugId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Long countLowStock() {
+        return drugInventoryMapper.selectCount(new QueryWrapper<DrugInventory>()
+                .apply("available_quantity < min_stock"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<DrugInventory> listLowStock() {
+        return drugInventoryMapper.selectList(new LambdaQueryWrapper<DrugInventory>()
+                .apply("stock_quantity < min_stock")
+                .last("ORDER BY (stock_quantity - min_stock) ASC"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<DrugInventory> listByDrugIds(List<Long> drugIds) {
+        if (drugIds == null || drugIds.isEmpty()) {
+            return List.of();
+        }
+        return drugInventoryMapper.selectList(new LambdaQueryWrapper<DrugInventory>()
+                .in(DrugInventory::getDrugId, drugIds));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<DrugInventory> listByDrugIdsForUpdate(List<Long> drugIds) {
+        if (drugIds == null || drugIds.isEmpty()) {
+            return List.of();
+        }
+        return drugInventoryMapper.selectList(new LambdaQueryWrapper<DrugInventory>()
+                .in(DrugInventory::getDrugId, drugIds)
+                .last("FOR UPDATE"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int lockInventory(Long inventoryId, int quantity) {
+        return drugInventoryMapper.update(null,
+                new UpdateWrapper<DrugInventory>()
+                        .eq("id", inventoryId)
+                        .ge("available_quantity", quantity)
+                        .setSql("locked_quantity = locked_quantity + " + quantity)
+                        .setSql("available_quantity = available_quantity - " + quantity));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int releaseInventory(Long inventoryId, int quantity) {
+        return drugInventoryMapper.update(null,
+                new UpdateWrapper<DrugInventory>()
+                        .eq("id", inventoryId)
+                        .setSql("locked_quantity = locked_quantity - " + quantity)
+                        .setSql("available_quantity = available_quantity + " + quantity));
     }
 }

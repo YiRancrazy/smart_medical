@@ -1,12 +1,11 @@
 package com.yirancrazy.smartmedical.constant.type;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.Getter;
 
 /**
  * @Author: YiRanCrazy@gmail.com
- * @Description:
+ * @Description: 排班类型
  * @Datetime: 2026-03-18 19:34
  * @Version: 1.0
  */
@@ -24,9 +23,12 @@ public enum RegistrationShiftTypeEnum {
     private final String message;
 
     public static Integer getCodeByName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String trimmed = name.trim();
         for (RegistrationShiftTypeEnum type : values()) {
-            System.out.println(type.name());
-            if (type.getMessage().equals(name)) {
+            if (type.getMessage().equals(trimmed)) {
                 return type.code;
             }
         }

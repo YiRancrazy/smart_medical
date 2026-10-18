@@ -4,7 +4,10 @@ import cn.hutool.core.util.IdUtil;
 import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.ConsultationRoom;
+import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.ConsultationRoomService;
+import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,7 +58,8 @@ public class ConsultationRoomManager {
     /**
      * 分页查询诊室
      */
-    public PageInfo<ConsultationRoom> listConsultationRooms(Integer pageNum, Integer pageSize) {
-        return consultationRoomService.listConsultationRoomsByPage(pageNum, pageSize);
+    public Result<PageResult<ConsultationRoom>> listConsultationRooms(Integer pageNum, Integer pageSize) {
+        PageInfo<ConsultationRoom> pageInfo = consultationRoomService.listConsultationRoomsByPage(pageNum, pageSize);
+        return Result.success(PageUtils.toResult(pageInfo, pageInfo.getList()));
     }
 }

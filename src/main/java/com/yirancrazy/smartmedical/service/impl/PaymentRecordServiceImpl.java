@@ -1,9 +1,9 @@
 package com.yirancrazy.smartmedical.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yirancrazy.smartmedical.mapper.PaymentRecordMapper;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
-//import com.yirancrazy.smartmedical.pojo.dto.user.response.PaymentRecordResponseSimple;
 import com.yirancrazy.smartmedical.service.PaymentRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -79,6 +79,33 @@ public class PaymentRecordServiceImpl implements PaymentRecordService {
      */
     @Override
     public List<PaymentRecord> listAllPaymentRecordsByOrderId(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            return List.of();
+        }
         return paymentRecordMapper.selectList(new QueryWrapper<PaymentRecord>().in("order_id", orderIds));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public PaymentRecord getSuccessPaymentRecordByOrderId(Long orderId) {
+        // 支付记录状态:2 成功
+        return paymentRecordMapper.selectOne(new LambdaQueryWrapper<PaymentRecord>()
+                .eq(PaymentRecord::getOrderId, orderId)
+                .eq(PaymentRecord::getStatus, 2)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<PaymentRecord> listRefundedRecordsByOrderId(Long orderId) {
+        // 支付记录状态:4 已退款（负向金额）
+        return paymentRecordMapper.selectList(new LambdaQueryWrapper<PaymentRecord>()
+                .eq(PaymentRecord::getOrderId, orderId)
+                .eq(PaymentRecord::getStatus, 4)
+                .lt(PaymentRecord::getRealAmount, 0));
     }
 }

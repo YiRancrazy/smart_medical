@@ -3,12 +3,17 @@ package com.yirancrazy.smartmedical.controller.pharmacy;
 import com.yirancrazy.smartmedical.manager.PharmacyManager;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -25,11 +30,13 @@ public class PharmacyInventoryControllerV1 {
 
     private final PharmacyManager pharmacyManager;
 
-    /** 药师端 - 库存预警列表 */
-    @Operation(summary = "药师端 - 库存预警列表")
+    /** 药师端 - 库存预警列表（F31支持可选分页） */
+    @Operation(summary = "药师端 - 库存预警列表", description = "F31: 可选分页 pageNum/pageSize")
     @GetMapping("/low-stock")
-    public Result<List<DrugInventory>> lowStock() {
-        return Result.success(pharmacyManager.listLowStock());
+    public Result<PageResult<DrugInventory>> lowStock(
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer pageSize) {
+        return pharmacyManager.listLowStock(pageNum, pageSize);
     }
 
     /** 药师端 - 库存入库 */

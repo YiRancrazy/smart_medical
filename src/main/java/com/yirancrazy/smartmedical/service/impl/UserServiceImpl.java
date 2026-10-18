@@ -10,6 +10,7 @@ import com.yirancrazy.smartmedical.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -80,7 +81,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Integer deleteBatch(List<Long> ids) {
-        return userMapper.deleteBatchIds(ids);
+        return userMapper.deleteByIds(ids);
     }
 
     /**
@@ -104,6 +105,10 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public List<User> listUsersByUserIds(List<Long> userIds) {
+        // MyBatis-Plus selectByIds 空集合会生成 "IN ()" 非法 SQL，此处统一兜底
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyList();
+        }
         return userMapper.selectByIds(userIds);
     }
 
@@ -112,8 +117,26 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User getUserByIdCard(String idCard) {
-        return userMapper.selectOne(
+        List<User> users = userMapper.selectList(
                 new LambdaQueryWrapper<User>()
-                        .eq(User::getIdCard,idCard));
+                        .eq(User::getIdCard, idCard)
+                        .last("LIMIT 1"));
+        return users.isEmpty() ? null : users.get(0);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Long> listUserIdsByNicknameLike(String nickname) {
+        if (nickname == null || nickname.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return userMapper.selectList(
+                new LambdaQueryWrapper<User>()
+                        .like(User::getNickname, nickname.trim()))
+                .stream()
+                .map(User::getId)
+                .toList();
     }
 }

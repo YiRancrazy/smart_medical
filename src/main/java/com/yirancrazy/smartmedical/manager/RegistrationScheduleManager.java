@@ -3,7 +3,12 @@ package com.yirancrazy.smartmedical.manager;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleStatusEnum;
 import com.yirancrazy.smartmedical.constant.status.AppointmentRuleTypeEnum;
-import com.yirancrazy.smartmedical.pojo.*;
+import com.yirancrazy.smartmedical.constant.status.RegistrationScheduleStatusEnum;
+import com.yirancrazy.smartmedical.pojo.AppointmentRule;
+import com.yirancrazy.smartmedical.pojo.Doctor;
+import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
+import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
+import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmTime;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationDateAndRemainQuotaVo;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
@@ -14,8 +19,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
-import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * @Author: YiRanCrazy@gmail.com
@@ -46,31 +56,14 @@ public class RegistrationScheduleManager {
             return Result.fail("医生不存在");
         }
 
-        List<AppointmentRule> appointmentRules = new ArrayList<>();
-
-        List<AppointmentRule> currentDoctorAppointmentRules = appointmentRuleService.listAppointmentsRulesByDoctorId(doctorId);
-        if (currentDoctorAppointmentRules.isEmpty()) {
-            List<AppointmentRule> currentDepartmentAppointmentRules = appointmentRuleService.listAppointmentsRulesByDepartmentId(doctor.getDepartmentId());
-            if (currentDepartmentAppointmentRules.isEmpty()) {
-                currentDoctorAppointmentRules = appointmentRuleService.listAllAppointmentRules();
-                appointmentRules = currentDoctorAppointmentRules;
-            } else {
-                appointmentRules = currentDepartmentAppointmentRules;
-            }
-        } else {
-            appointmentRules = currentDoctorAppointmentRules;
-        }
-
-        appointmentRules = appointmentRules
+        // 规则解析口径与 DoctorManager#getRegistrationDoctorBaseInfoByDepartmentId 对齐：
+        // 医生专属 → 科室 → 全院默认（department_id/doctor_id 均为 NULL），且不跨科室套用他科规则；
+        // 否则新科室未单独配置规则时，科室页能列出医生、排班页却直接报「没有可用的挂号配置」
+        List<AppointmentRule> appointmentRules = resolveAppointmentRules(doctor)
                 .stream()
                 .filter(item -> Objects.equals(item.getStatus(), AppointmentRuleStatusEnum.NORMAL.getCode()))
                 .filter(item -> Objects.equals(item.getRuleType(), AppointmentRuleTypeEnum.OUT_PATIENT.getCode()))
-                .sorted(new Comparator<AppointmentRule>() {
-                    @Override
-                    public int compare(AppointmentRule o1, AppointmentRule o2) {
-                        return o1.getPriority() - o2.getPriority();
-                    }
-                })
+                .sorted(Comparator.comparing(AppointmentRule::getPriority, Comparator.nullsLast(Integer::compare)))
                 .toList();
 
         if (appointmentRules.isEmpty()) {
@@ -80,8 +73,10 @@ public class RegistrationScheduleManager {
 
         List<RegistrationScheduleTemplate> registrationScheduleTemplateList = registrationScheduleTemplateService.listRegistrationScheduleTemplatesByDoctorId(doctorId);
 
-        LocalDate today = LocalDate.now();
-        LocalDate maxDate = today.plusDays(currentAppointmentRule.getMaxAdvanceDays());
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+        // M17: maxAdvanceDays 可能为 null，null 时兜底为 0（仅当天），避免 NPE
+        Integer maxAdvanceDays = currentAppointmentRule.getMaxAdvanceDays();
+        LocalDate maxDate = today.plusDays(maxAdvanceDays == null ? 0 : maxAdvanceDays);
         registrationScheduleTemplateList = registrationScheduleTemplateList.stream()
                 .filter(item -> !item.getRegistrationDate().isBefore(today) &&
                         !item.getRegistrationDate().isAfter(maxDate)).toList();
@@ -89,48 +84,73 @@ public class RegistrationScheduleManager {
         if (registrationScheduleTemplateList.isEmpty()) {
             return Result.success(new ArrayList<>());
         }
-        List<Long> registrationScheduleTemplateIdList = registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList();
+        List<Long> registrationScheduleIdList = registrationScheduleTemplateList.stream().map(RegistrationScheduleTemplate::getId).toList();
+
+        // 与时段接口同口径：仅聚合已启用模板与正常排班，否则日期余量含停诊/禁用号源导致选中后对不上
+        registrationScheduleTemplateList = registrationScheduleTemplateList.stream()
+                .filter(t -> Boolean.TRUE.equals(t.getEnabled()))
+                .toList();
 
         List<RegistrationSchedule> registrationSchedules = registrationScheduleService
-                .listRegistrationScheduleByRegistrationScheduleTemplateIdList(registrationScheduleTemplateIdList);
+                .listRegistrationScheduleByRegistrationScheduleIdList(registrationScheduleIdList);
 
-        List<RegistrationDateAndRemainQuotaVo> registrationDateAndRemainQuotaVoList = new ArrayList<>();
-
+        // ponytail: S14 — 按 date 聚合同日所有 schedule 的剩余/总号源，避免跳过同日上午+下午
+        // 一个模板按小时生成多条 schedule（见 ExcelManager.buildSchedules），须累加全部正常排班余量，
+        // findFirst 只算第一个小时且首条停诊会误跳过整个模板
+        java.util.Map<LocalDate, RegistrationDateAndRemainQuotaVo> mergedByDate = new java.util.TreeMap<>();
         for (RegistrationScheduleTemplate registrationScheduleTemplate : registrationScheduleTemplateList) {
-            RegistrationDateAndRemainQuotaVo registrationDateAndRemainQuotaVo = new RegistrationDateAndRemainQuotaVo();
-            RegistrationSchedule registrationSchedule = registrationSchedules.stream()
-                    .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
-                    .findFirst().orElse(null);
-            if (registrationSchedule == null) {
-                log.warn("跳过排班模板 {}：未找到对应排班记录", registrationScheduleTemplate.getId());
+            int templateRemaining = 0;
+            boolean hasNormalSchedule = false;
+            for (RegistrationSchedule registrationSchedule : registrationSchedules) {
+                if (!Objects.equals(registrationSchedule.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId())) {
+                    continue;
+                }
+                if (registrationSchedule.getStatus() == null
+                        || !RegistrationScheduleStatusEnum.NORMAL.getCode().equals(registrationSchedule.getStatus())) {
+                    continue;
+                }
+                hasNormalSchedule = true;
+                templateRemaining += (registrationSchedule.getRemainingQuota() == null ? 0 : registrationSchedule.getRemainingQuota());
+            }
+            if (!hasNormalSchedule) {
                 continue;
             }
-            registrationDateAndRemainQuotaVo.setDoctorId(String.valueOf(registrationSchedule.getDoctorId()));
-            registrationDateAndRemainQuotaVo.setDate(registrationScheduleTemplate.getRegistrationDate());
-            int remainQuota = registrationSchedules.stream()
-                    .filter(item -> Objects.equals(item.getRegistrationScheduleTemplateId(), registrationScheduleTemplate.getId()))
-                    .mapToInt(RegistrationSchedule::getRemainingQuota)
-                    .sum();
-            registrationDateAndRemainQuotaVo.setTotalQuota(registrationScheduleTemplate.getTotalQuota());
-            registrationDateAndRemainQuotaVo.setRemainQuota(remainQuota);
-            registrationDateAndRemainQuotaVoList.add(registrationDateAndRemainQuotaVo);
-        }
-
-        List<RegistrationDateAndRemainQuotaVo> result = new ArrayList<>();
-        List<LocalDate> dateList = new ArrayList<>();
-        for (RegistrationDateAndRemainQuotaVo registrationDateAndRemainQuotaVo : registrationDateAndRemainQuotaVoList) {
-
-            if (dateList.contains(registrationDateAndRemainQuotaVo.getDate())) {
-                continue;
-            } else {
-                dateList.add(registrationDateAndRemainQuotaVo.getDate());
-                result.add(registrationDateAndRemainQuotaVo);
+            LocalDate date = registrationScheduleTemplate.getRegistrationDate();
+            RegistrationDateAndRemainQuotaVo vo = mergedByDate.get(date);
+            if (vo == null) {
+                vo = new RegistrationDateAndRemainQuotaVo();
+                vo.setDoctorId(String.valueOf(registrationScheduleTemplate.getDoctorId()));
+                vo.setDate(date);
+                vo.setTotalQuota(0);
+                vo.setRemainQuota(0);
+                mergedByDate.put(date, vo);
             }
+            vo.setTotalQuota(vo.getTotalQuota() + (registrationScheduleTemplate.getTotalQuota() == null ? 0 : registrationScheduleTemplate.getTotalQuota()));
+            vo.setRemainQuota(vo.getRemainQuota() + templateRemaining);
         }
 
+        List<RegistrationDateAndRemainQuotaVo> result = new ArrayList<>(mergedByDate.values());
         result.sort(Comparator.comparing(RegistrationDateAndRemainQuotaVo::getDate));
 
         return Result.success(result);
+    }
+
+    /**
+     * 解析医生可用的挂号规则：医生专属规则 → 科室规则 → 全院默认规则
+     * @param doctor 医生实体
+     * @return 待进一步按状态 / 规则类型过滤的规则列表
+     */
+    private List<AppointmentRule> resolveAppointmentRules(Doctor doctor) {
+        List<AppointmentRule> doctorRules = appointmentRuleService.listAppointmentsRulesByDoctorId(doctor.getId());
+        if (!doctorRules.isEmpty()) {
+            return doctorRules;
+        }
+        List<AppointmentRule> departmentRules =
+                appointmentRuleService.listAppointmentsRulesByDepartmentId(doctor.getDepartmentId());
+        if (!departmentRules.isEmpty()) {
+            return departmentRules;
+        }
+        return appointmentRuleService.listGlobalAppointmentRules();
     }
 
     /**
@@ -141,16 +161,23 @@ public class RegistrationScheduleManager {
      */
     public Result<List<RegistrationConfirmTime>> getRegistrationScheduleByDoctorIdAndDate(Long doctorId, LocalDate date) {
         List<RegistrationScheduleTemplate> registrationScheduleTemplates = registrationScheduleTemplateService.getRegistrationScheduleTemplateByDoctorIdAndDate(doctorId, date);
-        List<Long> registrationScheduleTemplateIdList = registrationScheduleTemplates
+        // 仅保留已启用模板
+        List<Long> registrationScheduleIdList = registrationScheduleTemplates
                 .stream()
+                .filter(t -> Boolean.TRUE.equals(t.getEnabled()))
                 .map(RegistrationScheduleTemplate::getId)
                 .toList();
 
         List<RegistrationSchedule> registrationSchedulesByDoctorIdAndDate = registrationScheduleService
-                .getRegistrationScheduleListByRegistrationScheduleTemplateIdList(registrationScheduleTemplateIdList);
+                .getRegistrationScheduleListByRegistrationScheduleIdList(registrationScheduleIdList);
 
-        List<RegistrationConfirmTime> registrationConfirmTimeList = new CopyOnWriteArrayList<>();
+        List<RegistrationConfirmTime> registrationConfirmTimeList = new ArrayList<>();
         for (RegistrationSchedule registrationSchedule : registrationSchedulesByDoctorIdAndDate) {
+            // 仅展示正常(1)状态的排班
+            if (registrationSchedule.getStatus() == null
+                    || !RegistrationScheduleStatusEnum.NORMAL.getCode().equals(registrationSchedule.getStatus())) {
+                continue;
+            }
             RegistrationConfirmTime registrationConfirmTime = new RegistrationConfirmTime();
             registrationConfirmTime.setRegistrationScheduleId(String.valueOf(registrationSchedule.getId()));
             registrationConfirmTime.setStartTime(registrationSchedule.getStartTime());
@@ -162,9 +189,14 @@ public class RegistrationScheduleManager {
         return Result.success(registrationConfirmTimeList);
     }
 
-    public Result<Integer> getRegistrationPriceByRegistrationScheduleId(String registrationScheduleId) {
+    /**
+     * 按排班 ID 查询挂号价格（数据库以「分」存储，直接返回分，由前端格式化）
+     * @param registrationScheduleId 排班 ID
+     * @return 价格（分）；排班或模板不存在返回失败
+     */
+    public Result<Integer> getRegistrationPriceByRegistrationScheduleId(Long registrationScheduleId) {
         RegistrationSchedule registrationSchedule = registrationScheduleService
-                .getRegistrationScheduleById(Long.valueOf(registrationScheduleId));
+                .getRegistrationScheduleById(registrationScheduleId);
         if (registrationSchedule == null) {
             return Result.fail("挂号排班不存在");
         }
@@ -173,6 +205,8 @@ public class RegistrationScheduleManager {
         if (registrationScheduleTemplate == null) {
             return Result.fail("挂号排班模板不存在");
         }
-        return Result.success(registrationScheduleTemplate.getPrice());
+        // 数据库存储为"分"，直接返回
+        Integer priceInFen = registrationScheduleTemplate.getPrice();
+        return Result.success(priceInFen);
     }
 }

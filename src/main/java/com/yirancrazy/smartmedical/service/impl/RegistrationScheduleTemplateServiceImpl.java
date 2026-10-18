@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -87,13 +88,19 @@ public class RegistrationScheduleTemplateServiceImpl implements RegistrationSche
     }
 
     @Override
-    public List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleTemplateIdList) {
+    public List<RegistrationScheduleTemplate> listAllRegistrationScheduleTemplateByIdList(List<Long> registrationScheduleIdList) {
+        if (registrationScheduleIdList == null || registrationScheduleIdList.isEmpty()) {
+            return Collections.emptyList();
+        }
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
-                .in(RegistrationScheduleTemplate::getId, registrationScheduleTemplateIdList));
+                .in(RegistrationScheduleTemplate::getId, registrationScheduleIdList));
     }
 
     @Override
     public List<RegistrationScheduleTemplate> listRegistrationScheduleTemplatesByDoctorIdListAndDate(List<Long> doctorIdList, LocalDate startDate, LocalDate endDate) {
+        if (doctorIdList == null || doctorIdList.isEmpty()) {
+            return Collections.emptyList();
+        }
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
                 .in(RegistrationScheduleTemplate::getDoctorId, doctorIdList)
                 .between(RegistrationScheduleTemplate::getRegistrationDate, startDate, endDate));
@@ -107,15 +114,12 @@ public class RegistrationScheduleTemplateServiceImpl implements RegistrationSche
 
     @Override
     public List<RegistrationScheduleTemplate> getRegistrationScheduleTemplateByDoctorIdAndDate(Long doctorId, LocalDate date) {
+        if (doctorId == null || date == null) {
+            return Collections.emptyList();
+        }
         return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
                 .eq(RegistrationScheduleTemplate::getDoctorId, doctorId)
                 .eq(RegistrationScheduleTemplate::getRegistrationDate, date));
     }
 
-    @Override
-    public List<RegistrationScheduleTemplate> listRegistrationScheduleTemplatesByDoctorIdAndDate(Long doctorId, LocalDate startDate, LocalDate endDate) {
-        return registrationScheduleTemplateMapper.selectList(new LambdaQueryWrapper<RegistrationScheduleTemplate>()
-                .eq(RegistrationScheduleTemplate::getDoctorId, doctorId)
-                .between(RegistrationScheduleTemplate::getRegistrationDate, startDate, endDate));
-    }
 }
