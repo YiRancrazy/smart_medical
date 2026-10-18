@@ -90,8 +90,43 @@ services:
       # file-host 必须保持浏览器可达地址，故不覆盖 MINIO_PUBLIC_HOST
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
+    # 排障用：与 debug-tools 共享 /tmp，JVM Attach API 的 .java_pid<pid> socket 才能互通
+    volumes:
+      - jvm-tmp:/tmp
     networks:
       - smart-medical-net
+
+  # 临时排障容器：默认不启动，仅在 --profile debug 时拉起，用完即删。
+  # 复用 backend 的 PID / 网络命名空间，并共享 /tmp 以便 JVM Attach 与 Arthas。
+  debug-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile.debug-tools
+    image: smart-medical-debug-tools:17
+    container_name: smart-medical-debug-tools
+    pid: "service:backend"
+    network_mode: "service:backend"
+    volumes:
+      - jvm-tmp:/tmp
+    profiles:
+      - debug
+    tty: true
+    stdin_open: true
+    # 启动时把 Arthas 复制到共享 /tmp，使目标 JVM 也能按同一路径加载 agent
+    command:
+      - sh
+      - -c
+      - |
+        rm -rf /tmp/arthas
+        cp -a /opt/arthas /tmp/arthas
+        while true; do sleep 3600; done
+    # 最小权限原则：默认不放开，jstack -F / jmap -F / jhsdb / strace / gdb / tcpdump 按需取消注释
+    # cap_add:
+    #   - SYS_PTRACE
+    #   - NET_ADMIN
+    #   - NET_RAW
+    # security_opt:
+    #   - seccomp:unconfined
 
   admin:
     build:
@@ -120,3 +155,7 @@ services:
 networks:
   smart-medical-net:
     driver: bridge
+
+volumes:
+  # Attach API 依赖共享的 ${java.io.tmpdir}，backend 与 debug-tools 均挂载到 /tmp
+  jvm-tmp:
