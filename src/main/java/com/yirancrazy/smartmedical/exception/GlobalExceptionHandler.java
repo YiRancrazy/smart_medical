@@ -1,11 +1,13 @@
 package com.yirancrazy.smartmedical.exception;
 
 import com.yirancrazy.smartmedical.pojo.Result;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -85,6 +87,17 @@ public class GlobalExceptionHandler {
     public Result<Void> handleNoResource(NoResourceFoundException e) {
         log.warn("[404] {}", e.getMessage());
         return Result.fail(404, "接口不存在");
+    }
+
+    /**
+     * HTTP 方法不匹配时返回 405，并记录实际请求路径与允许的方法
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public Result<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e,
+                                                 HttpServletRequest request) {
+        log.warn("[405] method={}, uri={}, supported={}",
+                request.getMethod(), request.getRequestURI(), e.getSupportedHttpMethods());
+        return Result.fail(405, "请求方法不支持");
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
