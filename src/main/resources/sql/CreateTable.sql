@@ -46,18 +46,7 @@ CREATE TABLE `account`  (
 -- ----------------------------
 -- Records of account
 -- ----------------------------
-INSERT INTO `account` VALUES (2, 1, 2, 1, 'e10adc3949ba59abbe56e057f20f883e', 'lisi@example.com', '13996001338', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
--- role_id 修正：以下 4 条原为 0（role 表无此 id）或 1（管理员，但 admin 表无对应 id），
--- 邮箱均对应同名患者用户，故统一为患者角色 4（RoleEnum.PATIENT）
-INSERT INTO `account` VALUES (3, 1, 3, 4, 'e10adc3949ba59abbe56e057f20f883e', 'wangwu@example.com', '15808386379', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (4, 1, 4, 4, 'e10adc3949ba59abbe56e057f20f883e', 'zhaoliu@example.com', '13702654235', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (5, 1, 5, 4, 'e10adc3949ba59abbe56e057f20f883e', 'qianqi@example.com', '13916155940', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (6, 1, 6, 4, 'e10adc3949ba59abbe56e057f20f883e', 'sunba@example.com', '18278161849', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (7, 1, 7, 4, 'e10adc3949ba59abbe56e057f20f883e', 'zhoujiu@example.com', '18859310341', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (8, 1, 8, 2, 'e10adc3949ba59abbe56e057f20f883e', 'wushi@example.com', '18731647525', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (10, 1, 2, 2, '123123', 'doctor2@hospital.com', '15264835030', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `account` VALUES (11, 1, 1, 1, 'e10adc3949ba59abbe56e057f20f883e', '123123', '19350051049', '2026-03-05 18:50:34', '2026-03-05 18:50:36', 0);
-INSERT INTO `account` VALUES (12, 1, 3, 6, 'e10adc3949ba59abbe56e057f20f883e', 'pharmacist@hospital.com', '18512345678', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (2, 1, 1, 1, 'e10adc3949ba59abbe56e057f20f883e', 'admin@example.com', '13996001338', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for admin
@@ -80,8 +69,6 @@ CREATE TABLE `admin`  (
 -- Records of admin
 -- ----------------------------
 INSERT INTO `admin` VALUES (1, '系统管理员', 'https://example.com/admin1.jpg', '超级管理员', 1, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `admin` VALUES (2, '科室管理员', 'https://example.com/admin2.jpg', '科室管理员', 2, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `admin` VALUES (3, '数据管理员', 'https://example.com/admin3.jpg', '数据维护', 3, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for appointment_blacklist
@@ -154,9 +141,6 @@ CREATE TABLE `appointment_rule`  (
 -- Records of appointment_rule
 -- ----------------------------
 INSERT INTO `appointment_rule` VALUES (1, '普通门诊默认规则', 0, NULL, NULL, 7, '08:00:00', '17:00:00', 2, 7, 50, 10, 30, 24, 3, 3, 30, 0.50, 1, 1, '2024-01-01', '2024-12-31', 2, '全院普通门诊默认规则', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `appointment_rule` VALUES (2, '专家门诊规则', 1, NULL, NULL, 14, '08:00:00', '16:00:00', 4, 7, 30, 5, 30, 48, 2, 2, 60, 0.30, 1, 1, '2024-01-01', '2024-12-31', 2, '全院专家门诊规则', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `appointment_rule` VALUES (3, '心内科特殊规则', 0, 6, NULL, 7, '08:00:00', '17:30:00', 2, 7, 60, 15, 30, 24, 3, 3, 30, 0.50, 1, 1, '2024-01-01', '2024-12-31', 1, '心内科特殊预约规则', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `appointment_rule` VALUES (4, '张伟专家规则', 0, 6, 1, 14, '08:30:00', '11:30:00', 4, 7, 20, 4, 30, 48, 2, 2, 60, 0.30, 1, 1, '2024-01-01', '2024-12-31', 0, '主任医师张伟专属规则', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
 INSERT INTO `appointment_rule` VALUES (5, '急诊规则', 2, NULL, NULL, 1, '00:00:00', '23:59:00', 0, 7, 100, 20, 15, 2, 5, 5, 7, 1.00, 1, 1, '2024-01-01', '2024-12-31', 2, '急诊科预约规则', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
 
 -- ----------------------------
@@ -198,18 +182,6 @@ CREATE TABLE `consultation_room`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `fk_room_department`(`department_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '诊室信息表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of consultation_room
--- ----------------------------
-INSERT INTO `consultation_room` VALUES (1, 301, '专家诊室一', 6, '内科大楼4层301室', '心电图机、血压计', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (2, 302, '专家诊室二', 6, '内科大楼4层302室', '心脏彩超设备', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (3, 201, '骨科诊室一', 5, '外科大楼3层201室', 'X光机、骨科检查床', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (4, 101, '儿科诊室一', 3, '儿科大楼1层101室', '儿童检查床、玩具', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (5, 401, '妇产科诊室', 4, '妇产大楼4层401室', '产检设备、B超', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (6, 501, '普通内科诊室', 1, '内科大楼3层501室', '基础诊疗设备', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (7, 601, '检验室一', 7, '医技楼1层601室', '生化分析仪', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `consultation_room` VALUES (8, 701, '放射室一', 8, '医技楼2层701室', 'DR设备', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for consultation_room_status
@@ -280,22 +252,6 @@ CREATE TABLE `department`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '科室信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of department
--- ----------------------------
-INSERT INTO `department` VALUES (1, 1001, '内科', '0', NULL, 1, '010-12345678', '内科大楼3层', 1, '综合性内科科室', '2026-02-28 09:54:01', '2026-02-28 09:54:01', 0);
-INSERT INTO `department` VALUES (2, 1002, '外科', '0', NULL, 1, '010-12345679', '外科大楼2层', 1, '综合性外科科室', '2026-02-28 09:54:01', '2026-02-28 09:54:01', 0);
-INSERT INTO `department` VALUES (3, 1003, '儿科', '0', NULL, 1, '010-12345680', '儿科大楼1层', 1, '儿童疾病诊疗', '2026-02-28 09:54:01', '2026-02-28 09:54:01', 0);
-INSERT INTO `department` VALUES (4, 1004, '妇产科', '0', NULL, 1, '010-12345681', '妇产大楼4层', 1, '妇科产科诊疗', '2026-02-28 09:54:01', '2026-02-28 09:54:01', 0);
-INSERT INTO `department` VALUES (5, 1005, '骨科', '0', 2, 1, '010-12345682', '外科大楼3层', 1, '骨骼疾病诊疗', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `department` VALUES (6, 1006, '心内科', '0', 1, 1, '010-12345683', '内科大楼4层', 1, '心血管疾病诊疗', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `department` VALUES (7, 1007, '检验科', '1', NULL, 1, '010-12345684', '医技楼1层', 1, '医学检验', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `department` VALUES (8, 1008, '放射科', '1', NULL, 1, '010-12345685', '医技楼2层', 1, '影像诊断', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `department` VALUES (9, 1009, '人事部', '2', NULL, 1, '010-12345686', '行政楼3层', 1, '人事管理', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `department` VALUES (10, 1010, '财务部', '2', NULL, 1, '010-12345687', '行政楼2层', 1, '财务管理', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `department` VALUES (2030112388347453441, 123123, '神经内科', '1', 1, 2, '19350050148', '测试地址', 1, '测试描述', '2026-03-07 10:44:46', '2026-03-07 10:44:46', 0);
-INSERT INTO `department` VALUES (2030123506457505793, 123123, '123123', 'clinical', 3, 2, '12312312', '123123123', 1, '123', '2026-03-07 11:28:56', '2026-03-07 11:28:56', 0);
-
--- ----------------------------
 -- Table structure for doctor
 -- ----------------------------
 DROP TABLE IF EXISTS `doctor`;
@@ -320,20 +276,6 @@ CREATE TABLE `doctor`  (
   INDEX `doctor_doctor_position_id_fk`(`doctor_position_id` ASC) USING BTREE,
   INDEX `idx_status`(`status` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '医生信息表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of doctor
--- ----------------------------
-INSERT INTO `doctor` VALUES (1, 6, 1, 1, '张伟', 'https://example.com/avatar1.jpg', '北京市朝阳区', 4.8, '心内科专家', '从事心血管疾病诊疗20年', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (2, 6, 2, 2, '李娜', 'https://example.com/avatar2.jpg', '北京市海淀区', 4.7, '心内科骨干', '擅长冠心病介入治疗', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (3, 5, 1, 1, '王强', 'https://example.com/avatar3.jpg', '北京市西城区', 4.9, '骨科专家', '关节置换手术专家', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (4, 5, 3, 3, '刘洋', 'https://example.com/avatar4.jpg', '北京市东城区', 4.5, '骨科医师', '擅长骨折治疗', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (5, 3, 1, 1, '陈静', 'https://example.com/avatar5.jpg', '北京市丰台区', 4.8, '儿科专家', '儿童呼吸系统疾病专家', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (6, 4, 2, 2, '杨帆', 'https://example.com/avatar6.jpg', '北京市昌平区', 4.6, '妇产科专家', '高危妊娠管理专家', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (7, 1, 3, 3, '赵敏', 'https://example.com/avatar7.jpg', '北京市通州区', 4.4, '内科医师', '消化内科专业', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (8, 2, 4, 4, '周杰', 'https://example.com/avatar8.jpg', '北京市大兴区', 4.3, '外科医师', '普外科专业', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (9, 7, 3, 3, '吴磊', 'https://example.com/avatar9.jpg', '北京市顺义区', 4.5, '检验师', '临床检验专业', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `doctor` VALUES (10, 8, 4, 4, '孙俪', 'https://example.com/avatar10.jpg', '北京市房山区', 4.2, '放射技师', '影像诊断专业', 0, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for doctor_position
@@ -461,20 +403,6 @@ CREATE TABLE `drug_inventory`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 9000000000000000002 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '药品库存表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of drug_inventory
--- ----------------------------
-INSERT INTO `drug_inventory` VALUES (1, 1, 1, 500, 480, 20, 50, 1000, '2024-03-01 10:00:00', '2024-03-15 14:30:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (2, 2, 1, 300, 280, 20, 30, 500, '2024-03-05 09:00:00', '2024-03-20 16:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (3, 3, 1, 400, 390, 10, 40, 800, '2024-03-02 11:00:00', '2024-03-18 10:30:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (4, 4, 1, 250, 240, 10, 25, 600, '2024-03-08 14:00:00', '2024-03-22 09:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (5, 5, 1, 600, 580, 20, 60, 1200, '2024-03-01 08:30:00', '2024-03-16 15:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (6, 6, 1, 800, 780, 20, 80, 1500, '2024-03-03 10:30:00', '2024-03-19 11:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (7, 7, 1, 450, 430, 20, 45, 900, '2024-03-06 13:00:00', '2024-03-21 14:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (8, 1, 2, 200, 190, 10, 20, 400, '2024-03-04 09:30:00', '2024-03-17 10:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (9, 9, 2, 1000, 980, 20, 100, 2000, '2024-03-01 07:00:00', '2024-03-15 08:00:00', '2026-02-28 09:54:04');
-INSERT INTO `drug_inventory` VALUES (10, 10, 2, 1200, 1180, 20, 120, 2500, '2024-03-02 08:00:00', '2024-03-16 09:30:00', '2026-02-28 09:54:04');
-
--- ----------------------------
 -- Table structure for file
 -- ----------------------------
 DROP TABLE IF EXISTS `file`;
@@ -520,16 +448,6 @@ CREATE TABLE `inventory_transaction`  (
   INDEX `idx_drug_warehouse`(`drug_id` ASC, `warehouse_id` ASC) USING BTREE,
   INDEX `idx_related_order`(`related_order` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 9000000000000000002 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '库存异动流水表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of inventory_transaction
--- ----------------------------
-INSERT INTO `inventory_transaction` VALUES (1, 1, 1, 1, 'CG20240301001', 500, 0, 500, '初始入库', 1, '系统管理员', '2026-02-28 09:54:04');
-INSERT INTO `inventory_transaction` VALUES (2, 1, 1, 2, 'CK20240315001', -20, 500, 480, '门诊发药', 2, '李药师', '2026-02-28 09:54:04');
-INSERT INTO `inventory_transaction` VALUES (3, 2, 1, 1, 'CG20240305001', 300, 0, 300, '采购入库', 1, '系统管理员', '2026-02-28 09:54:04');
-INSERT INTO `inventory_transaction` VALUES (4, 2, 1, 2, 'CK20240320001', -20, 300, 280, '门诊发药', 2, '李药师', '2026-02-28 09:54:04');
-INSERT INTO `inventory_transaction` VALUES (5, 5, 1, 1, 'CG20240301002', 600, 0, 600, '采购入库', 1, '系统管理员', '2026-02-28 09:54:04');
-INSERT INTO `inventory_transaction` VALUES (6, 9, 2, 1, 'CG20240301003', 1000, 0, 1000, '采购入库', 1, '系统管理员', '2026-02-28 09:54:04');
 
 -- ----------------------------
 -- Table structure for invoice
@@ -675,18 +593,6 @@ CREATE TABLE `patient`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '就诊人档案表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of patient
--- ----------------------------
-INSERT INTO `patient` VALUES (1, 1, 1, '13695376724', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient` VALUES (2, 2, 2, '13538849696', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient` VALUES (3, 3, 3, '15032871012', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `patient` VALUES (4, 4, 4, '15926916697', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `patient` VALUES (5, 5, 5, '15748018451', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `patient` VALUES (6, 6, 6, '13762704828', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `patient` VALUES (7, 7, 7, '18814893252', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `patient` VALUES (8, 8, 8, '15780957015', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-
--- ----------------------------
 -- Table structure for patient_card
 -- ----------------------------
 DROP TABLE IF EXISTS `patient_card`;
@@ -704,18 +610,6 @@ CREATE TABLE `patient_card`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `sn_unique`(`sn` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '就诊卡信息表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of patient_card
--- ----------------------------
-INSERT INTO `patient_card` VALUES (1, 20240001, 0, 50000, 'encrypted_pwd1', 0, 'qr_code_1', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (2, 20240002, 100000, 30000, 'encrypted_pwd2', 0, 'qr_code_2', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (3, 20240003, 0, 20000, 'encrypted_pwd3', 0, 'qr_code_3', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (4, 20240004, 50000, 10000, 'encrypted_pwd4', 0, 'qr_code_4', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (5, 20240005, 0, 0, 'encrypted_pwd5', 1, 'qr_code_5', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (6, 20240006, 200000, 80000, 'encrypted_pwd6', 0, 'qr_code_6', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (7, 20240007, 0, 15000, 'encrypted_pwd7', 0, 'qr_code_7', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `patient_card` VALUES (8, 20240008, 30000, 25000, 'encrypted_pwd8', 0, 'qr_code_8', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for payment_method
@@ -971,18 +865,6 @@ CREATE TABLE `user`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '患者/用户信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of user
--- ----------------------------
-INSERT INTO `user` VALUES (1, '张三', '张三', 'https://example.com/user1.jpg', '北京市朝阳区建国路1号', 0, '340521200203221034', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (2, '李四', '李四', 'https://example.com/user2.jpg', '北京市海淀区中关村大街2号', 0, '340521200203221035', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (3, '王五', '王五', 'https://example.com/user3.jpg', '北京市西城区金融街3号', 0, '340521200203221036', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (4, '赵六', '赵六', 'https://example.com/user4.jpg', '北京市东城区王府井4号', 1, '340521200203221037', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (5, '钱七', '钱七', 'https://example.com/user5.jpg', '北京市丰台区方庄5号', 0, '340521200203221038', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (6, '孙八', '孙八', 'https://example.com/user6.jpg', '北京市昌平区回龙观6号', 1, '340521200203221039', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (7, '周九', '周九', 'https://example.com/user7.jpg', '北京市通州区梨园7号', 0, '340521200203221031', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-INSERT INTO `user` VALUES (8, '吴十', '吴十', 'https://example.com/user8.jpg', '北京市大兴区黄村8号', 0, '340521200203221032', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
-
--- ----------------------------
 -- Table structure for user_patient_relation
 -- ----------------------------
 DROP TABLE IF EXISTS `user_patient_relation`;
@@ -1001,18 +883,6 @@ CREATE TABLE `user_patient_relation`  (
   INDEX `user_patient_relation_patient_id_fk`(`patient_user_id` ASC) USING BTREE,
   INDEX `user_patient_relation_user_id_fk`(`user_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '管理关系表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of user_patient_relation
--- ----------------------------
-INSERT INTO `user_patient_relation` VALUES (1, 1, 1, '12312', 1, 1, '本人', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (2, 2, 2, '本人', 1, 1, '本人', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (3, 3, 3, '本人', 1, 1, '本人', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (4, 4, 4, '本人', 1, 1, '本人', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (5, 5, 5, '本人', 1, 1, '本人', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (6, 6, 6, '12312', 1, 1, '妻子', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (8, 2, 8, '12312', 1, 1, '妻子', '2026-02-28 09:54:03', '2026-02-28 09:54:03', 0);
-INSERT INTO `user_patient_relation` VALUES (2040599544698343424, 1, 8, '朋友123', 0, 0, '朋友', '2026-04-05 09:16:59', '2026-04-05 09:16:59', 0);
 
 -- ----------------------------
 -- Table structure for warehouse
@@ -1034,14 +904,6 @@ CREATE TABLE `warehouse`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_warehouse_code`(`code` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 9000000000000000002 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仓库/药房表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of warehouse
--- ----------------------------
-INSERT INTO `warehouse` VALUES (1, 'CK001', '中心药房', 1, '门诊大楼1层', '010-11111111', '张药师', 1, 1, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `warehouse` VALUES (2, 'CK002', '住院药房', 1, '住院楼1层', '010-22222222', '李药师', 1, 0, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `warehouse` VALUES (3, 'CK003', '中药房', 1, '门诊大楼2层', '010-33333333', '王药师', 1, 0, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
-INSERT INTO `warehouse` VALUES (4, 'CK004', '中心库房', 2, '后勤楼1层', '010-44444444', '赵库管', 1, 0, '2026-02-28 09:54:04', '2026-02-28 09:54:04', 0);
 
 -- ----------------------------
 -- Table structure for medical_record
@@ -1069,10 +931,6 @@ CREATE TABLE `medical_record`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '电子病历表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of medical_record
--- ----------------------------
-
--- ----------------------------
 -- Table structure for prescription
 -- ----------------------------
 DROP TABLE IF EXISTS `prescription`;
@@ -1096,10 +954,6 @@ CREATE TABLE `prescription`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '处方表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of prescription
--- ----------------------------
-
--- ----------------------------
 -- Table structure for prescription_item
 -- ----------------------------
 DROP TABLE IF EXISTS `prescription_item`;
@@ -1117,10 +971,6 @@ CREATE TABLE `prescription_item`  (
   INDEX `idx_prescription_id`(`prescription_id` ASC) USING BTREE,
   INDEX `idx_drug_id`(`drug_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '处方明细表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of prescription_item
--- ----------------------------
 
 -- ----------------------------
 -- Table structure for registration_status_log
@@ -1141,16 +991,3 @@ CREATE TABLE `registration_status_log`  (
   INDEX `idx_registration_id`(`registration_id` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号状态变更日志' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of registration_status_log
--- ----------------------------
-
--- 数据迁移：把老数据 status=1 且未报到的视为"已预约"
-UPDATE registration
-   SET status = 0
- WHERE status = 1
-   AND check_in_time IS NULL
-   AND is_deleted = 0;
-
-SET FOREIGN_KEY_CHECKS = 1;
