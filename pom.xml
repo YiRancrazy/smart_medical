@@ -28,6 +28,20 @@
         <spring-dotenv.version>4.0.0</spring-dotenv.version>
     </properties>
 
+    <!-- 优先从阿里云下载，未命中时继续查询 Maven Central -->
+    <repositories>
+        <repository>
+            <id>aliyun-public</id>
+            <url>https://maven.aliyun.com/repository/public</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>aliyun-public</id>
+            <url>https://maven.aliyun.com/repository/public</url>
+        </pluginRepository>
+    </pluginRepositories>
 
     <dependencies>
 
