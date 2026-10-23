@@ -46,7 +46,8 @@ CREATE TABLE `account`  (
 -- ----------------------------
 -- Records of account
 -- ----------------------------
-INSERT INTO `account` VALUES (2, 1, 1, 1, 'e10adc3949ba59abbe56e057f20f883e', 'admin@example.com', '13996001338', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (1, 1, 1, 1, 'e10adc3949ba59abbe56e057f20f883e', 'admin@hospital.com', '10000000000', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+INSERT INTO `account` VALUES (2, 1, 3, 6, 'e10adc3949ba59abbe56e057f20f883e', 'pharmacist@hospital.com', '10000000000', '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
 
 -- ----------------------------
 -- Table structure for admin
@@ -401,6 +402,20 @@ CREATE TABLE `drug_inventory`  (
   INDEX `idx_stock_quantity`(`stock_quantity` ASC) USING BTREE,
   INDEX `idx_warehouse_id`(`warehouse_id` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 9000000000000000002 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '药品库存表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of drug_inventory
+-- ----------------------------
+INSERT INTO `drug_inventory` VALUES (1, 1, 1, 500, 480, 20, 50, 1000, '2024-03-01 10:00:00', '2024-03-15 14:30:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (2, 2, 1, 300, 280, 20, 30, 500, '2024-03-05 09:00:00', '2024-03-20 16:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (3, 3, 1, 400, 390, 10, 40, 800, '2024-03-02 11:00:00', '2024-03-18 10:30:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (4, 4, 1, 250, 240, 10, 25, 600, '2024-03-08 14:00:00', '2024-03-22 09:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (5, 5, 1, 600, 580, 20, 60, 1200, '2024-03-01 08:30:00', '2024-03-16 15:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (6, 6, 1, 800, 780, 20, 80, 1500, '2024-03-03 10:30:00', '2024-03-19 11:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (7, 7, 1, 450, 430, 20, 45, 900, '2024-03-06 13:00:00', '2024-03-21 14:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (8, 1, 2, 200, 190, 10, 20, 400, '2024-03-04 09:30:00', '2024-03-17 10:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (9, 9, 2, 1000, 980, 20, 100, 2000, '2024-03-01 07:00:00', '2024-03-15 08:00:00', '2026-02-28 09:54:04');
+INSERT INTO `drug_inventory` VALUES (10, 10, 2, 1200, 1180, 20, 120, 2500, '2024-03-02 08:00:00', '2024-03-16 09:30:00', '2026-02-28 09:54:04');
 
 -- ----------------------------
 -- Table structure for file
