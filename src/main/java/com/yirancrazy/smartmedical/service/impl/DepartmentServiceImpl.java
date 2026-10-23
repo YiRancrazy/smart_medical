@@ -117,7 +117,10 @@ public class DepartmentServiceImpl implements DepartmentService {
      */
     @Override
     public List<Department> listAllParentDepartments() {
-        return departmentMapper.selectList(new QueryWrapper<Department>().isNull("parent_department_id"));
+        return departmentMapper.selectList(new QueryWrapper<Department>()
+                .and(wrapper -> wrapper.isNull("parent_department_id")
+                        .or()
+                        .eq("parent_department_id", 0L)));
     }
 
     /**
@@ -126,7 +129,9 @@ public class DepartmentServiceImpl implements DepartmentService {
      */
     @Override
     public List<Department> listAllNonParentDepartments() {
-        return departmentMapper.selectList(new QueryWrapper<Department>().isNotNull("parent_department_id"));
+        return departmentMapper.selectList(new QueryWrapper<Department>()
+                .isNotNull("parent_department_id")
+                .ne("parent_department_id", 0L));
     }
 
     /**
