@@ -167,6 +167,28 @@ class UserPatientRelationManagerTest {
     }
 
     @Test
+    void selfBindingTreatsNullEnabledPatientAccountAsEnabled() {
+        Account account = enabledAccount(PHONE);
+        account.setEnabled(null);
+        User user = new User();
+        user.setId(CURRENT_USER_ID);
+        Patient patient = patient(PATIENT_ID, ID_CARD, PHONE);
+
+        when(accountService.listPatientAccountsByUserId(CURRENT_USER_ID)).thenReturn(List.of(account));
+        when(userService.getUserById(CURRENT_USER_ID)).thenReturn(user);
+        when(patientService.getPatientByOwnerUserId(CURRENT_USER_ID)).thenReturn(null);
+        when(patientService.getPatientByIdCard(ID_CARD)).thenReturn(patient);
+        when(userPatientRelationService.insertUserPatientRelation(any(UserPatientRelation.class))).thenReturn(1);
+
+        Result<Integer> result = userPatientRelationManager.insertUserPatientRelation(
+                CURRENT_USER_ID, "张三", ID_CARD, PHONE, "本人", null, "0");
+
+        assertEquals(200, result.getCode());
+        verify(patientService).updatePatientById(patient);
+        verify(userService).updateUserById(user);
+    }
+
+    @Test
     void selfBindingRejectsMultipleEnabledPatientAccounts() {
         when(accountService.listPatientAccountsByUserId(CURRENT_USER_ID))
                 .thenReturn(List.of(enabledAccount(PHONE), enabledAccount(PHONE)));
@@ -244,6 +266,33 @@ class UserPatientRelationManagerTest {
         assertEquals("无权修改患者身份资料", result.getMessage());
         verify(patientService, never()).updatePatientById(any());
         verifyNoInteractions(userService, accountService);
+    }
+
+    @Test
+    void updateSelfRelationTreatsNullEnabledPatientAccountAsEnabled() {
+        UserPatientRelation relation = relation(RELATION_ID, CURRENT_USER_ID, PATIENT_ID, "本人");
+        Patient patient = patient(PATIENT_ID, ID_CARD, PHONE);
+        patient.setOwnerUserId(CURRENT_USER_ID);
+        User user = new User();
+        user.setId(CURRENT_USER_ID);
+        Account account = enabledAccount(PHONE);
+        account.setEnabled(null);
+
+        when(userPatientRelationService.getUserPatientRelationById(RELATION_ID)).thenReturn(relation);
+        when(patientService.getPatientById(PATIENT_ID)).thenReturn(patient);
+        when(accountService.listPatientAccountsByUserId(CURRENT_USER_ID)).thenReturn(List.of(account));
+        when(userService.getUserById(CURRENT_USER_ID)).thenReturn(user);
+        when(userPatientRelationService.getUserPatientRelationsByUserId(CURRENT_USER_ID))
+                .thenReturn(List.of(relation));
+        when(userPatientRelationService.updateUserPatientRelationById(relation)).thenReturn(1);
+
+        Result<Integer> result = userPatientRelationManager.updateUserPatientRelationById(
+                CURRENT_USER_ID, RELATION_ID, "张三", PHONE, ID_CARD, "本人", null, "false");
+
+        assertEquals(200, result.getCode());
+        verify(patientService).updatePatientById(patient);
+        verify(userService).updateUserById(user);
+        verify(userPatientRelationService).updateUserPatientRelationById(relation);
     }
 
     @Test

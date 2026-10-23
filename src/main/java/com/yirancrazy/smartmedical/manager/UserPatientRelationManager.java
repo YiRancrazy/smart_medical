@@ -82,7 +82,7 @@ public class UserPatientRelationManager {
             List<Account> patientAccounts = accountService.listPatientAccountsByUserId(currentUserId);
             patientAccounts = patientAccounts == null ? List.of() : patientAccounts;
             List<Account> enabledPatientAccounts = patientAccounts.stream()
-                    .filter(account -> Boolean.TRUE.equals(account.getEnabled()))
+                    .filter(account -> !Boolean.FALSE.equals(account.getEnabled()))
                     .toList();
             if (enabledPatientAccounts.isEmpty()) {
                 return Result.fail("当前账号缺少可用的患者角色账号");
@@ -226,7 +226,7 @@ public class UserPatientRelationManager {
             List<Account> patientAccounts = accountService.listPatientAccountsByUserId(currentUserId);
             patientAccounts = patientAccounts == null ? List.of() : patientAccounts;
             List<Account> enabledPatientAccounts = patientAccounts.stream()
-                    .filter(account -> Boolean.TRUE.equals(account.getEnabled()))
+                    .filter(account -> !Boolean.FALSE.equals(account.getEnabled()))
                     .toList();
             if (enabledPatientAccounts.size() != 1
                     || !normalizedPhone.equals(enabledPatientAccounts.get(0).getPhone())) {
