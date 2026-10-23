@@ -26,21 +26,21 @@ public class PatientManager {
     private final UserPatientRelationService userPatientRelationService;
 
     /**
-     * 获取当前账号下可访问的患者 userId 列表
-     * @param currentUserId 当前登录用户id
-     * @param patientCardId 就诊卡id（为 null 时返回全部关联患者）
-     * @return 患者 userId 列表；patientCardId 不合法或无权限时返回空列表
+     * 获取当前账号下可访问的患者ID列表
+     * @param currentUserId 当前登录用户ID
+     * @param patientCardId 就诊卡ID（为 null 时返回全部关联患者）
+     * @return 患者ID列表；patientCardId 不合法或无权限时返回空列表
      */
-    public List<Long> getAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
+    public List<Long> getAccessiblePatientIds(Long currentUserId, Long patientCardId) {
         if (patientCardId == null) {
-            return userPatientRelationService.listAccessiblePatientUserIds(currentUserId);
+            return userPatientRelationService.listAccessiblePatientIds(currentUserId);
         }
         Patient patient = patientService.getPatientByPatientCardId(patientCardId);
-        if (patient == null || patient.getUserId() == null) {
+        if (patient == null || patient.getId() == null) {
             return List.of();
         }
-        return userPatientRelationService.hasAuthorization(currentUserId, patient.getUserId())
-                ? List.of(patient.getUserId())
+        return userPatientRelationService.hasPatientRelation(currentUserId, patient.getId())
+                ? List.of(patient.getId())
                 : List.of();
     }
 }

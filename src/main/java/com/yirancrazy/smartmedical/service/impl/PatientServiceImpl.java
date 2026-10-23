@@ -53,6 +53,36 @@ public class PatientServiceImpl implements PatientService {
      * {@inheritDoc}
      */
     @Override
+    public Patient getPatientByIdCard(String idCard) {
+        return patientMapper.selectOne(new LambdaQueryWrapper<Patient>()
+                .eq(Patient::getIdCard, idCard)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Patient getPatientByIdCardForUpdate(String idCard) {
+        return patientMapper.selectOne(new LambdaQueryWrapper<Patient>()
+                .eq(Patient::getIdCard, idCard)
+                .last("LIMIT 1 FOR UPDATE"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Patient getPatientByOwnerUserId(Long userId) {
+        return patientMapper.selectOne(new LambdaQueryWrapper<Patient>()
+                .eq(Patient::getOwnerUserId, userId)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public Integer updatePatientById(Patient patient) {
         return patientMapper.updateById(patient);
     }
@@ -94,26 +124,4 @@ public class PatientServiceImpl implements PatientService {
         return new PageInfo<>(patients);
     }
 
-    /**
-     * 根据用户id获取患者
-     * @param userId 用户id
-     * @return 患者
-     */
-    @Override
-    public Patient getPatientByUserId(Long userId) {
-        return patientMapper.selectOne(new LambdaQueryWrapper<Patient>().eq(Patient::getUserId, userId));
-    }
-
-    /**
-     * 根据用户id列表批量查询患者
-     * @param userIds 用户id列表
-     * @return 患者列表
-     */
-    @Override
-    public List<Patient> getPatientsByUserIds(List<Long> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            return List.of();
-        }
-        return patientMapper.selectList(new LambdaQueryWrapper<Patient>().in(Patient::getUserId, userIds));
-    }
 }

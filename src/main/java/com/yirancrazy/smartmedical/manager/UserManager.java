@@ -3,6 +3,7 @@ package com.yirancrazy.smartmedical.manager;
 import cn.hutool.core.util.IdUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserProfileRequest;
@@ -12,9 +13,11 @@ import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.UserInfoVo;
 import com.yirancrazy.smartmedical.pojo.vo.UserProfileInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.MinIOUtil;
+import com.yirancrazy.smartmedical.utils.PatientIdentityUtil;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +48,8 @@ public class UserManager {
     private final UserService userService;
 
     private final AccountService accountService;
+
+    private final PatientService patientService;
 
     private final RedisUtil redisUtil;
 
@@ -130,7 +135,8 @@ public class UserManager {
             return Result.info(10001, "用户不存在", null);
         }
         Account account = accountService.getAccountByUserId(userId);
-        return Result.success(toUserProfileInfo(user, account));
+        Patient patient = patientService.getPatientByOwnerUserId(userId);
+        return Result.success(toUserProfileInfo(user, account, patient));
     }
 
     /**
@@ -145,6 +151,15 @@ public class UserManager {
         if (user == null) {
             return Result.info(10001, "用户不存在", null);
         }
+        String normalizedIdCard = PatientIdentityUtil.normalizeIdCard(request.getIdCard());
+        if (!PatientIdentityUtil.isValidIdCard(normalizedIdCard)) {
+            return Result.fail("身份证号格式不正确");
+        }
+        Patient patient = patientService.getPatientByOwnerUserId(userId);
+        if (patient != null && !normalizedIdCard.equals(patient.getIdCard())) {
+            return Result.fail("已绑定本人患者的身份证不可修改");
+        }
+
         user.setUsername(request.getUsername().trim());
         if (request.getNickname() != null) {
             String nickname = request.getNickname().trim();
@@ -153,11 +168,18 @@ public class UserManager {
             }
             user.setNickname(nickname);
         }
-        user.setIdCard(request.getIdCard().trim().toUpperCase(Locale.ROOT));
+        user.setIdCard(normalizedIdCard);
         user.setSex(request.getSex());
         user.setAddress(StringUtils.hasText(request.getAddress()) ? request.getAddress().trim() : null);
         userService.updateUserById(user);
-        return Result.success(toUserProfileInfo(user, accountService.getAccountByUserId(userId)));
+        if (patient != null) {
+            patient.setName(request.getUsername().trim());
+            patient.setSex(request.getSex());
+            patientService.updatePatientById(patient);
+            user.setIdCard(patient.getIdCard());
+            user.setSex(patient.getSex());
+        }
+        return Result.success(toUserProfileInfo(user, accountService.getAccountByUserId(userId), patient));
     }
 
     /**
@@ -283,18 +305,21 @@ public class UserManager {
     /**
      * 组装用户个人信息并计算完善状态
      */
-    private UserProfileInfo toUserProfileInfo(User user, Account account) {
-        boolean profileCompleted = StringUtils.hasText(user.getUsername())
-                && StringUtils.hasText(user.getIdCard())
-                && user.getSex() != null;
+    private UserProfileInfo toUserProfileInfo(User user, Account account, Patient patient) {
+        String username = patient == null ? user.getUsername() : patient.getName();
+        String idCard = patient == null ? user.getIdCard() : patient.getIdCard();
+        Integer sex = patient == null ? user.getSex() : patient.getSex();
+        boolean profileCompleted = StringUtils.hasText(username)
+                && StringUtils.hasText(idCard)
+                && sex != null;
         return new UserProfileInfo(
                 String.valueOf(user.getId()),
-                user.getUsername(),
+                username,
                 user.getNickname(),
                 resolveAvatarUrl(user.getAvatar()),
                 account == null ? null : account.getPhone(),
-                user.getIdCard(),
-                user.getSex(),
+                idCard,
+                sex,
                 user.getAddress(),
                 profileCompleted);
     }

@@ -15,13 +15,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RegistrationConfirmPatientCardVo {
-    private String userId;  // 就诊人id
+    private String userId;  // 当前登录账号id（兼容字段，非患者ID）
     private String patientCardNo;  // 就诊人卡号
-    private String patientUserId;  // 就诊人卡用户id
-    private String patientName;  // 就诊人名称
-    private String patientAvatar;  // 就诊人卡头像
-    private String patientIdCard;  // 就诊人卡身份证号
-    private String patientPhone; // 就诊人卡手机号
-    private String relation;  // 就诊人卡关系
-    private Boolean defaultPatientCard;   // 就诊人卡是否默认
+    private String patientUserId;  // 患者本人绑定账号id（兼容字段，非患者ID）
+    private String patientId;  // 患者ID
+    private String patientName;  // 患者姓名
+    private String patientAvatar;  // 患者头像（患者模型暂不存储头像）
+    private String patientIdCard;  // 患者身份证号
+    private String patientPhone; // 患者手机号
+    private Integer patientSex; // 患者性别（0男，1女）
+    private String relation;  // 与患者关系
+    private Boolean defaultPatientCard;   // 是否默认就诊人
 }

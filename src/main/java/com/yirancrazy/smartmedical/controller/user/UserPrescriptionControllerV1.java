@@ -43,11 +43,11 @@ public class UserPrescriptionControllerV1 {
     @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
     public Result<List<PrescriptionListVO>> list(@RequestAttribute("currentUserId") Long userId,
                                                  @RequestParam(required = false) Long patientCardId) {
-        List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(userId, patientCardId);
-        if (patientUserIds.isEmpty()) {
+        List<Long> patientIds = patientManager.getAccessiblePatientIds(userId, patientCardId);
+        if (patientIds.isEmpty()) {
             return Result.success(Collections.emptyList());
         }
-        return Result.success(prescriptionQueryManager.listUserPrescriptions(patientUserIds));
+        return Result.success(prescriptionQueryManager.listUserPrescriptions(patientIds));
     }
 
     @Operation(summary = "用户端 - 处方详情")

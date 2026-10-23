@@ -14,15 +14,11 @@ import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
-import com.yirancrazy.smartmedical.pojo.Patient;
-import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.vo.LoginVo;
 import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
-import com.yirancrazy.smartmedical.service.PatientCardService;
-import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.NicknameGenerator;
@@ -70,8 +66,6 @@ public class AuthManager {
     private final UserService userService;
     private final RedisUtil redisUtil;
     private final JwtTokenRevoker jwtTokenRevoker;
-    private final PatientCardService patientCardService;
-    private final PatientService patientService;
     private final SmsService smsService;
     /** S22: 登录限流窗口 5 分钟 */
     private static final long LOGIN_RATE_WINDOW_MINUTES = 5L;
@@ -241,8 +235,6 @@ public class AuthManager {
             log.warn("[register] 手机号重复注册竞态 phone={}, roleId={}", phone, account.getRoleId());
             throw new BizException(BizErrorCode.ACCOUNT_ALREADY_EXISTS);
         }
-
-        registerInit(user.getId());
 
         return Result.success(issueTokens(account, user, response));
     }
@@ -520,24 +512,6 @@ public class AuthManager {
         payload.put(JWTPayload.JWT_ID, String.valueOf(IdUtil.getSnowflakeNextId()));
 
         return JWTUtil.createToken(header, payload, refreshSecretKey.getBytes());
-    }
-
-    private void registerInit(Long userId){
-        PatientCard patientCard = new PatientCard();
-        patientCard.setId(IdUtil.getSnowflakeNextId());
-        patientCard.setSn(IdUtil.getSnowflakeNextId());
-        patientCard.setInpatientBalance(0);
-        patientCard.setOutpatientBalance(0);
-        patientCard.setPaymentPassword("");
-        patientCard.setQrCode("");
-        patientCard.setStatus(0);
-        patientCardService.insertPatientCard(patientCard);
-
-        Patient patient = new Patient();
-        patient.setId(IdUtil.getSnowflakeNextId());
-        patient.setUserId(userId);
-        patient.setPatientCardId(patientCard.getId());
-        patientService.insertPatient(patient);
     }
 
     /**

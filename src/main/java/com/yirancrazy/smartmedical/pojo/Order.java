@@ -32,6 +32,9 @@ public class Order {
     @Schema(description = "下单用户id")
     private Long userId;
 
+    @Schema(description = "订单对应患者id")
+    private Long patientId;
+
     @Schema(description = "订单类型id")
     private Long orderTypeId;
 

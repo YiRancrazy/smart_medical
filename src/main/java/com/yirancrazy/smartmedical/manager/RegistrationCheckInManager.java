@@ -11,7 +11,6 @@ import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
 import com.yirancrazy.smartmedical.pojo.PaymentRecord;
 import com.yirancrazy.smartmedical.pojo.Registration;
-import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.service.OrderService;
@@ -49,7 +48,6 @@ public class RegistrationCheckInManager {
     private final RegistrationService registrationService;
     private final RegistrationStatusLogService registrationStatusLogService;
     private final RegistrationScheduleService registrationScheduleService;
-    private final PatientService patientService;
     private final UserPatientRelationService userPatientRelationService;
     private final OrderService orderService;
     private final PaymentRecordService paymentRecordService;
@@ -68,12 +66,7 @@ public class RegistrationCheckInManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
-        // 本人或存在 user→patient_user 授权关系（代挂号/家属挂号）均可报到，与 cancel 权限口径一致
-        boolean hasPermission = userId.equals(reg.getUserId());
-        if (!hasPermission) {
-            hasPermission = userPatientRelationService.hasAuthorization(userId, reg.getUserId());
-        }
-        if (!hasPermission) {
+        if (!hasRegistrationPermission(reg, userId)) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         Integer curStatus = reg.getStatus();
@@ -153,14 +146,18 @@ public class RegistrationCheckInManager {
         if (reg == null) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_FOUND);
         }
-        boolean hasPermission = userId.equals(reg.getUserId());
-        if (!hasPermission) {
-            hasPermission = userPatientRelationService.hasAuthorization(userId, reg.getUserId());
-        }
-        if (!hasPermission) {
+        if (!hasRegistrationPermission(reg, userId)) {
             throw new BizException(BizErrorCode.REGISTRATION_NOT_OWNED);
         }
         return reg;
+    }
+
+    /**
+     * 校验当前账号对挂号患者是否存在有效访问关系
+     */
+    private boolean hasRegistrationPermission(Registration reg, Long userId) {
+        return reg.getPatientId() != null
+                && userPatientRelationService.hasPatientRelation(userId, reg.getPatientId());
     }
 
     /**

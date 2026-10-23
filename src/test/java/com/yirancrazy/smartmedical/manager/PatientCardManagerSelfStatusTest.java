@@ -1,35 +1,31 @@
 package com.yirancrazy.smartmedical.manager;
 
-import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.UserPatientRelation;
 import com.yirancrazy.smartmedical.pojo.vo.SelfPatientCardStatus;
-import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
-import com.yirancrazy.smartmedical.service.UserService;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
  * 本人就诊卡状态单测
  * @Author: YiRanCrazy@gmail.com
- * @Description: 验证本人就诊卡完善判定与表单回填数据
- * @Datetime: 2026-09-14 00:00
+ * @Description: 验证本人患者资料统一从 patient 读取
+ * @Datetime: 2026-10-22 15:00
  * @Version: 1.0
  */
 @ExtendWith(MockitoExtension.class)
@@ -37,15 +33,6 @@ class PatientCardManagerSelfStatusTest {
 
     @Mock
     private PatientCardService patientCardService;
-
-    @Mock
-    private AccountService accountService;
-
-    @Mock
-    private RedisUtil redisUtil;
-
-    @Mock
-    private UserService userService;
 
     @Mock
     private UserPatientRelationService userPatientRelationService;
@@ -60,63 +47,65 @@ class PatientCardManagerSelfStatusTest {
 
     private static final Long RELATION_ID = 8L;
 
+    private static final Long PATIENT_ID = 10L;
+
     private static final Long PATIENT_CARD_ID = 11L;
 
+    private static final String PHONE = "13812345678";
+
     @Test
-    void getSelfPatientCardStatus_returnsCompletedWhenSelfRelationExists() {
-        User currentUser = new User();
-        currentUser.setId(CURRENT_USER_ID);
-        currentUser.setUsername("张三");
-        currentUser.setIdCard("110101199001011234");
-
-        Account currentAccount = new Account();
-        currentAccount.setUserId(CURRENT_USER_ID);
-        currentAccount.setPhone("13812345678");
-
+    void getSelfPatientCardStatus_returnsPatientIdentityWhenSelfRelationExists() {
         UserPatientRelation selfRelation = new UserPatientRelation();
         selfRelation.setId(RELATION_ID);
         selfRelation.setUserId(CURRENT_USER_ID);
-        selfRelation.setPatientUserId(CURRENT_USER_ID);
+        selfRelation.setPatientId(PATIENT_ID);
         selfRelation.setRelation("本人");
         selfRelation.setDefaulted(true);
 
         Patient patient = new Patient();
-        patient.setUserId(CURRENT_USER_ID);
+        patient.setId(PATIENT_ID);
+        patient.setName("张三");
+        patient.setIdCard("110101199001011234");
+        patient.setPhone(PHONE);
+        patient.setSex(1);
+        patient.setOwnerUserId(CURRENT_USER_ID);
         patient.setPatientCardId(PATIENT_CARD_ID);
 
         PatientCard patientCard = new PatientCard();
         patientCard.setId(PATIENT_CARD_ID);
-        patientCard.setSn(20260914001L);
+        patientCard.setSn(20261022001L);
 
-        when(userService.getUserById(CURRENT_USER_ID)).thenReturn(currentUser);
-        when(accountService.getAccountByUserId(CURRENT_USER_ID)).thenReturn(currentAccount);
-        when(userPatientRelationService.getUserPatientRelationsByUserId(CURRENT_USER_ID))
-                .thenReturn(List.of(selfRelation));
-        when(patientService.getPatientByUserId(CURRENT_USER_ID)).thenReturn(patient);
+        when(patientService.getPatientByOwnerUserId(CURRENT_USER_ID)).thenReturn(patient);
+        when(userPatientRelationService.getByUserIdAndPatientId(CURRENT_USER_ID, PATIENT_ID))
+                .thenReturn(selfRelation);
         when(patientCardService.getPatientCardById(PATIENT_CARD_ID)).thenReturn(patientCard);
 
         Result<SelfPatientCardStatus> result =
                 patientCardManager.getSelfPatientCardStatus(CURRENT_USER_ID);
 
-        assertTrue(result.getData().getCompleted());
-        assertTrue(result.getData().getDefaultPatient());
+        SelfPatientCardStatus data = result.getData();
+        assertTrue(data.getCompleted());
+        assertEquals(String.valueOf(PATIENT_ID), data.getPatientId());
+        assertEquals("张三", data.getPatientName());
+        assertEquals("110101199001011234", data.getPatientIdCard());
+        assertEquals(PHONE, data.getPatientPhone());
+        assertEquals(1, data.getPatientSex());
+        assertTrue(data.getDefaultPatient());
     }
 
     @Test
-    void getSelfPatientCardStatus_returnsIncompleteWithoutSelfRelation() {
-        User currentUser = new User();
-        currentUser.setId(CURRENT_USER_ID);
-        currentUser.setUsername("张三");
-        currentUser.setIdCard("110101199001011234");
-
-        when(userService.getUserById(CURRENT_USER_ID)).thenReturn(currentUser);
-        when(userPatientRelationService.getUserPatientRelationsByUserId(CURRENT_USER_ID))
-                .thenReturn(List.of());
+    void getSelfPatientCardStatus_returnsEmptyPatientFieldsWithoutOwnedPatient() {
+        when(patientService.getPatientByOwnerUserId(CURRENT_USER_ID)).thenReturn(null);
 
         Result<SelfPatientCardStatus> result =
                 patientCardManager.getSelfPatientCardStatus(CURRENT_USER_ID);
 
-        assertFalse(result.getData().getCompleted());
-        assertTrue(result.getData().getDefaultPatient());
+        SelfPatientCardStatus data = result.getData();
+        assertFalse(data.getCompleted());
+        assertNull(data.getPatientId());
+        assertNull(data.getPatientName());
+        assertNull(data.getRelationId());
+        assertTrue(data.getDefaultPatient());
+        verifyNoInteractions(userPatientRelationService, patientCardService);
     }
 }

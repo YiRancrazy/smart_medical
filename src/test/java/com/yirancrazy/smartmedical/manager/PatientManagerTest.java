@@ -19,70 +19,78 @@ import static org.mockito.Mockito.when;
 
 /**
  * PatientManager 可访问患者集合单测
- * 验证 patientCardId 解析与授权校验由 Manager 编排、关系查询下沉 UserPatientRelationService。
  * @Author: YiRanCrazy@gmail.com
- * @Description: 患者可访问范围门面单测
- * @Datetime: 2026-09-05 10:00
+ * @Description: 验证可访问范围统一使用 patient.id
+ * @Datetime: 2026-10-22 15:00
  * @Version: 1.0
  */
 @ExtendWith(MockitoExtension.class)
 class PatientManagerTest {
 
-    @Mock private PatientService patientService;
-    @Mock private UserPatientRelationService userPatientRelationService;
+    @Mock
+    private PatientService patientService;
+
+    @Mock
+    private UserPatientRelationService userPatientRelationService;
 
     @InjectMocks
     private PatientManager patientManager;
 
     private static final Long CURRENT_USER_ID = 7L;
 
+    private static final Long PATIENT_ID = 8L;
+
+    private static final Long PATIENT_CARD_ID = 100L;
+
     @Test
-    void getAccessiblePatientUserIds_nullCardId_delegatesToService() {
+    void getAccessiblePatientIds_nullCardId_delegatesToService() {
         List<Long> expected = List.of(7L, 8L);
-        when(userPatientRelationService.listAccessiblePatientUserIds(CURRENT_USER_ID))
+        when(userPatientRelationService.listAccessiblePatientIds(CURRENT_USER_ID))
                 .thenReturn(expected);
 
-        List<Long> result = patientManager.getAccessiblePatientUserIds(CURRENT_USER_ID, null);
+        List<Long> result = patientManager.getAccessiblePatientIds(CURRENT_USER_ID, null);
 
         assertEquals(expected, result);
-        verify(userPatientRelationService).listAccessiblePatientUserIds(CURRENT_USER_ID);
-        verify(patientService, never()).getPatientByPatientCardId(org.mockito.ArgumentMatchers.anyLong());
+        verify(userPatientRelationService).listAccessiblePatientIds(CURRENT_USER_ID);
+        verify(patientService, never()).getPatientByPatientCardId(PATIENT_CARD_ID);
     }
 
     @Test
-    void getAccessiblePatientUserIds_patientCardAuthorized_returnsPatientUserId() {
+    void getAccessiblePatientIds_patientCardRelated_returnsPatientId() {
         Patient patient = new Patient();
-        patient.setUserId(8L);
+        patient.setId(PATIENT_ID);
+        patient.setPatientCardId(PATIENT_CARD_ID);
 
-        when(patientService.getPatientByPatientCardId(100L)).thenReturn(patient);
-        when(userPatientRelationService.hasAuthorization(CURRENT_USER_ID, 8L)).thenReturn(true);
+        when(patientService.getPatientByPatientCardId(PATIENT_CARD_ID)).thenReturn(patient);
+        when(userPatientRelationService.hasPatientRelation(CURRENT_USER_ID, PATIENT_ID)).thenReturn(true);
 
-        List<Long> result = patientManager.getAccessiblePatientUserIds(CURRENT_USER_ID, 100L);
+        List<Long> result = patientManager.getAccessiblePatientIds(CURRENT_USER_ID, PATIENT_CARD_ID);
 
-        assertEquals(List.of(8L), result);
-        verify(userPatientRelationService).hasAuthorization(CURRENT_USER_ID, 8L);
+        assertEquals(List.of(PATIENT_ID), result);
+        verify(userPatientRelationService).hasPatientRelation(CURRENT_USER_ID, PATIENT_ID);
     }
 
     @Test
-    void getAccessiblePatientUserIds_patientCardUnauthorized_returnsEmpty() {
+    void getAccessiblePatientIds_patientCardUnauthorized_returnsEmpty() {
         Patient patient = new Patient();
-        patient.setUserId(8L);
+        patient.setId(PATIENT_ID);
+        patient.setPatientCardId(PATIENT_CARD_ID);
 
-        when(patientService.getPatientByPatientCardId(100L)).thenReturn(patient);
-        when(userPatientRelationService.hasAuthorization(CURRENT_USER_ID, 8L)).thenReturn(false);
+        when(patientService.getPatientByPatientCardId(PATIENT_CARD_ID)).thenReturn(patient);
+        when(userPatientRelationService.hasPatientRelation(CURRENT_USER_ID, PATIENT_ID)).thenReturn(false);
 
-        List<Long> result = patientManager.getAccessiblePatientUserIds(CURRENT_USER_ID, 100L);
+        List<Long> result = patientManager.getAccessiblePatientIds(CURRENT_USER_ID, PATIENT_CARD_ID);
 
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void getAccessiblePatientUserIds_patientNotFound_returnsEmpty() {
-        when(patientService.getPatientByPatientCardId(100L)).thenReturn(null);
+    void getAccessiblePatientIds_patientNotFound_returnsEmpty() {
+        when(patientService.getPatientByPatientCardId(PATIENT_CARD_ID)).thenReturn(null);
 
-        List<Long> result = patientManager.getAccessiblePatientUserIds(CURRENT_USER_ID, 100L);
+        List<Long> result = patientManager.getAccessiblePatientIds(CURRENT_USER_ID, PATIENT_CARD_ID);
 
         assertTrue(result.isEmpty());
-        verify(userPatientRelationService, never()).hasAuthorization(CURRENT_USER_ID, 8L);
+        verify(userPatientRelationService, never()).hasPatientRelation(CURRENT_USER_ID, PATIENT_ID);
     }
 }

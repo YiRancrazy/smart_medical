@@ -33,14 +33,11 @@ public class UserPatientRelation {
     @Schema(description = "用户id")
     private Long userId;
 
-    @Schema(description = "就诊人id")
-    private Long patientUserId;
+    @Schema(description = "患者id")
+    private Long patientId;
 
     @Schema(description = "备注标题")
     private String remark;
-
-    @Schema(description = "是否授权（0-否，1-是）")
-    private Integer isAuthorized;
 
     @Schema(description = "是否是默认就诊人")
     @TableField(value = "is_default")

@@ -78,6 +78,13 @@ public interface AccountService {
     Account getAccountByUserId(Long userId);
 
     /**
+     * 根据用户ID查询患者角色账号
+     * @param userId 用户ID
+     * @return 患者角色账号列表
+     */
+    List<Account> listPatientAccountsByUserId(Long userId);
+
+    /**
      * 根据用户ID列表批量获取账户信息
      * @param userIdList 用户ID列表
      * @return 账户信息列表

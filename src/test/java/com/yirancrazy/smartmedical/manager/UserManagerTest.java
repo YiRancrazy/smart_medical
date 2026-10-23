@@ -1,6 +1,7 @@
 package com.yirancrazy.smartmedical.manager;
 
 import com.yirancrazy.smartmedical.pojo.Account;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Result;
 import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.request.UpdateUserProfileRequest;
@@ -10,6 +11,7 @@ import com.yirancrazy.smartmedical.pojo.vo.UserBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.UserInfoVo;
 import com.yirancrazy.smartmedical.pojo.vo.UserProfileInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.SmsService;
 import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -41,6 +43,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +55,7 @@ class UserManagerTest {
 
     @Mock private UserService userService;
     @Mock private AccountService accountService;
+    @Mock private PatientService patientService;
     @Mock private RedisUtil redisUtil;
     @Mock private JwtTokenRevoker jwtTokenRevoker;
     @Mock private SmsService smsService;
@@ -199,15 +203,93 @@ class UserManagerTest {
 
         Result<UserProfileInfo> result = userManager.updateUserProfile(
                 7L,
-                new UpdateUserProfileRequest(" 张三 ", " 小张 ", "340521200203221034", 1, " 北京市朝阳区 "));
+                new UpdateUserProfileRequest(
+                        " 张三 ", " 小张 ", "11010519491231002x", 1, " 北京市朝阳区 "));
 
         assertEquals(200, result.getCode());
         assertEquals("张三", result.getData().getUsername());
         assertEquals("小张", result.getData().getNickname());
         assertEquals("小张", user.getNickname());
+        assertEquals("11010519491231002X", user.getIdCard());
         assertEquals("北京市朝阳区", result.getData().getAddress());
         assertTrue(result.getData().getProfileCompleted());
         verify(userService).updateUserById(user);
+    }
+
+    @Test
+    void getUserProfilePrefersOwnedPatientIdentity() {
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("镜像姓名");
+        user.setIdCard("旧身份证");
+        user.setSex(0);
+        user.setNickname("小张");
+        Account account = new Account();
+        account.setPhone("13800000000");
+        Patient patient = new Patient();
+        patient.setId(20L);
+        patient.setName("患者姓名");
+        patient.setIdCard("11010519491231002X");
+        patient.setSex(1);
+        patient.setOwnerUserId(7L);
+        when(userService.getUserById(7L)).thenReturn(user);
+        when(accountService.getAccountByUserId(7L)).thenReturn(account);
+        when(patientService.getPatientByOwnerUserId(7L)).thenReturn(patient);
+
+        Result<UserProfileInfo> result = userManager.getUserProfile(7L);
+
+        assertEquals("患者姓名", result.getData().getUsername());
+        assertEquals("11010519491231002X", result.getData().getIdCard());
+        assertEquals(1, result.getData().getSex());
+        assertTrue(result.getData().getProfileCompleted());
+    }
+
+    @Test
+    void updateUserProfileSyncsOwnedPatientAndUserMirror() {
+        User user = new User();
+        user.setId(7L);
+        Patient patient = new Patient();
+        patient.setId(20L);
+        patient.setName("旧姓名");
+        patient.setIdCard("11010519491231002X");
+        patient.setSex(0);
+        patient.setOwnerUserId(7L);
+        when(userService.getUserById(7L)).thenReturn(user);
+        when(patientService.getPatientByOwnerUserId(7L)).thenReturn(patient);
+        when(accountService.getAccountByUserId(7L)).thenReturn(new Account());
+
+        Result<UserProfileInfo> result = userManager.updateUserProfile(
+                7L, new UpdateUserProfileRequest(
+                        "患者姓名", "昵称", "11010519491231002x", 1, null));
+
+        assertEquals(200, result.getCode());
+        assertEquals("患者姓名", patient.getName());
+        assertEquals(1, patient.getSex());
+        assertEquals(patient.getIdCard(), user.getIdCard());
+        assertEquals(patient.getSex(), user.getSex());
+        verify(patientService).updatePatientById(patient);
+        verify(userService).updateUserById(user);
+    }
+
+    @Test
+    void updateUserProfileRejectsChangingOwnedPatientIdCard() {
+        User user = new User();
+        user.setId(7L);
+        Patient patient = new Patient();
+        patient.setId(20L);
+        patient.setIdCard("11010519491231002X");
+        patient.setOwnerUserId(7L);
+        when(userService.getUserById(7L)).thenReturn(user);
+        when(patientService.getPatientByOwnerUserId(7L)).thenReturn(patient);
+
+        Result<UserProfileInfo> result = userManager.updateUserProfile(
+                7L, new UpdateUserProfileRequest(
+                        "患者姓名", "昵称", "110105194912310011", 1, null));
+
+        assertEquals(500, result.getCode());
+        assertEquals("已绑定本人患者的身份证不可修改", result.getMessage());
+        verify(userService, never()).updateUserById(any());
+        verify(patientService, never()).updatePatientById(any());
     }
 
     @Test

@@ -26,7 +26,6 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
-import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,7 +54,7 @@ class RegistrationManagerAddRegistrationTest {
     private static final Long SCHEDULE_ID = 1L;
     private static final Long PATIENT_CARD_ID = 2L;
     private static final Long REQUEST_USER_ID = 3L;
-    private static final Long PATIENT_USER_ID = 7L;
+    private static final Long PATIENT_ID = 7L;
     private static final Long TEMPLATE_ID = 4L;
 
     @Mock private RegistrationService registrationService;
@@ -69,7 +68,6 @@ class RegistrationManagerAddRegistrationTest {
     @Mock private RegistrationScheduleService registrationScheduleService;
     @Mock private RegistrationScheduleTemplateService registrationScheduleTemplateService;
     @Mock private DoctorService doctorService;
-    @Mock private UserService userService;
     @Mock private DepartmentService departmentService;
     @Mock private DoctorPositionService doctorPositionService;
     @Mock private RegistrationStatusLogService registrationStatusLogService;
@@ -92,7 +90,8 @@ class RegistrationManagerAddRegistrationTest {
         ArgumentCaptor<Registration> registrationCaptor = ArgumentCaptor.forClass(Registration.class);
         verify(registrationService).insertRegistration(registrationCaptor.capture());
         Registration registration = registrationCaptor.getValue();
-        assertEquals(PATIENT_USER_ID, registration.getUserId());
+        assertEquals(REQUEST_USER_ID, registration.getUserId());
+        assertEquals(PATIENT_ID, registration.getPatientId());
         assertEquals(SCHEDULE_ID, registration.getRegistrationScheduleId());
         assertEquals(RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), registration.getStatus());
 
@@ -100,7 +99,8 @@ class RegistrationManagerAddRegistrationTest {
         verify(orderService).insertOrder(orderCaptor.capture());
         Order order = orderCaptor.getValue();
         assertEquals(registration.getOrderId(), order.getId());
-        assertEquals(PATIENT_USER_ID, order.getUserId());
+        assertEquals(REQUEST_USER_ID, order.getUserId());
+        assertEquals(PATIENT_ID, order.getPatientId());
         assertEquals(OrderStatus.WAITING_FOR_PAYMENT.getCode(), order.getStatus());
         assertEquals(120, order.getTotalAmount());
         assertEquals(String.valueOf(order.getId()), result.getData());
@@ -151,9 +151,26 @@ class RegistrationManagerAddRegistrationTest {
     }
 
     @Test
+    void addRegistration_withoutPatientRelation_returnsFailWithoutReservingQuota() {
+        when(patientCardService.getPatientCardById(PATIENT_CARD_ID)).thenReturn(new PatientCard());
+        when(patientService.getPatientByPatientCardId(PATIENT_CARD_ID)).thenReturn(patient());
+        when(userPatientRelationService.hasPatientRelation(REQUEST_USER_ID, PATIENT_ID)).thenReturn(false);
+
+        Result<String> result = registrationManager.addRegistration(
+                SCHEDULE_ID, REQUEST_USER_ID, PATIENT_CARD_ID);
+
+        assertEquals(500, result.getCode());
+        assertEquals("无权为该就诊人挂号", result.getMessage());
+        verify(registrationScheduleService, never()).getRegistrationScheduleById(any());
+        verify(registrationScheduleService, never()).deductRemainingQuota(any());
+        verify(registrationService, never()).insertRegistration(any());
+    }
+
+    @Test
     void addRegistration_scheduleMissing_returnsFailWithoutReservingQuota() {
         when(patientCardService.getPatientCardById(PATIENT_CARD_ID)).thenReturn(new PatientCard());
         when(patientService.getPatientByPatientCardId(PATIENT_CARD_ID)).thenReturn(patient());
+        when(userPatientRelationService.hasPatientRelation(REQUEST_USER_ID, PATIENT_ID)).thenReturn(true);
         when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(null);
 
         Result<String> result = registrationManager.addRegistration(
@@ -167,8 +184,8 @@ class RegistrationManagerAddRegistrationTest {
     @Test
     void addRegistration_duplicateForPatient_returnsFailBeforeReservingQuota() {
         stubPatientAndSchedule();
-        when(registrationService.getRegistrationByRegistrationScheduleIdAndUserId(
-                SCHEDULE_ID, PATIENT_USER_ID)).thenReturn(new Registration());
+        when(registrationService.getRegistrationByRegistrationScheduleIdAndPatientId(
+                SCHEDULE_ID, PATIENT_ID)).thenReturn(new Registration());
 
         Result<String> result = registrationManager.addRegistration(
                 SCHEDULE_ID, REQUEST_USER_ID, PATIENT_CARD_ID);
@@ -200,7 +217,7 @@ class RegistrationManagerAddRegistrationTest {
         stubRegistrationPrerequisites();
         when(registrationScheduleService.deductRemainingQuota(SCHEDULE_ID)).thenReturn(1);
         when(registrationService.insertRegistration(any()))
-                .thenThrow(new DuplicateKeyException("uk_reg_schedule_user"));
+                .thenThrow(new DuplicateKeyException("uk_reg_schedule_patient"));
 
         BizException exception = assertThrows(BizException.class, () ->
                 registrationManager.addRegistration(SCHEDULE_ID, REQUEST_USER_ID, PATIENT_CARD_ID));
@@ -213,19 +230,20 @@ class RegistrationManagerAddRegistrationTest {
 
     private void stubRegistrationPrerequisites() {
         stubPatientAndSchedule();
-        when(registrationService.getRegistrationByRegistrationScheduleIdAndUserId(
-                SCHEDULE_ID, PATIENT_USER_ID)).thenReturn(null);
+        when(registrationService.getRegistrationByRegistrationScheduleIdAndPatientId(
+                SCHEDULE_ID, PATIENT_ID)).thenReturn(null);
     }
 
     private void stubPatientAndSchedule() {
         when(patientCardService.getPatientCardById(PATIENT_CARD_ID)).thenReturn(new PatientCard());
         when(patientService.getPatientByPatientCardId(PATIENT_CARD_ID)).thenReturn(patient());
+        when(userPatientRelationService.hasPatientRelation(REQUEST_USER_ID, PATIENT_ID)).thenReturn(true);
         when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(schedule());
     }
 
     private Patient patient() {
         Patient patient = new Patient();
-        patient.setUserId(PATIENT_USER_ID);
+        patient.setId(PATIENT_ID);
         return patient;
     }
 

@@ -12,12 +12,12 @@ import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.OrderStatusLogService;
 import com.yirancrazy.smartmedical.service.PaymentRecordService;
-import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,7 +53,6 @@ class RegistrationCheckInManagerTest {
     @Mock private RegistrationService registrationService;
     @Mock private RegistrationStatusLogService registrationStatusLogService;
     @Mock private RegistrationScheduleService registrationScheduleService;
-    @Mock private PatientService patientService;
     @Mock private UserPatientRelationService userPatientRelationService;
     @Mock private OrderService orderService;
     @Mock private PaymentRecordService paymentRecordService;
@@ -64,9 +64,15 @@ class RegistrationCheckInManagerTest {
 
     private static final Long REG_ID = 1001L;
     private static final Long USER_ID = 7L;
+    private static final Long PATIENT_ID = 8001L;
     private static final Long SCHEDULE_ID = 2001L;
     private static final Long TEMPLATE_ID = 3001L;
     private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userPatientRelationService.hasPatientRelation(USER_ID, PATIENT_ID)).thenReturn(true);
+    }
 
     /**
      * checkIn happy path：status=SUCCESS + 当天排班 → 调 updateStatusIfCurrent 到 REPORTED
@@ -108,9 +114,10 @@ class RegistrationCheckInManagerTest {
      * checkIn 非本人挂号 → REGISTRATION_NOT_OWNED
      */
     @Test
-    void checkIn_notOwned_throws() {
-        Registration reg = buildRegistration(REG_ID, 999L, RegistrationStatusEnum.SUCCESS.getCode(), SCHEDULE_ID);
+    void checkIn_sameAccountWithoutPatientRelation_throws() {
+        Registration reg = buildRegistration(REG_ID, USER_ID, RegistrationStatusEnum.SUCCESS.getCode(), SCHEDULE_ID);
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
+        when(userPatientRelationService.hasPatientRelation(USER_ID, PATIENT_ID)).thenReturn(false);
 
         BizException ex = assertThrows(BizException.class,
                 () -> registrationCheckInManager.checkIn(REG_ID, USER_ID));
@@ -135,12 +142,13 @@ class RegistrationCheckInManagerTest {
      */
     @Test
     void checkIn_authorizedProxy_allowed() {
-        Registration reg = buildRegistration(REG_ID, 888L, RegistrationStatusEnum.SUCCESS.getCode(), SCHEDULE_ID);
+        Registration reg = buildRegistration(
+                REG_ID, 888L, 888L, RegistrationStatusEnum.SUCCESS.getCode(), SCHEDULE_ID);
         RegistrationSchedule schedule = buildSchedule(SCHEDULE_ID, TEMPLATE_ID);
         RegistrationScheduleTemplate template = buildTemplate(TEMPLATE_ID, TODAY);
 
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
-        when(userPatientRelationService.hasAuthorization(USER_ID, 888L)).thenReturn(true);
+        when(userPatientRelationService.hasPatientRelation(USER_ID, 888L)).thenReturn(true);
         when(registrationScheduleService.getRegistrationScheduleById(SCHEDULE_ID)).thenReturn(schedule);
         when(registrationScheduleTemplateService.getRegistrationScheduleTemplateById(TEMPLATE_ID)).thenReturn(template);
         when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.REPORTED.getCode()))
@@ -281,9 +289,10 @@ class RegistrationCheckInManagerTest {
      */
     @Test
     void cancel_authorizedProxy_allowed() {
-        Registration reg = buildRegistration(REG_ID, 888L, RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), SCHEDULE_ID);
+        Registration reg = buildRegistration(
+                REG_ID, 888L, 888L, RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(), SCHEDULE_ID);
         when(registrationService.getRegistrationById(REG_ID)).thenReturn(reg);
-        when(userPatientRelationService.hasAuthorization(USER_ID, 888L)).thenReturn(true);
+        when(userPatientRelationService.hasPatientRelation(USER_ID, 888L)).thenReturn(true);
         when(registrationService.updateStatusIfCurrent(reg, RegistrationStatusEnum.CANCELED.getCode()))
                 .thenReturn(true);
 
@@ -337,9 +346,14 @@ class RegistrationCheckInManagerTest {
     // ===== 辅助构造方法 =====
 
     private Registration buildRegistration(Long id, Long userId, Integer status, Long scheduleId) {
+        return buildRegistration(id, userId, PATIENT_ID, status, scheduleId);
+    }
+
+    private Registration buildRegistration(Long id, Long userId, Long patientId, Integer status, Long scheduleId) {
         Registration reg = new Registration();
         reg.setId(id);
         reg.setUserId(userId);
+        reg.setPatientId(patientId);
         reg.setStatus(status);
         reg.setRegistrationScheduleId(scheduleId);
         return reg;

@@ -4,27 +4,24 @@ import cn.hutool.core.util.DesensitizedUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PatientCard;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.UserPatientRelation;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PatientCardSimpleResponse;
 import com.yirancrazy.smartmedical.pojo.vo.OutPatientCardBaseInfo;
 import com.yirancrazy.smartmedical.pojo.vo.SelfPatientCardStatus;
 import com.yirancrazy.smartmedical.pojo.vo.registration.confirm.RegistrationConfirmPatientCardVo;
-import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.PatientCardService;
 import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
-import com.yirancrazy.smartmedical.service.UserService;
-import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -38,20 +35,24 @@ import java.util.stream.Collectors;
 @Manager
 @RequiredArgsConstructor
 public class PatientCardManager {
+
+    private static final String SELF_RELATION = "本人";
+
     private final PatientCardService patientCardService;
-    private final AccountService accountService;
-    private final RedisUtil redisUtil;
-    private final UserService userService;
     private final UserPatientRelationService userPatientRelationService;
     private final PatientService patientService;
 
     /**
-     * 获取就诊卡信息
-     * @param patientId 就诊人ID
+     * 按患者ID获取就诊卡信息
+     * @param patientId 患者ID
      * @return 就诊卡信息
      */
     public Result<PatientCard> getPatientCardById(Long patientId) {
-        return Result.success(patientCardService.getPatientCardById(patientId));
+        Patient patient = patientService.getPatientById(patientId);
+        if (patient == null || patient.getPatientCardId() == null) {
+            return Result.success(null);
+        }
+        return Result.success(patientCardService.getPatientCardById(patient.getPatientCardId()));
     }
 
     /**
@@ -60,9 +61,6 @@ public class PatientCardManager {
      * @return 默认就诊人基本信息
      */
     public Result<OutPatientCardBaseInfo> getDefaultPatientBaseInfoByUid(Long userId) {
-
-        // 获取用户下默认患者id
-
         List<UserPatientRelation> userPatientRelations =
                 userPatientRelationService.getUserPatientRelationsByUserId(userId);
 
@@ -76,38 +74,30 @@ public class PatientCardManager {
             return Result.fail("未绑定任何就诊人");
         }
 
-
-        // 获取患者信息
-        Patient defaultPatient = patientService.getPatientByUserId(defaultUserPatientRelation.getPatientUserId());
+        Patient defaultPatient = defaultUserPatientRelation.getPatientId() == null
+                ? null : patientService.getPatientById(defaultUserPatientRelation.getPatientId());
 
         if (defaultPatient == null) {
             return Result.fail("默认就诊人不存在");
         }
 
-        // 获取患者用户信息
-        User defaultPatientUser = userService.getUserById(defaultPatient.getUserId());
-
-        if (defaultPatientUser == null) {
-            return Result.fail("默认就诊人用户信息不存在");
-        }
-
-        // 获取默认就诊卡信息
-        PatientCard patientCard = patientCardService.getPatientCardById(defaultPatient.getPatientCardId());
+        PatientCard patientCard = getPatientCard(defaultPatient);
 
         if (patientCard == null) {
             return Result.fail("默认就诊卡不存在");
         }
 
         OutPatientCardBaseInfo result = new OutPatientCardBaseInfo();
-        result.setPatientId(String.valueOf(defaultPatient.getId())); // 患者id
+        result.setPatientId(String.valueOf(defaultPatient.getId()));
         result.setPatientCardId(String.valueOf(patientCard.getId()));
         result.setPatientCardSn(String.valueOf(patientCard.getSn()));
-        result.setPatientName(defaultPatientUser.getNickname()); // G08: 统一用 nickname（用户可编辑的展示名）
-        result.setPatientAvatar(defaultPatientUser.getAvatar());
-        result.setPatientIdCard(defaultPatientUser.getIdCard());
-
-        // 门诊余额以分为单位存储，直接返回分
-        result.setOutPatientBalance(String.valueOf(patientCard.getOutpatientBalance()));
+        result.setPatientName(defaultPatient.getName());
+        result.setPatientAvatar(null);
+        result.setPatientIdCard(defaultPatient.getIdCard());
+        result.setPatientPhone(defaultPatient.getPhone());
+        result.setPatientSex(defaultPatient.getSex());
+        result.setOutPatientBalance(patientCard.getOutpatientBalance() == null
+                ? null : String.valueOf(patientCard.getOutpatientBalance()));
 
         return Result.success(result);
     }
@@ -119,65 +109,44 @@ public class PatientCardManager {
      * @return 用户所有就诊人基本信息
      */
     public Result<List<RegistrationConfirmPatientCardVo>> getAllPatientBaseInfoByUserId(Long userId) {
-        // 获取用户下所有绑定的患者
-        List<UserPatientRelation> userPatientRelations = userPatientRelationService.getUserPatientRelationsByUserId(userId);
+        List<Long> patientIds = userPatientRelationService.listAccessiblePatientIds(userId);
+        if (patientIds.isEmpty()) {
+            return Result.success(List.of());
+        }
 
-        // 提取出所有的患者id
-        List<Long> patientIds = userPatientRelations
-                .stream()
-                .map(UserPatientRelation::getPatientUserId)
-                .collect(Collectors.toList());
+        List<UserPatientRelation> userPatientRelations =
+                userPatientRelationService.getUserPatientRelationsByUserId(userId);
+        Map<Long, UserPatientRelation> relationMap = userPatientRelations.stream()
+                .filter(relation -> relation.getPatientId() != null)
+                .collect(Collectors.toMap(UserPatientRelation::getPatientId,
+                        Function.identity(), (left, right) -> left));
+        List<Patient> patients = patientService.getPatientsByIds(patientIds);
+        Map<Long, Patient> patientMap = patients.stream()
+                .filter(patient -> patient.getId() != null)
+                .collect(Collectors.toMap(Patient::getId, Function.identity(), (left, right) -> left));
+        Map<Long, PatientCard> patientCardMap = loadPatientCardMap(patients);
 
-        // 通过用户idList获取患者信息
-        List<Patient> patients = patientService.getPatientsByUserIds(patientIds);
-
-        // 提取所有用户id
-        List<Long> userIds = patients
-                .stream()
-                .map(Patient::getUserId)
-                .collect(Collectors.toList());
-
-        // 通过用户idList获取用户信息
-        List<User> userList = userService.listUsersByUserIds(userIds);
-
-        // 获取所有患者卡信息
-        List<PatientCard> patientCards = patientCardService.getPatientCardsByIds(
-                patients.stream().map(Patient::getPatientCardId).collect(Collectors.toList()));
-
-        // 获取用户所有患者卡信息
         List<RegistrationConfirmPatientCardVo> result = new ArrayList<>();
-
-        for (Patient patient : patients) {
-            User patientUser = userList.stream().filter(user -> user.getId().equals(patient.getUserId())).findFirst().orElse(null);
-            UserPatientRelation userPatientRelation = userPatientRelations
-                    .stream()
-                    .filter(item -> item.getPatientUserId().equals(patient.getUserId()))
-                    .findFirst()
-                    .orElse(null);
-            PatientCard patientCard = patientCards.stream()
-                    .filter(card -> card.getId().equals(patient.getPatientCardId()))
-                    .findFirst()
-                    .orElse(null);
-
-            if(patientUser == null || userPatientRelation == null){
-                return Result.fail("未绑定任何就诊人");
+        for (Long patientId : patientIds) {
+            Patient patient = patientMap.get(patientId);
+            UserPatientRelation relation = relationMap.get(patientId);
+            PatientCard patientCard = patient == null ? null : patientCardMap.get(patient.getPatientCardId());
+            if (patient == null || relation == null || patientCard == null) {
+                throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
             }
 
-            // 按就诊人自身 userId 获取账户，避免所有就诊人共用父账号手机号
-            Account patientAccount = accountService.getAccountByUserId(patient.getUserId());
-            String patientPhone = (patientAccount == null || patientAccount.getPhone() == null)
-                    ? "" : DesensitizedUtil.mobilePhone(patientAccount.getPhone());
-
             RegistrationConfirmPatientCardVo registrationConfirmPatientCardVo = new RegistrationConfirmPatientCardVo();
-            registrationConfirmPatientCardVo.setUserId(String.valueOf(userPatientRelation.getPatientUserId()));
-            registrationConfirmPatientCardVo.setPatientUserId(String.valueOf(patientUser.getId()));
-            registrationConfirmPatientCardVo.setPatientName(patientUser.getNickname());
-            registrationConfirmPatientCardVo.setPatientAvatar(patientUser.getAvatar());
-            registrationConfirmPatientCardVo.setPatientIdCard(patientUser.getIdCard());
-            registrationConfirmPatientCardVo.setPatientCardNo(patientCard == null ? "" : String.valueOf(patientCard.getId()));
-            registrationConfirmPatientCardVo.setRelation(userPatientRelation.getRelation());
-            registrationConfirmPatientCardVo.setDefaultPatientCard(userPatientRelation.getDefaulted());
-            registrationConfirmPatientCardVo.setPatientPhone(patientPhone);
+            registrationConfirmPatientCardVo.setUserId(String.valueOf(relation.getUserId()));
+            registrationConfirmPatientCardVo.setPatientUserId(toStringValue(patient.getOwnerUserId()));
+            registrationConfirmPatientCardVo.setPatientId(String.valueOf(patient.getId()));
+            registrationConfirmPatientCardVo.setPatientName(patient.getName());
+            registrationConfirmPatientCardVo.setPatientAvatar(null);
+            registrationConfirmPatientCardVo.setPatientIdCard(patient.getIdCard());
+            registrationConfirmPatientCardVo.setPatientPhone(desensitizePhone(patient.getPhone()));
+            registrationConfirmPatientCardVo.setPatientSex(patient.getSex());
+            registrationConfirmPatientCardVo.setPatientCardNo(String.valueOf(patientCard.getId()));
+            registrationConfirmPatientCardVo.setRelation(relation.getRelation());
+            registrationConfirmPatientCardVo.setDefaultPatientCard(relation.getDefaulted());
             result.add(registrationConfirmPatientCardVo);
         }
 
@@ -190,85 +159,45 @@ public class PatientCardManager {
      * @return 患者卡信息简单响应
      */
     public Result<List<PatientCardSimpleResponse>> listPatientCardSimpleResponseByUserId(Long userId) {
-        // 获取用户下所有绑定的患者
-        List<UserPatientRelation> userPatientRelations = userPatientRelationService.getUserPatientRelationsByUserId(userId);
+        List<Long> patientIds = userPatientRelationService.listAccessiblePatientIds(userId);
+        if (patientIds.isEmpty()) {
+            return Result.success(List.of());
+        }
 
-        // 获取所有用户信息
-        List<User> users = userService.listUsersByUserIds(userPatientRelations
-                .stream()
-                .map(UserPatientRelation::getUserId)
-                .collect(Collectors.toList()));
-
-        // 获取用户账户信息
-        List<Account> accounts = accountService.listAccountsByUserIds(users
-                .stream()
-                .map(User::getId)
-                .collect(Collectors.toList()));
-
-        List<Long> patientIds = userPatientRelations
-                .stream()
-                .map(UserPatientRelation::getPatientUserId)
-                .toList();
-
-        // 获取所有患者信息
-        List<Patient> patients = patientService.getPatientsByUserIds(patientIds);
-
-        // 获取所有患者账户信息
-        List<Account> patientAccounts = accountService.listAccountsByUserIds(patientIds);
-
-        // 获取所有患者用户信息
-        List<User> patientUsers = userService.listUsersByUserIds(patients.stream().map(Patient::getUserId).toList());
-
-        // 获取所有患者卡信息
-        List<PatientCard> patientCards = patientCardService.getPatientCardsByIds(patients
-                .stream()
-                .map(Patient::getPatientCardId)
-                .collect(Collectors
-                        .toList()));
-
-
+        List<UserPatientRelation> userPatientRelations =
+                userPatientRelationService.getUserPatientRelationsByUserId(userId);
+        Map<Long, UserPatientRelation> relationMap = userPatientRelations.stream()
+                .filter(relation -> relation.getPatientId() != null)
+                .collect(Collectors.toMap(UserPatientRelation::getPatientId,
+                        Function.identity(), (left, right) -> left));
+        List<Patient> patients = patientService.getPatientsByIds(patientIds);
+        Map<Long, Patient> patientMap = patients.stream()
+                .filter(patient -> patient.getId() != null)
+                .collect(Collectors.toMap(Patient::getId, Function.identity(), (left, right) -> left));
+        Map<Long, PatientCard> patientCardMap = loadPatientCardMap(patients);
         List<PatientCardSimpleResponse> result = new ArrayList<>();
-        for (Patient patient : patients) {
-            PatientCardSimpleResponse item = new PatientCardSimpleResponse();
-            User patientUser = patientUsers
-                    .stream()
-                    .filter(user -> user.getId().equals(patient.getUserId()))
-                    .findFirst()
-                    .orElse(null);
-            Account currentAccount = patientAccounts
-                    .stream()
-                    .filter(account -> account.getUserId().equals(patient.getUserId()))
-                    .findFirst()
-                    .orElse(null);
-            PatientCard currentPatientCard = patientCards
-                    .stream()
-                    .filter(patientCard -> patientCard.getId().equals(patient.getPatientCardId()))
-                    .findFirst()
-                    .orElse(null);
-            UserPatientRelation currentUserPatientRelation = userPatientRelations
-                    .stream()
-                    .filter(userPatientRelation -> userPatientRelation.getPatientUserId().equals(patient.getUserId()))
-                    .findFirst()
-                    .orElse(null);
-            // L05: assert 生产环境失效，改为显式抛 BizException
-            if (patient == null || patientUser == null || currentAccount == null
-                    || currentPatientCard == null || currentUserPatientRelation == null) {
+
+        for (Long patientId : patientIds) {
+            Patient patient = patientMap.get(patientId);
+            UserPatientRelation relation = relationMap.get(patientId);
+            PatientCard patientCard = patient == null ? null : patientCardMap.get(patient.getPatientCardId());
+            if (patient == null || relation == null || patientCard == null) {
                 throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
             }
 
-            item.setUserId(String.valueOf(currentAccount.getUserId())); // 获取当前用户id
-            item.setUserPatientRelationId(String.valueOf(currentUserPatientRelation.getId())); // 配置用户患者关系、
-
+            PatientCardSimpleResponse item = new PatientCardSimpleResponse();
+            item.setUserId(String.valueOf(relation.getUserId()));
+            item.setUserPatientRelationId(String.valueOf(relation.getId()));
             item.setPatientId(String.valueOf(patient.getId()));
-
-            item.setPatientName(patientUser.getNickname());  // G08: 统一用 nickname
-            item.setPatientIdCard(patientUser.getIdCard());  // 身份证
-            item.setPatientPhone(DesensitizedUtil.mobilePhone(currentAccount.getPhone()));
-            item.setPatientCardSn(String.valueOf(currentPatientCard.getSn())); // 患者卡号
-            item.setPatientCardId(String.valueOf(currentPatientCard.getId()));
-            item.setRelation(currentUserPatientRelation.getRelation());
-            item.setDefaultPatient(currentUserPatientRelation.getDefaulted());
-            item.setRemark(currentUserPatientRelation.getRemark());
+            item.setPatientName(patient.getName());
+            item.setPatientIdCard(patient.getIdCard());
+            item.setPatientPhone(desensitizePhone(patient.getPhone()));
+            item.setPatientSex(patient.getSex());
+            item.setPatientCardSn(String.valueOf(patientCard.getSn()));
+            item.setPatientCardId(String.valueOf(patientCard.getId()));
+            item.setRelation(relation.getRelation());
+            item.setDefaultPatient(relation.getDefaulted());
+            item.setRemark(relation.getRemark());
             result.add(item);
         }
 
@@ -285,26 +214,26 @@ public class PatientCardManager {
      */
     public Result<PatientCardSimpleResponse> getPatientCardDetailByRelationId(Long currentUserId, Long relationId) {
         UserPatientRelation relation = userPatientRelationService.getUserPatientRelationById(relationId);
-        if (relation == null || !currentUserId.equals(relation.getUserId())) {
+        if (relation == null
+                || !currentUserId.equals(relation.getUserId())
+                || relation.getPatientId() == null
+                || !userPatientRelationService.hasPatientRelation(currentUserId, relation.getPatientId())) {
             throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
         }
-        Patient patient = patientService.getPatientByUserId(relation.getPatientUserId());
-        User patientUser = userService.getUserById(relation.getPatientUserId());
-        Account patientAccount = accountService.getAccountByUserId(relation.getPatientUserId());
-        PatientCard patientCard = patient != null
-                ? patientCardService.getPatientCardById(patient.getPatientCardId())
-                : null;
-        if (patientUser == null || patientAccount == null || patientCard == null) {
+        Patient patient = patientService.getPatientById(relation.getPatientId());
+        PatientCard patientCard = getPatientCard(patient);
+        if (patient == null || patientCard == null) {
             throw new BizException(BizErrorCode.PATIENT_DATA_INVALID);
         }
 
         PatientCardSimpleResponse result = new PatientCardSimpleResponse();
-        result.setUserId(String.valueOf(patientAccount.getUserId()));
+        result.setUserId(String.valueOf(relation.getUserId()));
         result.setUserPatientRelationId(String.valueOf(relation.getId()));
         result.setPatientId(String.valueOf(patient.getId()));
-        result.setPatientName(patientUser.getNickname());
-        result.setPatientIdCard(patientUser.getIdCard());
-        result.setPatientPhone(patientAccount.getPhone());
+        result.setPatientName(patient.getName());
+        result.setPatientIdCard(patient.getIdCard());
+        result.setPatientPhone(patient.getPhone());
+        result.setPatientSex(patient.getSex());
         result.setPatientCardSn(String.valueOf(patientCard.getSn()));
         result.setPatientCardId(String.valueOf(patientCard.getId()));
         result.setRelation(relation.getRelation());
@@ -319,37 +248,68 @@ public class PatientCardManager {
      * @return 本人就诊卡状态
      */
     public Result<SelfPatientCardStatus> getSelfPatientCardStatus(Long currentUserId) {
-        User currentUser = userService.getUserById(currentUserId);
-        if (currentUser == null) {
-            return Result.fail("用户不存在");
-        }
-
-        Account currentAccount = accountService.getAccountByUserId(currentUserId);
-        List<UserPatientRelation> relations =
-                userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-        UserPatientRelation selfRelation = relations.stream()
-                .filter(relation -> currentUserId.equals(relation.getPatientUserId()))
-                .filter(relation -> "本人".equals(relation.getRelation()))
-                .findFirst()
-                .orElse(null);
-
-        Patient patient = patientService.getPatientByUserId(currentUserId);
-        PatientCard patientCard = patient == null
+        Patient patient = patientService.getPatientByOwnerUserId(currentUserId);
+        UserPatientRelation selfRelation = patient == null
                 ? null
-                : patientCardService.getPatientCardById(patient.getPatientCardId());
+                : userPatientRelationService.getByUserIdAndPatientId(currentUserId, patient.getId());
+        if (selfRelation != null && !SELF_RELATION.equals(selfRelation.getRelation())) {
+            selfRelation = null;
+        }
+        PatientCard patientCard = getPatientCard(patient);
         boolean completed = selfRelation != null && patient != null && patientCard != null;
 
         SelfPatientCardStatus result = new SelfPatientCardStatus();
         result.setCompleted(completed);
         result.setRelationId(selfRelation == null ? null : String.valueOf(selfRelation.getId()));
-        result.setPatientName(currentUser.getUsername() != null && !currentUser.getUsername().isBlank()
-                ? currentUser.getUsername()
-                : currentUser.getNickname());
-        result.setPatientIdCard(currentUser.getIdCard());
-        result.setPatientPhone(currentAccount == null ? null : currentAccount.getPhone());
+        result.setPatientId(patient == null ? null : String.valueOf(patient.getId()));
+        result.setPatientName(patient == null ? null : patient.getName());
+        result.setPatientIdCard(patient == null ? null : patient.getIdCard());
+        result.setPatientPhone(patient == null ? null : patient.getPhone());
+        result.setPatientSex(patient == null ? null : patient.getSex());
         result.setPatientCardSn(patientCard == null ? null : String.valueOf(patientCard.getSn()));
         result.setRemark(selfRelation == null ? null : selfRelation.getRemark());
         result.setDefaultPatient(selfRelation == null || Boolean.TRUE.equals(selfRelation.getDefaulted()));
         return Result.success(result);
+    }
+
+    /**
+     * 批量加载患者对应的就诊卡
+     */
+    private Map<Long, PatientCard> loadPatientCardMap(List<Patient> patients) {
+        List<Long> patientCardIds = patients.stream()
+                .map(Patient::getPatientCardId)
+                .filter(patientCardId -> patientCardId != null)
+                .distinct()
+                .toList();
+        if (patientCardIds.isEmpty()) {
+            return Map.of();
+        }
+        return patientCardService.getPatientCardsByIds(patientCardIds).stream()
+                .filter(patientCard -> patientCard.getId() != null)
+                .collect(Collectors.toMap(PatientCard::getId, Function.identity(), (left, right) -> left));
+    }
+
+    /**
+     * 按患者当前就诊卡ID加载就诊卡
+     */
+    private PatientCard getPatientCard(Patient patient) {
+        if (patient == null || patient.getPatientCardId() == null) {
+            return null;
+        }
+        return patientCardService.getPatientCardById(patient.getPatientCardId());
+    }
+
+    /**
+     * 脱敏患者手机号
+     */
+    private String desensitizePhone(String phone) {
+        return phone == null || phone.isBlank() ? phone : DesensitizedUtil.mobilePhone(phone);
+    }
+
+    /**
+     * Long 转字符串，保留 null
+     */
+    private String toStringValue(Long value) {
+        return value == null ? null : String.valueOf(value);
     }
 }

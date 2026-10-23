@@ -27,8 +27,23 @@ public class Patient {
     @TableId
     private Long id;
 
-    @Schema(description = "用户id")
-    private Long userId;
+    @Schema(description = "患者姓名")
+    private String name;
+
+    @Schema(description = "身份证号")
+    private String idCard;
+
+    @Schema(description = "联系电话")
+    private String phone;
+
+    @Schema(description = "性别（0男，1女）")
+    private Integer sex;
+
+    @Schema(description = "本人绑定账号ID")
+    private Long ownerUserId;
+
+    @Schema(description = "创建账号ID")
+    private Long createdByUserId;
 
     @Schema(description = "就诊卡id")
     private Long patientCardId;

@@ -485,6 +485,7 @@ DROP TABLE IF EXISTS `order`;
 CREATE TABLE `order`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '订单唯一标识',
   `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '下单用户id',
+  `patient_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '订单对应患者id',
   `order_type_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '订单类型id',
   `invoice_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '发票id',
   `sn` bigint UNSIGNED NULL DEFAULT NULL COMMENT '订单号，用于对外展示',
@@ -498,6 +499,7 @@ CREATE TABLE `order`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `order_order_type_id_fk`(`order_type_id` ASC) USING BTREE,
   INDEX `order_user_id_fk`(`user_id` ASC) USING BTREE,
+  INDEX `idx_order_patient`(`patient_id` ASC, `is_deleted` ASC) USING BTREE,
   INDEX `idx_sn`(`sn` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '订单主表' ROW_FORMAT = Dynamic;
 
@@ -580,16 +582,23 @@ INSERT INTO `order_type` VALUES (5, '体检订单', '2026-02-28 09:54:03', '2026
 -- ----------------------------
 DROP TABLE IF EXISTS `patient`;
 CREATE TABLE `patient`  (
-  `id` bigint UNSIGNED NOT NULL COMMENT '就诊卡id',
-  `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '用户id',
-  `patient_card_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '就诊卡ID',
+  `id` bigint UNSIGNED NOT NULL COMMENT '患者ID',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '患者姓名',
+  `id_card` varchar(18) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '规范化身份证号',
+  `phone` char(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '患者联系电话',
+  `sex` tinyint(1) NULL DEFAULT NULL COMMENT '性别（0男，1女）',
   `emergency_phone` char(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '紧急联系电话',
+  `owner_user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '本人绑定账号ID',
+  `created_by_user_id` bigint UNSIGNED NOT NULL COMMENT '创建账号ID',
+  `patient_card_id` bigint UNSIGNED NOT NULL COMMENT '当前就诊卡ID',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建日期',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `patient_patient_card_id_fk`(`patient_card_id` ASC) USING BTREE,
-  INDEX `patient_user_id_fk`(`user_id` ASC) USING BTREE
+  UNIQUE INDEX `uk_patient_id_card`(`id_card` ASC) USING BTREE,
+  UNIQUE INDEX `uk_patient_owner_user`(`owner_user_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_patient_card`(`patient_card_id` ASC) USING BTREE,
+  INDEX `idx_patient_created_by`(`created_by_user_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '就诊人档案表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -721,6 +730,7 @@ DROP TABLE IF EXISTS `registration`;
 CREATE TABLE `registration`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '挂号记录ID',
   `user_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联用户ID',
+  `patient_id` bigint UNSIGNED NOT NULL COMMENT '实际就诊患者ID',
   `registration_schedule_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联挂号时段id',
   `order_id` bigint UNSIGNED NULL DEFAULT NULL COMMENT '关联订单ID',
   `status` tinyint(1) NULL DEFAULT NULL COMMENT '0-等待支付 1-支付成功/待就诊 2-支付失败 3-取消 4-完成 5-已报到 6-就诊中 7-待支付(处方补缴)',
@@ -732,10 +742,11 @@ CREATE TABLE `registration`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日期',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_reg_schedule_user`(`registration_schedule_id` ASC, `user_id` ASC) USING BTREE COMMENT '同就诊人同排班唯一，防并发重复挂号',
+  UNIQUE INDEX `uk_reg_schedule_patient`(`registration_schedule_id` ASC, `patient_id` ASC) USING BTREE COMMENT '同患者同排班唯一，防并发重复挂号',
   INDEX `registration_schedule_id_fk`(`registration_schedule_id` ASC) USING BTREE,
   INDEX `registration_order_id_fk`(`order_id` ASC) USING BTREE,
-  INDEX `registration_user_id_fk`(`user_id` ASC) USING BTREE
+  INDEX `registration_user_id_fk`(`user_id` ASC) USING BTREE,
+  INDEX `idx_registration_patient`(`patient_id` ASC, `is_deleted` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '挂号记录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -865,22 +876,30 @@ CREATE TABLE `user`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '患者/用户信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Records of user
+-- ----------------------------
+INSERT INTO `user` VALUES (1, '系统管理员', 'admin', '', NULL, NULL, NULL, '2026-02-28 09:54:02', '2026-02-28 09:54:02', 0);
+
+-- ----------------------------
 -- Table structure for user_patient_relation
 -- ----------------------------
 DROP TABLE IF EXISTS `user_patient_relation`;
 CREATE TABLE `user_patient_relation`  (
   `id` bigint UNSIGNED NOT NULL COMMENT '就诊人关系Id',
   `user_id` bigint UNSIGNED NOT NULL COMMENT '用户id',
-  `patient_user_id` bigint UNSIGNED NOT NULL COMMENT '就诊人id',
+  `patient_id` bigint UNSIGNED NOT NULL COMMENT '患者id',
   `remark` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注标题',
-  `is_authorized` tinyint(1) NULL DEFAULT NULL COMMENT '是否授权（0-否，1-是）',
-  `is_default` tinyint(1) NULL DEFAULT NULL COMMENT '是否是默认就诊人',
-  `relation` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '与就诊人关系',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否是默认就诊人',
+  `relation` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '与就诊人关系',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除',
+  `active_patient_id` bigint UNSIGNED GENERATED ALWAYS AS (
+    CASE WHEN `is_deleted` = 0 THEN `patient_id` ELSE NULL END
+  ) STORED COMMENT '有效关系患者ID',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `user_patient_relation_patient_id_fk`(`patient_user_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_relation_user_patient_active`(`user_id` ASC, `active_patient_id` ASC) USING BTREE,
+  INDEX `idx_relation_patient`(`patient_id` ASC, `is_deleted` ASC) USING BTREE,
   INDEX `user_patient_relation_user_id_fk`(`user_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '管理关系表' ROW_FORMAT = Dynamic;
 

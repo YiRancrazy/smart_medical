@@ -22,7 +22,6 @@ import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.AppointmentResponseSimple;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
 import com.yirancrazy.smartmedical.service.DepartmentService;
@@ -38,7 +37,6 @@ import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
-import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import com.yirancrazy.smartmedical.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
@@ -78,7 +76,6 @@ public class RegistrationManager {
     private final RegistrationScheduleService registrationScheduleService;
     private final RegistrationScheduleTemplateService registrationScheduleTemplateService;
     private final DoctorService doctorService;
-    private final UserService userService;
     private final DepartmentService departmentService;
     private final DoctorPositionService doctorPositionService;
     private final RegistrationStatusLogService registrationStatusLogService;
@@ -95,9 +92,8 @@ public class RegistrationManager {
         if (reg == null) {
             return Result.fail("挂号记录不存在");
         }
-        // 校验当前用户对该挂号记录的就诊人有访问权限
-        List<Long> accessibleUserIds = resolveAccessiblePatientUserIds(currentUserId, null);
-        if (!accessibleUserIds.contains(reg.getUserId())) {
+        List<Long> accessiblePatientIds = userPatientRelationService.listAccessiblePatientIds(currentUserId);
+        if (reg.getPatientId() == null || !accessiblePatientIds.contains(reg.getPatientId())) {
             return Result.fail("无权查看该挂号记录");
         }
         AppointmentResponseSimple vo = convertToAppointmentResponseSimple(reg);
@@ -107,37 +103,36 @@ public class RegistrationManager {
     /**
      * 添加挂号
      * @param registrationScheduleId 排班id
-     * @param uid 用户id
+     * @param currentUserId 当前登录用户id
      * @param patientCardId 患者卡id
      * @return 挂号结果
      */
     @Transactional(rollbackFor = Exception.class)
-    public Result<String> addRegistration(Long registrationScheduleId, Long uid, Long patientCardId){
+    public Result<String> addRegistration(Long registrationScheduleId, Long currentUserId, Long patientCardId){
         Registration registration = new Registration();
         Order order = new Order();
-        Long userId = uid;
 
         PatientCard patientCard = patientCardService.getPatientCardById(patientCardId);  // 获取患者卡信息
         if (patientCard == null) {
             return Result.fail("患者卡不存在");
         }
         Patient patient = patientService.getPatientByPatientCardId(patientCardId); // 获取患者信息
-        if (patient == null) {
+        if (patient == null || patient.getId() == null) {
             return Result.fail("患者信息不存在");
+        }
+        if (!userPatientRelationService.hasPatientRelation(currentUserId, patient.getId())) {
+            return Result.fail("无权为该就诊人挂号");
         }
         RegistrationSchedule registrationSchedule = registrationScheduleService.getRegistrationScheduleById(registrationScheduleId); // 获取排班信息
         if (registrationSchedule == null) {
             return Result.fail("排班信息不存在");
         }
 
-        // B22: 重复挂号校验以 patient.userId(就诊人维度)为粒度，允许同一账号代多名家属挂同一排班。
-        // 业务规则若改为"每账号每排班限一个号"，将 patient.getUserId() 改为 uid 即可。
         Registration existRegistration = registrationService
-                .getRegistrationByRegistrationScheduleIdAndUserId(registrationSchedule
-                        .getId(), patient.getUserId());
+                .getRegistrationByRegistrationScheduleIdAndPatientId(registrationSchedule.getId(), patient.getId());
         if(existRegistration != null){
-            log.warn("已存在挂号注册, registrationScheduleId={}, patientUserId={}",
-                    registrationSchedule.getId(), patient.getUserId());
+            log.warn("已存在挂号注册, registrationScheduleId={}, patientId={}",
+                    registrationSchedule.getId(), patient.getId());
             return Result.fail("该就诊人已挂号此排班");
         }
 
@@ -156,7 +151,8 @@ public class RegistrationManager {
 
         order.setId(IdUtil.getSnowflakeNextId());
         order.setSn(IdUtil.getSnowflakeNextId());
-        order.setUserId(patient.getUserId());
+        order.setUserId(currentUserId);
+        order.setPatientId(patient.getId());
         order.setOrderTypeId(OrderTypeEnum.REGISTRATION.getCode());
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(price);
@@ -164,7 +160,8 @@ public class RegistrationManager {
         order.setOrderUpdateTime(LocalDateTime.now());
 
         registration.setId(IdUtil.getSnowflakeNextId());
-        registration.setUserId(patient.getUserId());
+        registration.setUserId(currentUserId);
+        registration.setPatientId(patient.getId());
         registration.setRegistrationScheduleId(registrationSchedule.getId());
         registration.setOrderId(order.getId());
         registration.setRegistrationTime(LocalDateTime.now());
@@ -173,7 +170,7 @@ public class RegistrationManager {
         try {
             registrationService.insertRegistration(registration);
         } catch (DuplicateKeyException e) {
-            // P5: uk_reg_schedule_user 唯一索引兜底并发重复挂号，抛业务异常触发事务回滚（号源扣减一并回滚）
+            // uk_reg_schedule_patient 唯一索引兜底并发重复挂号，抛业务异常触发事务回滚（号源扣减一并回滚）
             throw new BizException(BizErrorCode.REGISTRATION_ALREADY_EXISTS);
         }
         // S03: 写挂号创建日志（from=null, to=WAITING_FOR_PAYMENT）
@@ -181,7 +178,7 @@ public class RegistrationManager {
                 registration.getId(),
                 null,
                 RegistrationStatusEnum.WAITING_FOR_PAYMENT.getCode(),
-                userId,
+                currentUserId,
                 RoleEnum.PATIENT.getRole(),
                 "挂号创建");
         orderService.insertOrder(order);
@@ -210,15 +207,15 @@ public class RegistrationManager {
      */
     public Result<PageResult<AppointmentResponseSimple>> getRegistrationByUid(
             Long currentUserId, Long patientCardId, Integer pageNum, Integer pageSize) {
-        List<Long> patientUserIds = resolveAccessiblePatientUserIds(currentUserId, patientCardId);
-        if (patientUserIds == null || patientUserIds.isEmpty()) {
+        List<Long> patientIds = resolveAccessiblePatientIds(currentUserId, patientCardId);
+        if (patientIds == null || patientIds.isEmpty()) {
             return Result.success(new PageResult<>(1, pageSize == null ? 0 : pageSize, 0L, 0, new ArrayList<>()));
         }
         // U27: 可选分页，PageHelper 拦截下一条 MyBatis 查询
         if (pageNum != null && pageSize != null) {
             PageHelper.startPage(pageNum, pageSize);
         }
-        List<Registration> registrationList = registrationService.listRegistrationsByUserIds(patientUserIds);
+        List<Registration> registrationList = registrationService.listRegistrationsByPatientIds(patientIds);
         PageInfo<Registration> pageInfo = new PageInfo<>(registrationList);
 
         List<AppointmentResponseSimple> result = convertToAppointmentResponseSimpleBatch(registrationList);
@@ -226,21 +223,21 @@ public class RegistrationManager {
     }
 
     /**
-     * 解析当前账号可访问的患者 userId 集合
+     * 解析当前账号可访问的患者 ID 集合
      * @param currentUserId 当前登录用户id
      * @param patientCardId 就诊卡id；为 null 时返回账号下全部关联患者
-     * @return 患者 userId 列表；就诊卡不存在或无访问关系时返回空列表
+     * @return 患者 ID 列表；就诊卡不存在或无访问关系时返回空列表
      */
-    private List<Long> resolveAccessiblePatientUserIds(Long currentUserId, Long patientCardId) {
+    private List<Long> resolveAccessiblePatientIds(Long currentUserId, Long patientCardId) {
         if (patientCardId == null) {
-            return userPatientRelationService.listAccessiblePatientUserIds(currentUserId);
+            return userPatientRelationService.listAccessiblePatientIds(currentUserId);
         }
         Patient patient = patientService.getPatientByPatientCardId(patientCardId);
-        if (patient == null || patient.getUserId() == null) {
+        if (patient == null || patient.getId() == null) {
             return List.of();
         }
-        return userPatientRelationService.hasAuthorization(currentUserId, patient.getUserId())
-                ? List.of(patient.getUserId())
+        return userPatientRelationService.hasPatientRelation(currentUserId, patient.getId())
+                ? List.of(patient.getId())
                 : List.of();
     }
 
@@ -256,19 +253,19 @@ public class RegistrationManager {
         }
 
         // BUG-B07: 批量收集 ID 并一次性查询，避免 N+1
-        Set<Long> userIds = new HashSet<>();
+        Set<Long> patientIds = new HashSet<>();
         Set<Long> scheduleIds = new HashSet<>();
         for (Registration r : registrations) {
-            if (r.getUserId() != null) {
-                userIds.add(r.getUserId());
+            if (r.getPatientId() != null) {
+                patientIds.add(r.getPatientId());
             }
             if (r.getRegistrationScheduleId() != null) {
                 scheduleIds.add(r.getRegistrationScheduleId());
             }
         }
 
-        Map<Long, User> userMap = userService.listUsersByUserIds(new ArrayList<>(userIds)).stream()
-                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        Map<Long, Patient> patientMap = patientService.getPatientsByIds(new ArrayList<>(patientIds)).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p, (a, b) -> a));
         Map<Long, RegistrationSchedule> scheduleMap = registrationScheduleService
                 .listRegistrationSchedulesByIds(new ArrayList<>(scheduleIds)).stream()
                 .collect(Collectors.toMap(RegistrationSchedule::getId, s -> s, (a, b) -> a));
@@ -303,7 +300,7 @@ public class RegistrationManager {
 
         for (Registration registration : registrations) {
             AppointmentResponseSimple item = buildAppointmentResponseSimple(
-                    registration, userMap, scheduleMap, templateMap, doctorMap, departmentMap, positionMap);
+                    registration, patientMap, scheduleMap, templateMap, doctorMap, departmentMap, positionMap);
             if (item != null) {
                 result.add(item);
             }
@@ -316,7 +313,7 @@ public class RegistrationManager {
      */
     private AppointmentResponseSimple buildAppointmentResponseSimple(
             Registration registration,
-            Map<Long, User> userMap,
+            Map<Long, Patient> patientMap,
             Map<Long, RegistrationSchedule> scheduleMap,
             Map<Long, RegistrationScheduleTemplate> templateMap,
             Map<Long, Doctor> doctorMap,
@@ -328,8 +325,8 @@ public class RegistrationManager {
         item.setStatus(registration.getStatus());
         item.setRegistrationPrice(0);
 
-        User patientUser = userMap.get(registration.getUserId());
-        item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
+        Patient patient = patientMap.get(registration.getPatientId());
+        item.setPatientName(patient == null ? "" : patient.getName());
 
         if (registration.getRegistrationScheduleId() == null) {
             log.warn("跳过挂号 {}：未关联排班", registration.getId());
@@ -383,8 +380,8 @@ public class RegistrationManager {
         item.setStatus(registration.getStatus());
         item.setRegistrationPrice(0);
 
-        User patientUser = userService.getUserById(registration.getUserId());
-        item.setPatientName(patientUser == null ? "" : patientUser.getNickname());
+        Patient patient = patientService.getPatientById(registration.getPatientId());
+        item.setPatientName(patient == null ? "" : patient.getName());
 
         if (registration.getRegistrationScheduleId() == null) {
             log.warn("跳过挂号 {}：未关联排班", registration.getId());

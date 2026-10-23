@@ -4,14 +4,13 @@ import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.annotation.Manager;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
-import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.Drug;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
-import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.PrescriptionQueryRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.response.PrescriptionPageItemVO;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
@@ -19,15 +18,14 @@ import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionDe
 import com.yirancrazy.smartmedical.pojo.dto.doctor.response.DoctorPrescriptionListVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionDetailVO;
 import com.yirancrazy.smartmedical.pojo.dto.user.response.PrescriptionListVO;
-import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
-import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +34,7 @@ import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -57,8 +56,7 @@ public class PrescriptionQueryManager {
     private final DoctorService doctorService;
     private final DepartmentService departmentService;
     private final UserPatientRelationService userPatientRelationService;
-    private final UserService userService;
-    private final AccountService accountService;
+    private final PatientService patientService;
 
     /**
      * 医生端 - 处方列表（按当前医生过滤）
@@ -70,7 +68,7 @@ public class PrescriptionQueryManager {
             return Collections.emptyList();
         }
         List<MedicalRecord> records = medicalRecordService
-                .listMedicalRecordsByDoctorIdAndPatientUserIds(doctorId, null);
+                .listMedicalRecordsByDoctorIdAndPatientIds(doctorId, null);
         if (records.isEmpty()) {
             return Collections.emptyList();
         }
@@ -88,10 +86,11 @@ public class PrescriptionQueryManager {
 
         List<Long> patientIds = records.stream()
                 .map(MedicalRecord::getPatientId)
+                .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<Long, User> userMap = userService.listUsersByUserIds(patientIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, Patient> patientMap = patientService.getPatientsByIds(patientIds).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p));
 
         List<Long> prescriptionIds = prescriptions.stream()
                 .map(Prescription::getId)
@@ -107,13 +106,10 @@ public class PrescriptionQueryManager {
             MedicalRecord record = recordMap.get(rx.getMedicalRecordId());
             if (record != null) {
                 vo.setPatientId(record.getPatientId());
-                User user = userMap.get(record.getPatientId());
-                if (user != null) {
-                    vo.setPatientName(user.getNickname());
-                }
-                Account account = accountService.getAccountByUserId(record.getPatientId());
-                if (account != null) {
-                    vo.setPatientPhone(account.getPhone());
+                Patient patient = patientMap.get(record.getPatientId());
+                if (patient != null) {
+                    vo.setPatientName(patient.getName());
+                    vo.setPatientPhone(patient.getPhone());
                 }
             }
             vo.setTotalAmount(rx.getTotalAmount());
@@ -142,8 +138,8 @@ public class PrescriptionQueryManager {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
         }
 
-        User user = record.getPatientId() == null
-                ? null : userService.getUserById(record.getPatientId());
+        Patient patient = record.getPatientId() == null
+                ? null : patientService.getPatientById(record.getPatientId());
 
         List<PrescriptionItem> items = prescriptionItemService.listByPrescriptionId(prescriptionId);
         List<Long> drugIds = items.stream()
@@ -157,13 +153,9 @@ public class PrescriptionQueryManager {
         vo.setId(rx.getId());
         vo.setMedicalRecordId(rx.getMedicalRecordId());
         vo.setPatientId(record.getPatientId());
-        if (user != null) {
-            vo.setPatientName(user.getNickname());
-        }
-        Account account = record.getPatientId() == null
-                ? null : accountService.getAccountByUserId(record.getPatientId());
-        if (account != null) {
-            vo.setPatientPhone(account.getPhone());
+        if (patient != null) {
+            vo.setPatientName(patient.getName());
+            vo.setPatientPhone(patient.getPhone());
         }
         vo.setStatus(rx.getStatus());
         vo.setTotalAmount(rx.getTotalAmount());
@@ -189,14 +181,14 @@ public class PrescriptionQueryManager {
     /**
      * 用户端 - 处方列表（按就诊人过滤）
      * ponytail: N+1 查询，用户处方列表 < 100，可接受
-     * @param patientUserIds 可访问的用户ID列表
+     * @param patientIds 可访问的患者ID列表
      * @return 处方列表 VO
      */
-    public List<PrescriptionListVO> listUserPrescriptions(List<Long> patientUserIds) {
-        if (patientUserIds == null || patientUserIds.isEmpty()) {
+    public List<PrescriptionListVO> listUserPrescriptions(List<Long> patientIds) {
+        if (patientIds == null || patientIds.isEmpty()) {
             return Collections.emptyList();
         }
-        List<MedicalRecord> records = medicalRecordService.listByPatientUserIds(patientUserIds);
+        List<MedicalRecord> records = medicalRecordService.listByPatientIds(patientIds);
         if (records.isEmpty()) {
             return Collections.emptyList();
         }
@@ -247,8 +239,8 @@ public class PrescriptionQueryManager {
             if (record == null) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
-            List<Long> accessibleUserIds = userPatientRelationService.listAccessiblePatientUserIds(userId);
-            if (!accessibleUserIds.contains(record.getPatientId())) {
+            List<Long> accessiblePatientIds = userPatientRelationService.listAccessiblePatientIds(userId);
+            if (!accessiblePatientIds.contains(record.getPatientId())) {
                 throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
             }
         }
@@ -268,10 +260,10 @@ public class PrescriptionQueryManager {
         vo.setOrderId(rx.getOrderId());
         vo.setCreateTime(rx.getCreateTime());
         if (record != null) {
-            User user = record.getPatientId() == null
-                    ? null : userService.getUserById(record.getPatientId());
-            if (user != null) {
-                vo.setPatientName(user.getNickname());
+            Patient patient = record.getPatientId() == null
+                    ? null : patientService.getPatientById(record.getPatientId());
+            if (patient != null) {
+                vo.setPatientName(patient.getName());
             }
             Doctor doctor = record.getDoctorId() == null
                     ? null : doctorService.getDoctorById(record.getDoctorId());
@@ -337,21 +329,33 @@ public class PrescriptionQueryManager {
      * @return 允许的病历ID集合；null 表示无限制
      */
     private List<Long> resolveAllowedMedicalRecordIds(Long doctorId, String patientName) {
-        List<Long> patientUserIds = null;
+        List<Long> patientIds = null;
         if (patientName != null && !patientName.trim().isEmpty()) {
-            patientUserIds = userService.listUserIdsByNicknameLike(patientName.trim());
-            if (patientUserIds.isEmpty()) {
+            patientIds = listPatientIdsByNameLike(patientName.trim());
+            if (patientIds.isEmpty()) {
                 return Collections.emptyList();
             }
         }
 
-        if (doctorId == null && patientUserIds == null) {
+        if (doctorId == null && patientIds == null) {
             return null;
         }
         return medicalRecordService
-                .listMedicalRecordsByDoctorIdAndPatientUserIds(doctorId, patientUserIds)
+                .listMedicalRecordsByDoctorIdAndPatientIds(doctorId, patientIds)
                 .stream()
                 .map(MedicalRecord::getId)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 按姓名模糊查询患者ID，患者姓名以 PatientService 为唯一数据源
+     */
+    private List<Long> listPatientIdsByNameLike(String patientName) {
+        return patientService.listAllPatients().stream()
+                .filter(patient -> patient.getName() != null && patient.getName().contains(patientName))
+                .map(Patient::getId)
+                .filter(Objects::nonNull)
+                .distinct()
                 .collect(Collectors.toList());
     }
 
@@ -375,15 +379,17 @@ public class PrescriptionQueryManager {
 
         List<Long> patientIds = recordMap.values().stream()
                 .map(MedicalRecord::getPatientId)
+                .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
         List<Long> doctorIds = recordMap.values().stream()
                 .map(MedicalRecord::getDoctorId)
+                .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
 
-        Map<Long, User> userMap = userService.listUsersByUserIds(patientIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, Patient> patientMap = patientService.getPatientsByIds(patientIds).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p));
         Map<Long, Doctor> doctorMap = doctorService.listDoctorsByIds(doctorIds).stream()
                 .collect(Collectors.toMap(Doctor::getId, d -> d));
 
@@ -405,9 +411,9 @@ public class PrescriptionQueryManager {
 
             MedicalRecord record = recordMap.get(rx.getMedicalRecordId());
             if (record != null) {
-                User user = userMap.get(record.getPatientId());
-                if (user != null) {
-                    vo.setPatientName(user.getNickname());
+                Patient patient = patientMap.get(record.getPatientId());
+                if (patient != null) {
+                    vo.setPatientName(patient.getName());
                 }
                 Doctor doctor = doctorMap.get(record.getDoctorId());
                 if (doctor != null) {
@@ -443,13 +449,10 @@ public class PrescriptionQueryManager {
 
         if (record != null) {
             vo.setPatientId(record.getPatientId());
-            User user = userService.getUserById(record.getPatientId());
-            if (user != null) {
-                vo.setPatientName(user.getNickname());
-            }
-            Account account = accountService.getAccountByUserId(record.getPatientId());
-            if (account != null) {
-                vo.setPatientPhone(account.getPhone());
+            Patient patient = patientService.getPatientById(record.getPatientId());
+            if (patient != null) {
+                vo.setPatientName(patient.getName());
+                vo.setPatientPhone(patient.getPhone());
             }
             Doctor doctor = doctorService.getDoctorById(record.getDoctorId());
             if (doctor != null) {

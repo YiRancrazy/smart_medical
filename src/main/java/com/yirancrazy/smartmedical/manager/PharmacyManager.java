@@ -17,6 +17,7 @@ import com.yirancrazy.smartmedical.pojo.InventoryTransaction;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Order;
 import com.yirancrazy.smartmedical.pojo.OrderStatusLog;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Prescription;
 import com.yirancrazy.smartmedical.pojo.PrescriptionItem;
 import com.yirancrazy.smartmedical.pojo.Registration;
@@ -34,11 +35,11 @@ import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.OrderStatusLogService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
-import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -88,8 +89,8 @@ public class PharmacyManager {
     private final MedicalRecordService medicalRecordService;
     private final OrderService orderService;
     private final OrderStatusLogService orderStatusLogService;
-    private final UserService userService;
     private final AccountService accountService;
+    private final PatientService patientService;
     private final DoctorService doctorService;
 
     /**
@@ -134,7 +135,7 @@ public class PharmacyManager {
                 if (rec != null && rec.getRegistrationId() != null) {
                     Registration reg = registrationMap.get(rec.getRegistrationId());
                     if (reg != null) {
-                        vo.setPatientId(reg.getUserId());
+                        vo.setPatientId(reg.getPatientId());
                         vo.setRegistrationSn(reg.getId());
                     }
                 }
@@ -165,11 +166,11 @@ public class PharmacyManager {
         // 患者姓名模糊 → 反查病历 patientId
         List<Long> medicalRecordIds = null;
         if (request.getPatientName() != null && !request.getPatientName().isBlank()) {
-            List<Long> patientUserIds = userService.listUserIdsByNicknameLike(request.getPatientName());
-            if (patientUserIds.isEmpty()) {
+            List<Long> patientIds = listPatientIdsByNameLike(request.getPatientName().trim());
+            if (patientIds.isEmpty()) {
                 return Result.success(PageUtils.toResult(new PageInfo<>(List.of()), Collections.emptyList()));
             }
-            medicalRecordIds = medicalRecordService.listByPatientUserIds(patientUserIds)
+            medicalRecordIds = medicalRecordService.listByPatientIds(patientIds)
                     .stream().map(MedicalRecord::getId).collect(Collectors.toList());
             if (medicalRecordIds.isEmpty()) {
                 return Result.success(PageUtils.toResult(new PageInfo<>(List.of()), Collections.emptyList()));
@@ -183,6 +184,18 @@ public class PharmacyManager {
                 startTime, endTime, medicalRecordIds, request.getPageNum(), request.getPageSize());
         List<Prescription> prescriptions = pageInfo.getList();
         return Result.success(PageUtils.toResult(pageInfo, buildDispenseHistoryVOs(prescriptions)));
+    }
+
+    /**
+     * 按姓名模糊查询患者ID，患者姓名以 PatientService 为唯一数据源
+     */
+    private List<Long> listPatientIdsByNameLike(String patientName) {
+        return patientService.listAllPatients().stream()
+                .filter(patient -> patient.getName() != null && patient.getName().contains(patientName))
+                .map(Patient::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     /**
@@ -203,8 +216,9 @@ public class PharmacyManager {
         Set<Long> doctorIds = recordMap.values().stream().map(MedicalRecord::getDoctorId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, String> patientNameMap = patientIds.isEmpty() ? Collections.emptyMap() :
-                userService.listUsersByUserIds(new ArrayList<>(patientIds)).stream()
-                        .collect(Collectors.toMap(u -> u.getId(), u -> u.getNickname(), (a, b) -> a));
+                patientService.getPatientsByIds(new ArrayList<>(patientIds)).stream()
+                        .filter(patient -> patient.getName() != null)
+                        .collect(Collectors.toMap(Patient::getId, Patient::getName, (a, b) -> a));
         Map<Long, String> doctorNameMap = doctorIds.isEmpty() ? Collections.emptyMap() :
                 doctorService.listDoctorsByIds(new ArrayList<>(doctorIds)).stream()
                         .collect(Collectors.toMap(d -> d.getId(), d -> d.getName(), (a, b) -> a));

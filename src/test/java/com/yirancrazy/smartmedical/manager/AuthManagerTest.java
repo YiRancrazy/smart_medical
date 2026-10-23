@@ -65,8 +65,7 @@ class AuthManagerTest {
     private AuthManager authManager;
 
     private AuthManager buildManager() {
-        AuthManager m = new AuthManager(accountService, userService, redisUtil, jwtTokenRevoker,
-                patientCardService, patientService, smsService);
+        AuthManager m = new AuthManager(accountService, userService, redisUtil, jwtTokenRevoker, smsService);
         ReflectionTestUtils.setField(m, "accessSecretKey", "test-access-secret");
         ReflectionTestUtils.setField(m, "refreshSecretKey", "test-refresh-secret");
         ReflectionTestUtils.setField(m, "adminRefreshTokenPrefix", "refresh_token_");
@@ -155,8 +154,6 @@ class AuthManagerTest {
     void register_newPhone_insertsUserAndAccount() {
         AuthManager m = buildManager();
         when(accountService.getAccountByPhone("13800000000")).thenReturn(List.of());
-        when(patientCardService.insertPatientCard(any(PatientCard.class))).thenReturn(1);
-        when(patientService.insertPatient(any(Patient.class))).thenReturn(1);
 
         Result<LoginVo> result = m.register("13800000000", "raw123", response);
 
@@ -164,8 +161,7 @@ class AuthManagerTest {
         verify(smsService).verifyCode("13800000000", "raw123");
         verify(userService).insertUser(any(User.class));
         verify(accountService).insertAccount(any(Account.class));
-        verify(patientCardService).insertPatientCard(any(PatientCard.class));
-        verify(patientService).insertPatient(any(Patient.class));
+        verifyNoInteractions(patientCardService, patientService);
     }
 
     @Test
