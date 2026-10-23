@@ -167,11 +167,10 @@ public class PaymentRecordManager {
         if (order == null) {
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "订单不存在");
         }
-        // 归属校验：本人或已授权代理（家属）可支付，与列表查询 getAccessiblePatientUserIds 语义一致
-        if (currentUserId != null && !currentUserId.equals(order.getUserId())
-                && !userPatientRelationService.hasAuthorization(currentUserId, order.getUserId())) {
-            log.warn("[payment-success] orderId={} 属于 userId={}，currentUserId={} 且无代理授权，拒绝",
-                    orderId, order.getUserId(), currentUserId);
+        // 归属校验：付款账号本人，或当前账号与订单患者存在有效关系
+        if (!canPayOrder(order, currentUserId)) {
+            log.warn("[payment-success] orderId={} 属于 userId={}、patientId={}，currentUserId={} 无支付权限，拒绝",
+                    orderId, order.getUserId(), order.getPatientId(), currentUserId);
             throw new BizException(BizErrorCode.ORDER_STATUS_INVALID, "无权支付他人订单");
         }
         // 幂等:已支付则联动校验挂号状态并返回
@@ -191,6 +190,23 @@ public class PaymentRecordManager {
                     "支付金额不一致：应付=" + expected + "，实付=" + actual);
         }
         return order;
+    }
+
+    /**
+     * 判断当前账号是否可支付订单
+     * @param order 订单
+     * @param currentUserId 当前登录用户ID
+     * @return 当前账号为订单付款账号，或与订单患者存在有效关系时返回 true
+     */
+    private boolean canPayOrder(Order order, Long currentUserId) {
+        if (currentUserId == null) {
+            return false;
+        }
+        if (currentUserId.equals(order.getUserId())) {
+            return true;
+        }
+        return order.getPatientId() != null
+                && userPatientRelationService.hasPatientRelation(currentUserId, order.getPatientId());
     }
 
     /**

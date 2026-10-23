@@ -36,6 +36,27 @@ public interface PatientService {
     Patient getPatientByPatientCardId(Long patientCardId);
 
     /**
+     * 根据规范化身份证号查询患者
+     * @param idCard 规范化身份证号
+     * @return 患者信息
+     */
+    Patient getPatientByIdCard(String idCard);
+
+    /**
+     * 根据规范化身份证号锁定查询患者
+     * @param idCard 规范化身份证号
+     * @return 患者信息
+     */
+    Patient getPatientByIdCardForUpdate(String idCard);
+
+    /**
+     * 根据本人绑定账号查询患者
+     * @param userId 用户ID
+     * @return 患者信息
+     */
+    Patient getPatientByOwnerUserId(Long userId);
+
+    /**
      * 根据ID更新患者信息
      * @param patient 患者对象
      * @return 更新结果
@@ -70,17 +91,4 @@ public interface PatientService {
      */
     PageInfo<Patient> listPatientsByPage(Integer pageNum, Integer pageSize);
 
-    /**
-     * 根据用户id获取患者信息
-     * @param userId 用户id
-     * @return 患者信息
-     */
-    Patient getPatientByUserId(Long userId);
-
-    /**
-     * 根据用户id列表批量查询患者信息
-     * @param userIds 用户id列表
-     * @return 患者列表
-     */
-    List<Patient> getPatientsByUserIds(List<Long> userIds);
 }

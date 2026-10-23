@@ -83,7 +83,7 @@ public class PrescriptionLifecycleManager {
         }
         MedicalRecord record = rx.getMedicalRecordId() == null
                 ? null : medicalRecordService.getById(rx.getMedicalRecordId());
-        if (record == null || !userPatientRelationService.listAccessiblePatientUserIds(userId).contains(record.getPatientId())) {
+        if (record == null || !userPatientRelationService.listAccessiblePatientIds(userId).contains(record.getPatientId())) {
             throw new BizException(BizErrorCode.PRESCRIPTION_NOT_OWNED);
         }
         // 仅已支付可退，已取消/已发药拒绝（已发药应走药师逆向）

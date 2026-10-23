@@ -33,7 +33,7 @@ public class UserPatientCardControllerV1 {
 
     /**
      * 获取默认就诊人基本信息
-     * @param userId 账号id
+     * @param userId 当前登录账号ID
      * @return 默认就诊人基本信息
      */
     @GetMapping("/baseinfo")
@@ -45,7 +45,7 @@ public class UserPatientCardControllerV1 {
     /**
      * 获取所有就诊人基本信息
      *
-     *  @param userId 账号id
+     *  @param userId 当前登录账号ID
      * @return 所有就诊人基本信息
      */
     @GetMapping("/confirm/baseinfo")
@@ -56,7 +56,7 @@ public class UserPatientCardControllerV1 {
 
     /**
      * 获取所有患者卡信息简单响应
-     * @param userId 账号id
+     * @param userId 当前登录账号ID
      * @return 患者卡信息简单响应
      */
     @GetMapping("/list/simple/response")
@@ -67,7 +67,7 @@ public class UserPatientCardControllerV1 {
 
     /**
      * 按关系ID查询单条就诊人详情（含 remark）
-     * @param userId 账号id
+     * @param userId 当前登录账号ID
      * @param relationId 用户患者关系ID
      * @return 单条就诊人详情
      */

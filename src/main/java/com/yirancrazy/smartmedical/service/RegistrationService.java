@@ -98,26 +98,26 @@ public interface RegistrationService {
     Integer getRegistrationCountByDepartmentAndTime(Long departmentId, String startTime, String endTime);
 
     /**
-     * 根据排班模板id和用户id获取挂号信息
-     * @param registrationScheduleTemplateId 挂号排班模板id
-     * @param userId 用户id
+     * 根据排班id和患者id获取挂号信息
+     * @param registrationScheduleId 挂号排班id
+     * @param patientId 患者id
      * @return 挂号信息
      */
-    Registration getRegistrationByRegistrationScheduleIdAndUserId(Long registrationScheduleId, Long userId);
+    Registration getRegistrationByRegistrationScheduleIdAndPatientId(Long registrationScheduleId, Long patientId);
 
     /**
-     * 根据用户id获取挂号信息
-     * @param userId 用户id
+     * 根据患者id获取挂号信息
+     * @param patientId 患者id
      * @return 挂号信息
      */
-    List<Registration> listRegistrationsByUserId(Long userId);
+    List<Registration> listRegistrationsByPatientId(Long patientId);
 
     /**
-     * 根据用户id列表获取挂号信息
-     * @param userIds 用户id列表
+     * 根据患者id列表获取挂号信息
+     * @param patientIds 患者id列表
      * @return 挂号信息列表
      */
-    List<Registration> listRegistrationsByUserIds(List<Long> userIds);
+    List<Registration> listRegistrationsByPatientIds(List<Long> patientIds);
 
     /**
      * 根据挂号记录ID列表批量查询挂号信息

@@ -30,6 +30,9 @@ public class Registration {
     @Schema(description = "关联用户ID")
     private Long userId;
 
+    @Schema(description = "实际就诊患者ID")
+    private Long patientId;
+
     @Schema(description = "关联挂号时段id")
     private Long registrationScheduleId;
 

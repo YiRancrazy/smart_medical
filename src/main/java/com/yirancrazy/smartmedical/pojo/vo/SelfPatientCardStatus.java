@@ -25,6 +25,9 @@ public class SelfPatientCardStatus {
     @Schema(description = "本人就诊人关系ID")
     private String relationId;
 
+    @Schema(description = "患者ID")
+    private String patientId;
+
     @Schema(description = "姓名")
     private String patientName;
 
@@ -33,6 +36,9 @@ public class SelfPatientCardStatus {
 
     @Schema(description = "手机号")
     private String patientPhone;
+
+    @Schema(description = "性别（0男，1女）")
+    private Integer patientSex;
 
     @Schema(description = "就诊卡号")
     private String patientCardSn;

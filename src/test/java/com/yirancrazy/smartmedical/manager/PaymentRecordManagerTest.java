@@ -104,6 +104,7 @@ class PaymentRecordManagerTest {
         verify(orderStatusLogService).addOrderStatusLog(any(OrderStatusLog.class));
         verify(registrationService).getRegistrationByOrderId(orderId);
         verify(prescriptionService).markAsPaid(orderId);
+        verify(userPatientRelationService, never()).hasPatientRelation(anyLong(), anyLong());
     }
 
     @Test
@@ -122,10 +123,11 @@ class PaymentRecordManagerTest {
         Order order = new Order();
         order.setId(orderId);
         order.setUserId(9999L);
+        order.setPatientId(7001L);
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
 
         when(orderService.getOrderById(orderId)).thenReturn(order);
-        when(userPatientRelationService.hasAuthorization(1001L, 9999L)).thenReturn(false);
+        when(userPatientRelationService.hasPatientRelation(1001L, 7001L)).thenReturn(false);
 
         BizException ex = assertThrows(BizException.class,
                 () -> paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000));
@@ -183,11 +185,12 @@ class PaymentRecordManagerTest {
         Order order = new Order();
         order.setId(orderId);
         order.setUserId(2002L);
+        order.setPatientId(7002L);
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
         order.setTotalAmount(5000);
 
         when(orderService.getOrderById(orderId)).thenReturn(order);
-        when(userPatientRelationService.hasAuthorization(1001L, 2002L)).thenReturn(true);
+        when(userPatientRelationService.hasPatientRelation(1001L, 7002L)).thenReturn(true);
         when(orderService.markOrderPaid(orderId)).thenReturn(1);
         when(registrationService.getRegistrationByOrderId(orderId)).thenReturn(null);
         doNothing().when(prescriptionService).markAsPaid(orderId);
@@ -195,9 +198,46 @@ class PaymentRecordManagerTest {
         Result<Void> result = paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000);
 
         assertEquals(200, result.getCode());
-        verify(userPatientRelationService).hasAuthorization(1001L, 2002L);
+        verify(userPatientRelationService).hasPatientRelation(1001L, 7002L);
         verify(paymentRecordService).insertPaymentRecord(any());
         verify(orderStatusLogService).addOrderStatusLog(any(OrderStatusLog.class));
+    }
+
+    @Test
+    void paySuccess_nonOwnerWithNullPatientId_cannotPay() {
+        Long orderId = 5001L;
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(2002L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        order.setTotalAmount(5000);
+
+        when(orderService.getOrderById(orderId)).thenReturn(order);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> paymentRecordManager.paySuccess(orderId, 1001L, 1, 9876543210L, 5000));
+
+        assertEquals(BizErrorCode.ORDER_STATUS_INVALID.getCode(), ex.getCode());
+        verify(userPatientRelationService, never()).hasPatientRelation(anyLong(), anyLong());
+    }
+
+    @Test
+    void paySuccess_nullCurrentUser_cannotPay() {
+        Long orderId = 5001L;
+        Order order = new Order();
+        order.setId(orderId);
+        order.setUserId(1001L);
+        order.setPatientId(7001L);
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT.getCode());
+        order.setTotalAmount(5000);
+
+        when(orderService.getOrderById(orderId)).thenReturn(order);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> paymentRecordManager.paySuccess(orderId, null, 1, 9876543210L, 5000));
+
+        assertEquals(BizErrorCode.ORDER_STATUS_INVALID.getCode(), ex.getCode());
+        verify(userPatientRelationService, never()).hasPatientRelation(anyLong(), anyLong());
     }
 
     @Test

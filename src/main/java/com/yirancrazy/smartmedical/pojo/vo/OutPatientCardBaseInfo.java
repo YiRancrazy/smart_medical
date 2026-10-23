@@ -16,11 +16,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OutPatientCardBaseInfo {
-    private String patientId;                        // 就诊人id
-    private String patientCardId;                       // 就诊人卡id
-    private String patientCardSn;                         // 就诊人编号
-    private String patientName;                       // 就诊人姓名
-    private String patientAvatar;                     // 就诊人头像
-    private String patientIdCard;                     // 就诊人身份证号
-    private String outPatientBalance;                       // 门诊账户余额
+    private String patientId;             // 患者ID
+    private String patientCardId;         // 就诊卡ID
+    private String patientCardSn;         // 就诊卡编号
+    private String patientName;           // 患者姓名
+    private String patientAvatar;         // 患者头像（患者模型暂不存储头像）
+    private String patientIdCard;         // 患者身份证号
+    private String patientPhone;          // 患者手机号
+    private Integer patientSex;           // 患者性别（0男，1女）
+    private String outPatientBalance;     // 门诊账户余额
 }

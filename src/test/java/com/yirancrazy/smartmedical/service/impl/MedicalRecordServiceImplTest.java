@@ -49,30 +49,45 @@ class MedicalRecordServiceImplTest {
     }
 
     @Test
-    void listByPatientUserIds_empty_returnsEmptyWithoutQuery() {
-        assertTrue(medicalRecordService.listByPatientUserIds(Collections.emptyList()).isEmpty());
+    void listByPatientIds_empty_returnsEmptyWithoutQuery() {
+        assertTrue(medicalRecordService.listByPatientIds(Collections.emptyList()).isEmpty());
         verifyNoInteractions(medicalRecordMapper);
     }
 
     @Test
-    void listByPatientUserIds_nonEmpty_queriesMapper() {
+    void listByPatientIds_null_returnsEmptyWithoutQuery() {
+        assertTrue(medicalRecordService.listByPatientIds(null).isEmpty());
+        verifyNoInteractions(medicalRecordMapper);
+    }
+
+    @Test
+    void listByPatientIds_nonEmpty_queriesMapper() {
         MedicalRecord record = new MedicalRecord();
         record.setId(1L);
         when(medicalRecordMapper.selectList(any())).thenReturn(List.of(record));
 
-        List<MedicalRecord> result = medicalRecordService.listByPatientUserIds(List.of(100L));
+        List<MedicalRecord> result = medicalRecordService.listByPatientIds(List.of(100L));
 
         assertEquals(List.of(record), result);
         verify(medicalRecordMapper).selectList(any());
     }
 
     @Test
+    void listMedicalRecords_doctorAndPatientIds_empty_returnsEmptyWithoutQuery() {
+        assertTrue(medicalRecordService
+                .listMedicalRecordsByDoctorIdAndPatientIds(10L, Collections.emptyList())
+                .isEmpty());
+        verifyNoInteractions(medicalRecordMapper);
+    }
+
+    @Test
     void listMedicalRecords_page_emptyPatientIds_returnsEmptyPageWithoutQuery() {
         PageInfo<MedicalRecord> result = medicalRecordService
-                .listMedicalRecordsByPatientUserIdsAndDoctorIdPage(
+                .listMedicalRecordsByPatientIdsAndDoctorIdPage(
                         Collections.emptyList(), 10L, null, null, 1, 10);
 
         assertTrue(result.getList().isEmpty());
         verifyNoInteractions(medicalRecordMapper);
     }
+
 }

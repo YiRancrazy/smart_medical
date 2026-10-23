@@ -33,24 +33,24 @@ public interface MedicalRecordService extends IService<MedicalRecord> {
     List<MedicalRecord> listByRegistrationIds(Collection<Long> registrationIds);
 
     /**
-     * 按患者用户ID集合查询病历（空集合返回空列表，按创建时间倒序）
-     * @param patientUserIds 患者用户ID集合
+     * 按患者ID集合查询病历（空集合返回空列表，按创建时间倒序）
+     * @param patientIds 患者ID集合
      * @return 病历列表
      */
-    List<MedicalRecord> listByPatientUserIds(Collection<Long> patientUserIds);
+    List<MedicalRecord> listByPatientIds(Collection<Long> patientIds);
 
     /**
-     * 按医生ID和患者用户ID集合查询病历（条件可为空）
+     * 按医生ID和患者ID集合查询病历（条件可为空）
      * @param doctorId 医生ID；null=不按医生过滤
-     * @param patientUserIds 患者用户ID集合；null=不按患者过滤，空集合=无匹配
+     * @param patientIds 患者ID集合；null=不按患者过滤，空集合=无匹配
      * @return 病历列表（按创建时间倒序）
      */
-    List<MedicalRecord> listMedicalRecordsByDoctorIdAndPatientUserIds(
-            Long doctorId, Collection<Long> patientUserIds);
+    List<MedicalRecord> listMedicalRecordsByDoctorIdAndPatientIds(
+            Long doctorId, Collection<Long> patientIds);
 
     /**
-     * 分页查询病历（按患者用户ID集合或医生ID过滤，条件可为空）
-     * @param patientUserIds 患者用户ID集合；null=不按患者过滤，空集合=无匹配
+     * 分页查询病历（按患者ID集合或医生ID过滤，条件可为空）
+     * @param patientIds 患者ID集合；null=不按患者过滤，空集合=无匹配
      * @param doctorId 医生ID；null=不按医生过滤
      * @param createTimeStart 创建时间起；null=不限制
      * @param createTimeEnd 创建时间止；null=不限制
@@ -58,7 +58,7 @@ public interface MedicalRecordService extends IService<MedicalRecord> {
      * @param pageSize 每页大小
      * @return 分页结果
      */
-    PageInfo<MedicalRecord> listMedicalRecordsByPatientUserIdsAndDoctorIdPage(
-            List<Long> patientUserIds, Long doctorId, LocalDateTime createTimeStart,
+    PageInfo<MedicalRecord> listMedicalRecordsByPatientIdsAndDoctorIdPage(
+            List<Long> patientIds, Long doctorId, LocalDateTime createTimeStart,
             LocalDateTime createTimeEnd, Integer pageNum, Integer pageSize);
 }

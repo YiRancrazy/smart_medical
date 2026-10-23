@@ -1,5 +1,6 @@
 package com.yirancrazy.smartmedical.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.yirancrazy.smartmedical.constant.RegistrationStatusEnum;
 import com.yirancrazy.smartmedical.exception.BizErrorCode;
@@ -11,10 +12,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,6 +46,39 @@ class RegistrationServiceImplTest {
 
     @Mock
     RegistrationMapper registrationMapper;
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    void getRegistrationByScheduleAndPatient_queriesPatientId() {
+        when(registrationMapper.selectList(any())).thenReturn(List.of(new Registration()));
+
+        registrationService.getRegistrationByRegistrationScheduleIdAndPatientId(10L, 20L);
+
+        ArgumentCaptor<AbstractWrapper> wrapperCaptor = ArgumentCaptor.forClass(AbstractWrapper.class);
+        verify(registrationMapper).selectList(wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("registration_schedule_id"));
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("patient_id"));
+        assertFalse(wrapperCaptor.getValue().getSqlSegment().contains("status"));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    void listRegistrationsByPatientIds_queriesPatientIdCollection() {
+        when(registrationMapper.selectList(any())).thenReturn(List.of(new Registration()));
+
+        registrationService.listRegistrationsByPatientIds(List.of(20L, 21L));
+
+        ArgumentCaptor<AbstractWrapper> wrapperCaptor = ArgumentCaptor.forClass(AbstractWrapper.class);
+        verify(registrationMapper).selectList(wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("patient_id IN"));
+    }
+
+    @Test
+    void listRegistrationsByPatientIds_emptyInput_returnsEmptyWithoutQuery() {
+        assertTrue(registrationService.listRegistrationsByPatientIds(List.of()).isEmpty());
+
+        verify(registrationMapper, never()).selectList(any());
+    }
 
     @Test
     void updateStatusIfCurrent_returnsTrueAndSyncsStatus() {

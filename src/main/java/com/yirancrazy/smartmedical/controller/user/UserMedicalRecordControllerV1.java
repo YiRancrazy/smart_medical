@@ -41,11 +41,11 @@ public class UserMedicalRecordControllerV1 {
     @Parameter(name = "patientCardId", description = "就诊卡ID", required = false)
     public Result<List<MedicalRecordListVO>> list(@RequestAttribute("currentUserId") Long userId,
                                                   @RequestParam(required = false) Long patientCardId) {
-        List<Long> patientUserIds = patientManager.getAccessiblePatientUserIds(userId, patientCardId);
-        if (patientUserIds.isEmpty()) {
+        List<Long> patientIds = patientManager.getAccessiblePatientIds(userId, patientCardId);
+        if (patientIds.isEmpty()) {
             return Result.success(Collections.emptyList());
         }
-        List<MedicalRecord> records = medicalRecordManager.listByPatientIds(patientUserIds);
+        List<MedicalRecord> records = medicalRecordManager.listByPatientIds(patientIds);
         return Result.success(medicalRecordManager.toListVOs(records));
     }
 

@@ -55,12 +55,12 @@ public class MedicalRecordServiceImpl
      * {@inheritDoc}
      */
     @Override
-    public List<MedicalRecord> listByPatientUserIds(Collection<Long> patientUserIds) {
-        if (patientUserIds == null || patientUserIds.isEmpty()) {
+    public List<MedicalRecord> listByPatientIds(Collection<Long> patientIds) {
+        if (patientIds == null || patientIds.isEmpty()) {
             return List.of();
         }
         return baseMapper.selectList(new LambdaQueryWrapper<MedicalRecord>()
-                .in(MedicalRecord::getPatientId, patientUserIds)
+                .in(MedicalRecord::getPatientId, patientIds)
                 .orderByDesc(MedicalRecord::getCreateTime));
     }
 
@@ -68,9 +68,9 @@ public class MedicalRecordServiceImpl
      * {@inheritDoc}
      */
     @Override
-    public List<MedicalRecord> listMedicalRecordsByDoctorIdAndPatientUserIds(
-            Long doctorId, Collection<Long> patientUserIds) {
-        if (patientUserIds != null && patientUserIds.isEmpty()) {
+    public List<MedicalRecord> listMedicalRecordsByDoctorIdAndPatientIds(
+            Long doctorId, Collection<Long> patientIds) {
+        if (patientIds != null && patientIds.isEmpty()) {
             return List.of();
         }
         LambdaQueryWrapper<MedicalRecord> wrapper = new LambdaQueryWrapper<MedicalRecord>()
@@ -79,8 +79,8 @@ public class MedicalRecordServiceImpl
         if (doctorId != null) {
             wrapper.eq(MedicalRecord::getDoctorId, doctorId);
         }
-        if (patientUserIds != null) {
-            wrapper.in(MedicalRecord::getPatientId, patientUserIds);
+        if (patientIds != null) {
+            wrapper.in(MedicalRecord::getPatientId, patientIds);
         }
         return baseMapper.selectList(wrapper);
     }
@@ -89,10 +89,10 @@ public class MedicalRecordServiceImpl
      * {@inheritDoc}
      */
     @Override
-    public PageInfo<MedicalRecord> listMedicalRecordsByPatientUserIdsAndDoctorIdPage(
-            List<Long> patientUserIds, Long doctorId, LocalDateTime createTimeStart,
+    public PageInfo<MedicalRecord> listMedicalRecordsByPatientIdsAndDoctorIdPage(
+            List<Long> patientIds, Long doctorId, LocalDateTime createTimeStart,
             LocalDateTime createTimeEnd, Integer pageNum, Integer pageSize) {
-        if (patientUserIds != null && patientUserIds.isEmpty()) {
+        if (patientIds != null && patientIds.isEmpty()) {
             PageHelper.clearPage();
             return new PageInfo<>(List.of());
         }
@@ -109,8 +109,8 @@ public class MedicalRecordServiceImpl
         if (createTimeEnd != null) {
             wrapper.le(MedicalRecord::getCreateTime, createTimeEnd);
         }
-        if (patientUserIds != null) {
-            wrapper.in(MedicalRecord::getPatientId, patientUserIds);
+        if (patientIds != null) {
+            wrapper.in(MedicalRecord::getPatientId, patientIds);
         }
 
         int normalizedPageNum = pageNum == null || pageNum < 1 ? 1 : pageNum;

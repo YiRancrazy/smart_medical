@@ -152,34 +152,33 @@ public class RegistrationServiceImpl implements RegistrationService {
     }
 
     /**
-     * 根据挂号排班模板id和用户id获取挂号记录
-     * @param registrationScheduleId 挂号排班模板id
-     * @param userId 用户id
+     * 根据排班id和患者id获取挂号记录
+     * @param registrationScheduleId 挂号排班id
+     * @param patientId 患者id
      * @return 挂号记录
      */
     @Override
-    public Registration getRegistrationByRegistrationScheduleIdAndUserId(Long registrationScheduleId, Long userId) {
-        List<Registration> list = registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
-                .eq(Registration::getRegistrationScheduleId, registrationScheduleId)
-                .eq(Registration::getUserId, userId)
-                .ne(Registration::getStatus, RegistrationStatusEnum.CANCELED.getCode())
+    public Registration getRegistrationByRegistrationScheduleIdAndPatientId(Long registrationScheduleId, Long patientId) {
+        List<Registration> list = registrationMapper.selectList(new QueryWrapper<Registration>()
+                .eq("registration_schedule_id", registrationScheduleId)
+                .eq("patient_id", patientId)
                 .last("LIMIT 1"));
         return list.isEmpty() ? null : list.get(0);
     }
 
     @Override
-    public List<Registration> listRegistrationsByUserId(Long userId) {
-        return registrationMapper.selectList(new QueryWrapper<Registration>().eq("user_id", userId));
+    public List<Registration> listRegistrationsByPatientId(Long patientId) {
+        return registrationMapper.selectList(new QueryWrapper<Registration>().eq("patient_id", patientId));
     }
 
     @Override
-    public List<Registration> listRegistrationsByUserIds(List<Long> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
+    public List<Registration> listRegistrationsByPatientIds(List<Long> patientIds) {
+        if (patientIds == null || patientIds.isEmpty()) {
             return List.of();
         }
-        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
-                .in(Registration::getUserId, userIds)
-                .orderByDesc(Registration::getCreateTime));
+        return registrationMapper.selectList(new QueryWrapper<Registration>()
+                .in("patient_id", patientIds)
+                .orderByDesc("create_time"));
     }
 
     @Override

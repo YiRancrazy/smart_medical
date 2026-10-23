@@ -59,12 +59,13 @@ class RegistrationManagerQuotaTest {
         Long scheduleId = 1L;
         Long patientCardId = 2L;
         Long userId = 3L;
+        Long patientId = 10L;
 
         PatientCard patientCard = new PatientCard();
         patientCard.setId(patientCardId);
 
         Patient patient = new Patient();
-        patient.setUserId(userId);
+        patient.setId(patientId);
 
         RegistrationSchedule schedule = new RegistrationSchedule();
         schedule.setId(scheduleId);
@@ -72,6 +73,7 @@ class RegistrationManagerQuotaTest {
 
         when(patientCardService.getPatientCardById(patientCardId)).thenReturn(patientCard);
         when(patientService.getPatientByPatientCardId(patientCardId)).thenReturn(patient);
+        when(userPatientRelationService.hasPatientRelation(userId, patientId)).thenReturn(true);
         when(registrationScheduleService.getRegistrationScheduleById(scheduleId)).thenReturn(schedule);
         when(registrationScheduleService.deductRemainingQuota(scheduleId)).thenReturn(0);
 

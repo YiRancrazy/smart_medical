@@ -1,18 +1,25 @@
 package com.yirancrazy.smartmedical.manager;
 
+import com.github.pagehelper.PageInfo;
 import com.yirancrazy.smartmedical.pojo.DrugInventory;
 import com.yirancrazy.smartmedical.pojo.MedicalRecord;
 import com.yirancrazy.smartmedical.pojo.Prescription;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.request.DispenseHistoryQueryRequest;
+import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.DispenseHistoryVO;
 import com.yirancrazy.smartmedical.pojo.dto.pharmacy.response.PendingPrescriptionVO;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
+import com.yirancrazy.smartmedical.service.AccountService;
+import com.yirancrazy.smartmedical.service.DoctorService;
 import com.yirancrazy.smartmedical.service.DrugInventoryService;
 import com.yirancrazy.smartmedical.service.DrugService;
 import com.yirancrazy.smartmedical.service.InventoryTransactionService;
 import com.yirancrazy.smartmedical.service.MedicalRecordService;
 import com.yirancrazy.smartmedical.service.OrderService;
 import com.yirancrazy.smartmedical.service.OrderStatusLogService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.PrescriptionItemService;
 import com.yirancrazy.smartmedical.service.PrescriptionService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
@@ -43,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,6 +76,9 @@ class PharmacyManagerTest {
     @Mock private MedicalRecordService medicalRecordService;
     @Mock private OrderService orderService;
     @Mock private OrderStatusLogService orderStatusLogService;
+    @Mock private PatientService patientService;
+    @Mock private DoctorService doctorService;
+    @Mock private AccountService accountService;
 
     @InjectMocks
     private PharmacyManager pharmacyManager;
@@ -91,6 +102,7 @@ class PharmacyManagerTest {
         Registration reg = new Registration();
         reg.setId(4001L);
         reg.setUserId(5001L);
+        reg.setPatientId(6001L);
 
         when(prescriptionService.listByStatus(PrescriptionStatus.PAID.getCode())).thenReturn(List.of(rx));
         when(medicalRecordService.listByIds(List.of(3001L))).thenReturn(List.of(record));
@@ -107,7 +119,7 @@ class PharmacyManagerTest {
         assertEquals(1001L, vo.getPrescriptionId());
         assertEquals(2001L, vo.getOrderId());
         assertEquals(5000, vo.getTotalAmount());
-        assertEquals(5001L, vo.getPatientId());
+        assertEquals(6001L, vo.getPatientId());
         assertEquals(4001L, vo.getRegistrationSn());
     }
 
@@ -142,6 +154,39 @@ class PharmacyManagerTest {
         PendingPrescriptionVO vo = result.getData().getList().get(0);
         assertNull(vo.getPatientId());
         assertNull(vo.getRegistrationSn());
+    }
+
+    @Test
+    void pageDispenseHistory_patientNameComesFromPatientService() {
+        DispenseHistoryQueryRequest request = new DispenseHistoryQueryRequest();
+        request.setPatientName("张");
+        request.setPageNum(1);
+        request.setPageSize(10);
+
+        Patient patient = new Patient();
+        patient.setId(3001L);
+        patient.setName("张三");
+
+        MedicalRecord record = new MedicalRecord();
+        record.setId(7001L);
+        record.setPatientId(3001L);
+
+        Prescription rx = new Prescription();
+        rx.setId(4001L);
+        rx.setMedicalRecordId(7001L);
+
+        when(patientService.listAllPatients()).thenReturn(List.of(patient));
+        when(medicalRecordService.listByPatientIds(List.of(3001L))).thenReturn(List.of(record));
+        when(prescriptionService.listDispenseHistoryPage(
+                isNull(), isNull(), isNull(), isNull(), isNull(), eq(List.of(7001L)), eq(1), eq(10)))
+                .thenReturn(new PageInfo<>(List.of(rx)));
+        when(medicalRecordService.listByIds(List.of(7001L))).thenReturn(List.of(record));
+        when(patientService.getPatientsByIds(List.of(3001L))).thenReturn(List.of(patient));
+        when(prescriptionItemService.listByPrescriptionIds(any())).thenReturn(List.of());
+
+        Result<PageResult<DispenseHistoryVO>> result = pharmacyManager.pageDispenseHistory(request);
+
+        assertEquals("张三", result.getData().getList().get(0).getPatientName());
     }
 
     /**

@@ -1,8 +1,9 @@
 package com.yirancrazy.smartmedical.manager;
 
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.RandomUtil;
 import com.yirancrazy.smartmedical.annotation.Manager;
+import com.yirancrazy.smartmedical.exception.BizErrorCode;
+import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.PatientCard;
@@ -16,10 +17,10 @@ import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.UserPatientRelationService;
 import com.yirancrazy.smartmedical.service.UserService;
-import com.yirancrazy.smartmedical.utils.JwtTokenRevoker;
+import com.yirancrazy.smartmedical.utils.PatientIdentityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.bcrypt.BCrypt;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
@@ -43,9 +44,6 @@ public class UserPatientRelationManager {
     private final PatientCardService patientCardService;
     private final PatientService patientService;
     private final RegistrationService registrationService;
-    private final JwtTokenRevoker jwtTokenRevoker;
-
-    private static final Long USER_ROLE = 4L;
 
     /** 本人关系文案，前端 picker 直接提交中文，与库中存量数据保持一致 */
     private static final String SELF_RELATION = "本人";
@@ -62,109 +60,103 @@ public class UserPatientRelationManager {
      */
     @Transactional(rollbackFor = Exception.class)
     public Result<Integer> insertUserPatientRelation(Long currentUserId,String name, String idCard, String phone, String relation, String remark, String defaulted) {
+        String normalizedIdCard = PatientIdentityUtil.normalizeIdCard(idCard);
+        if (!PatientIdentityUtil.isValidIdCard(normalizedIdCard)) {
+            return Result.fail("身份证号格式不正确");
+        }
+        String normalizedPhone = phone == null ? null : phone.trim();
+        if (normalizedPhone == null || normalizedPhone.isEmpty()) {
+            return Result.fail("手机号不能为空");
+        }
+        if (!normalizedPhone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        String normalizedName = name == null ? null : name.trim();
+        if (normalizedName == null || normalizedName.isEmpty()) {
+            return Result.fail("姓名不能为空");
+        }
 
-        Long id = IdUtil.getSnowflakeNextId();
-        User patientUser;
-        if (SELF_RELATION.equals(relation)) {
-            // 本人只能绑定当前登录账号：先按当前账号定位用户，避免删除就诊人后归档的旧 user 记录
-            // 仍持有同一身份证，导致新账号完善本人时被误判为"手机号已被其他账号使用"
-            patientUser = userService.getUserById(currentUserId);
-            if (patientUser == null) {
-                return Result.fail("当前账号不存在");
+        boolean selfBinding = SELF_RELATION.equals(relation);
+        User currentUser = null;
+        if (selfBinding) {
+            List<Account> patientAccounts = accountService.listPatientAccountsByUserId(currentUserId);
+            patientAccounts = patientAccounts == null ? List.of() : patientAccounts;
+            List<Account> enabledPatientAccounts = patientAccounts.stream()
+                    .filter(account -> !Boolean.FALSE.equals(account.getEnabled()))
+                    .toList();
+            if (enabledPatientAccounts.isEmpty()) {
+                return Result.fail("当前账号缺少可用的患者角色账号");
             }
-            Account selfAccount = accountService.getAccountByUserId(currentUserId);
-            if (selfAccount == null) {
-                return Result.fail("当前账号不存在");
+            if (enabledPatientAccounts.size() > 1) {
+                return Result.fail("当前用户存在多个有效患者角色账号");
             }
-            // 本人手机号必须属于当前账号，防止把他人手机号填成本人联系方式
-            String boundPhone = phone == null || phone.isBlank() ? selfAccount.getPhone() : phone;
-            if (boundPhone != null && !boundPhone.equals(selfAccount.getPhone())) {
+            Account patientAccount = enabledPatientAccounts.get(0);
+            if (!normalizedPhone.equals(patientAccount.getPhone())) {
                 return Result.fail("本人关系手机号需与当前账号一致");
             }
-            // 身份证命中其他用户时，仅当其账号仍启用才视为占用；删除就诊人产生的归档账号允许本人复用
-            User idCardUser = idCard == null || idCard.isBlank() ? null : userService.getUserByIdCard(idCard);
-            if (idCardUser != null && !idCardUser.getId().equals(currentUserId)
-                    && hasEnabledAccount(idCardUser.getId())) {
-                return Result.fail("该身份证已被其他账号绑定");
+            Patient ownedPatient = patientService.getPatientByOwnerUserId(currentUserId);
+            if (ownedPatient != null && !normalizedIdCard.equals(ownedPatient.getIdCard())) {
+                return Result.fail("当前账号已绑定其他本人患者");
             }
-            // 完善本人就诊卡需要把姓名 / 身份证落回当前用户，供后续展示与下单使用
-            if (name != null && !name.isBlank()) {
-                patientUser.setNickname(name);
-                patientUser.setUsername(name);
-            }
-            if (idCard != null && !idCard.isBlank()) {
-                patientUser.setIdCard(idCard);
-            }
-            userService.updateUserById(patientUser);
-        } else {
-            patientUser = userService.getUserByIdCard(idCard);
-            if (patientUser != null) {
-                // 身份证命中已有用户：校验提交手机号与该用户账号归属一致，避免身份证与手机号分属两人时
-                // 静默错绑他人账号，导致后续重复添加被误判为"已存在"
-                List<Account> phoneAccounts = accountService.getAccountByPhone(phone);
-                if (phoneAccounts != null && !phoneAccounts.isEmpty()) {
-                    Long idCardUserId = patientUser.getId();
-                    boolean ownedByPatient = phoneAccounts.stream()
-                            .anyMatch(account -> account.getUserId().equals(idCardUserId));
-                    if (!ownedByPatient) {
-                        return Result.fail("该手机号已被其他账号使用，与身份证不一致");
-                    }
-                }
-            } else {
-                List<Account> accounts = accountService.getAccountByPhone(phone);
-                if (accounts != null && !accounts.isEmpty()) {
-                    patientUser = userService.getUserById(accounts.get(0).getUserId());
-                } else {
-                    patientUser = createPatientUser(name, idCard, phone);
-                }
+            currentUser = userService.getUserById(currentUserId);
+            if (currentUser == null) {
+                return Result.fail("当前账号不存在");
             }
         }
-        Long patientUserId = patientUser.getId();
-        Integer isAuthorized = 0;
 
-        // 本人关系只能绑定当前登录账号自身，防止把其他账号（子女/父母等）标成本人
-        if (SELF_RELATION.equals(relation) && !currentUserId.equals(patientUserId)) {
-            return Result.fail("本人关系只能绑定当前登录账号");
+        Patient patient = patientService.getPatientByIdCard(normalizedIdCard);
+        if (patient == null) {
+            patient = createPatientOrReuse(currentUserId, normalizedName, normalizedIdCard, normalizedPhone);
         }
 
-        // 查询用户关系是否存在
-        List<UserPatientRelation> userPatientRelationList = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-        UserPatientRelation isExistUserPatientRelation = userPatientRelationList
-                .stream()
-                .filter(userPatientRelation -> userPatientRelation.getPatientUserId().equals(patientUserId))
-                .findFirst()
-                .orElse(null);
-
-        if (isExistUserPatientRelation != null) {
+        UserPatientRelation existingRelation =
+                userPatientRelationService.getByUserIdAndPatientId(currentUserId, patient.getId());
+        if (existingRelation != null) {
             return Result.fail("该用户已存在该就诊人");
         }
-        // 如果设置了默认就诊人，则将原来的默认就诊人设置为非默认
-        if (Boolean.parseBoolean(defaulted)) {
-            // 获取所有用户的就诊人关系
-            List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-            // 找到默认就诊人
-            UserPatientRelation userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
 
-            //如果默认就诊人不为空，则将其设置为非默认
-            if(userPatientRelation!=null){
-                userPatientRelation.setDefaulted(false);
-                userPatientRelationService.updateUserPatientRelationById(userPatientRelation);
+        if (selfBinding) {
+            if (patient.getOwnerUserId() != null && !currentUserId.equals(patient.getOwnerUserId())) {
+                return Result.fail("该身份证已被其他账号绑定");
+            }
+            if (!normalizedPhone.equals(patient.getPhone())) {
+                return Result.fail("本人关系手机号需与患者档案一致");
+            }
+            if (patient.getOwnerUserId() == null) {
+                patient.setOwnerUserId(currentUserId);
+                patientService.updatePatientById(patient);
+            }
+            currentUser.setIdCard(patient.getIdCard());
+            currentUser.setSex(patient.getSex());
+            userService.updateUserById(currentUser);
+        }
+
+        if (Boolean.parseBoolean(defaulted)) {
+            List<UserPatientRelation> relations =
+                    userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
+            UserPatientRelation defaultRelation = relations.stream()
+                    .filter(UserPatientRelation::getDefaulted)
+                    .findFirst()
+                    .orElse(null);
+            if (defaultRelation != null) {
+                defaultRelation.setDefaulted(false);
+                userPatientRelationService.updateUserPatientRelationById(defaultRelation);
             }
         }
 
-        // 此时没有默认就诊人，将当前插入对象设置为默认就诊人
         UserPatientRelation userPatientRelation = new UserPatientRelation();
-        userPatientRelation.setId(id);
+        userPatientRelation.setId(IdUtil.getSnowflakeNextId());
         userPatientRelation.setUserId(currentUserId);
-        userPatientRelation.setPatientUserId(patientUserId);
-        userPatientRelation.setIsAuthorized(isAuthorized);
-        userPatientRelation.setDefaulted(Boolean.valueOf(defaulted));
+        userPatientRelation.setPatientId(patient.getId());
+        userPatientRelation.setDefaulted(Boolean.parseBoolean(defaulted));
         userPatientRelation.setRelation(relation);
         userPatientRelation.setRemark(remark);
 
-        Integer integer = userPatientRelationService.insertUserPatientRelation(userPatientRelation);
-
-        return Result.success(integer);
+        try {
+            return Result.success(userPatientRelationService.insertUserPatientRelation(userPatientRelation));
+        } catch (DuplicateKeyException e) {
+            throw new BizException(BizErrorCode.PATIENT_RELATION_ALREADY_EXISTS);
+        }
     }
 
     /**
@@ -182,71 +174,117 @@ public class UserPatientRelationManager {
     public Result<Integer> updateUserPatientRelationById(Long currentUserId, Long id,
                                                          String name, String phone, String idCard,
                                                          String relation, String remark, String defaulted) {
-        UserPatientRelation userPatientRelationById = userPatientRelationService.getUserPatientRelationById(id);
-        if (userPatientRelationById == null) {
+        UserPatientRelation userPatientRelation = userPatientRelationService.getUserPatientRelationById(id);
+        if (userPatientRelation == null) {
             return Result.fail("就诊人不存在");
         }
-        // 校验当前用户是否有权修改
-        if (!currentUserId.equals(userPatientRelationById.getUserId())) {
+        if (!currentUserId.equals(userPatientRelation.getUserId())) {
             return Result.fail("无权修改该就诊人");
         }
-        // 本人关系只能绑定当前登录账号自身，防止把其他账号（子女/父母等）改成本人
-        if (SELF_RELATION.equals(relation) && !currentUserId.equals(userPatientRelationById.getPatientUserId())) {
-            return Result.fail("本人关系只能绑定当前登录账号");
+
+        Patient patient = patientService.getPatientById(userPatientRelation.getPatientId());
+        if (patient == null) {
+            return Result.fail("患者档案不存在");
+        }
+        boolean selfRelation = SELF_RELATION.equals(userPatientRelation.getRelation())
+                || currentUserId.equals(patient.getOwnerUserId());
+        if (selfRelation && !SELF_RELATION.equals(relation)) {
+            return Result.fail("本人关系不可修改");
+        }
+        if (!selfRelation && SELF_RELATION.equals(relation)) {
+            return Result.fail("本人关系只能通过本人绑定创建");
+        }
+
+        String normalizedIdCard = PatientIdentityUtil.normalizeIdCard(idCard);
+        if (!PatientIdentityUtil.isValidIdCard(normalizedIdCard)) {
+            return Result.fail("身份证号格式不正确");
+        }
+        if (!normalizedIdCard.equals(patient.getIdCard())) {
+            if (patient.getOwnerUserId() != null) {
+                return Result.fail("已绑定本人患者的身份证不可修改");
+            }
+            Patient idCardPatient = patientService.getPatientByIdCard(normalizedIdCard);
+            if (idCardPatient != null && !idCardPatient.getId().equals(patient.getId())) {
+                return Result.fail("该身份证已绑定其他患者");
+            }
+        }
+        String normalizedName = name == null || name.isBlank() ? null : name.trim();
+        String normalizedPhone = phone == null || phone.isBlank() ? null : phone.trim();
+        if (normalizedPhone != null && !normalizedPhone.matches("^1[3-9]\\d{9}$")) {
+            return Result.fail("手机号格式不正确");
+        }
+        boolean canEditPatient = currentUserId.equals(patient.getOwnerUserId())
+                || (patient.getOwnerUserId() == null
+                    && currentUserId.equals(patient.getCreatedByUserId()));
+        boolean patientChanged = (normalizedName != null && !normalizedName.equals(patient.getName()))
+                || (normalizedPhone != null && !normalizedPhone.equals(patient.getPhone()))
+                || !normalizedIdCard.equals(patient.getIdCard());
+        if (!canEditPatient && patientChanged) {
+            return Result.fail("无权修改患者身份资料");
+        }
+        if (selfRelation && normalizedPhone != null) {
+            List<Account> patientAccounts = accountService.listPatientAccountsByUserId(currentUserId);
+            patientAccounts = patientAccounts == null ? List.of() : patientAccounts;
+            List<Account> enabledPatientAccounts = patientAccounts.stream()
+                    .filter(account -> !Boolean.FALSE.equals(account.getEnabled()))
+                    .toList();
+            if (enabledPatientAccounts.size() != 1
+                    || !normalizedPhone.equals(enabledPatientAccounts.get(0).getPhone())) {
+                return Result.fail("本人关系手机号需与当前账号一致");
+            }
+        }
+        User currentUser = selfRelation ? userService.getUserById(currentUserId) : null;
+        if (selfRelation && currentUser == null) {
+            return Result.fail("当前账号不存在");
         }
 
         List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-        UserPatientRelation defaultRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
+        UserPatientRelation defaultRelation = list.stream()
+                .filter(UserPatientRelation::getDefaulted)
+                .findFirst()
+                .orElse(null);
+        UserPatientRelation fallback = null;
+        if ("false".equals(defaulted) && defaultRelation != null && defaultRelation.getId().equals(id)) {
+            fallback = list.stream()
+                    .filter(r -> !r.getId().equals(id))
+                    .findFirst()
+                    .orElse(null);
+            if (fallback == null) {
+                return Result.fail("当前账户不能没有默认就诊人");
+            }
+        }
+
+        if (canEditPatient && !normalizedIdCard.equals(patient.getIdCard())) {
+            patient.setIdCard(normalizedIdCard);
+        }
+        if (canEditPatient && normalizedName != null) {
+            patient.setName(normalizedName);
+        }
+        if (canEditPatient && normalizedPhone != null) {
+            patient.setPhone(normalizedPhone);
+        }
+        if (canEditPatient) {
+            patientService.updatePatientById(patient);
+        }
+        if (selfRelation) {
+            currentUser.setIdCard(patient.getIdCard());
+            currentUser.setSex(patient.getSex());
+            userService.updateUserById(currentUser);
+        }
 
         if ("true".equals(defaulted) && defaultRelation != null && !defaultRelation.getId().equals(id)) {
             defaultRelation.setDefaulted(false);
             userPatientRelationService.updateUserPatientRelationById(defaultRelation);
         }
-        // S18: 取消当前默认就诊人时，自动切换到另一个就诊人为默认；无其他就诊人才拒绝
-        if ("false".equals(defaulted) && defaultRelation != null && defaultRelation.getId().equals(id)) {
-            UserPatientRelation fallback = list.stream()
-                    .filter(r -> !r.getId().equals(id))
-                    .findFirst().orElse(null);
-            if (fallback == null) {
-                return Result.fail("当前账户不能没有默认就诊人");
-            }
+        if (fallback != null) {
             fallback.setDefaulted(true);
             userPatientRelationService.updateUserPatientRelationById(fallback);
         }
 
-        // 更新用户信息（姓名、手机号、身份证号）
-        User patientUser = userService.getUserById(userPatientRelationById.getPatientUserId());
-        if (patientUser != null) {
-            if (name != null && !name.isEmpty()) {
-                patientUser.setNickname(name);
-                patientUser.setUsername(name);
-            }
-            if (idCard != null && !idCard.isEmpty()) {
-                patientUser.setIdCard(idCard);
-            }
-            userService.updateUserById(patientUser);
-        }
-        if (phone != null && !phone.isEmpty()) {
-            Account account = accountService.getAccountByUserId(userPatientRelationById.getPatientUserId());
-            if (account != null) {
-                // B16: 改手机号前先查重，避免命中 account.phone 唯一索引抛 SQL 异常被全局吞为 500
-                if (!phone.equals(account.getPhone())) {
-                    List<Account> existing = accountService.getAccountByPhone(phone);
-                    boolean conflict = existing.stream()
-                            .anyMatch(a -> !a.getId().equals(account.getId()));
-                    if (conflict) {
-                        return Result.fail("该手机号已被其他账号占用");
-                    }
-                }
-                account.setPhone(phone);
-                accountService.updateAccountById(account);
-            }
-        }
-
-        userPatientRelationById.setRelation(relation);
-        userPatientRelationById.setRemark(remark);
-        userPatientRelationById.setDefaulted(Boolean.valueOf(defaulted));
-        return Result.success(userPatientRelationService.updateUserPatientRelationById(userPatientRelationById));
+        userPatientRelation.setRelation(relation);
+        userPatientRelation.setRemark(remark);
+        userPatientRelation.setDefaulted(Boolean.parseBoolean(defaulted));
+        return Result.success(userPatientRelationService.updateUserPatientRelationById(userPatientRelation));
     }
 
     /**
@@ -257,18 +295,18 @@ public class UserPatientRelationManager {
      */
     @Transactional(rollbackFor = Exception.class)
     public Result<Integer> setDefaultUserPatientRelation(Long currentUserId, Long id) {
-        UserPatientRelation userPatientRelation = null;
-        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
-        // 获取当前用户下所有就诊人关系，目的为了获取默认就诊人
-        userPatientRelation = list.stream().filter(UserPatientRelation::getDefaulted).findFirst().orElse(null);
-        if (userPatientRelation != null) {
-            userPatientRelation.setDefaulted(false);
-            userPatientRelationService.updateUserPatientRelationById(userPatientRelation);
-        }
-        // 校验目标就诊人关系归属当前用户
         UserPatientRelation target = userPatientRelationService.getUserPatientRelationById(id);
         if (target == null || !currentUserId.equals(target.getUserId())) {
             return Result.fail("无权操作该就诊人");
+        }
+        List<UserPatientRelation> list = userPatientRelationService.getUserPatientRelationsByUserId(currentUserId);
+        UserPatientRelation userPatientRelation = list.stream()
+                .filter(UserPatientRelation::getDefaulted)
+                .findFirst()
+                .orElse(null);
+        if (userPatientRelation != null && !userPatientRelation.getId().equals(id)) {
+            userPatientRelation.setDefaulted(false);
+            userPatientRelationService.updateUserPatientRelationById(userPatientRelation);
         }
         target.setDefaulted(true);
         return Result.success(userPatientRelationService.updateUserPatientRelationById(target));
@@ -276,8 +314,7 @@ public class UserPatientRelationManager {
 
     /**
      * 删除就诊人
-     * <p>B19: 同时禁用孤立账号并释放手机号（phone 改为 tombstone 值），避免 account.phone 唯一索引
-     * 阻止该手机号被未来新账号注册。account/user/patient_card/patient 记录保留用于历史审计。</p>
+     * <p>仅逻辑删除当前账号的访问关系，不修改账号、患者档案或就诊卡。</p>
      * @param currentUserId 当前用户id
      * @param id 就诊人关系id
      * @return 删除结果
@@ -288,61 +325,32 @@ public class UserPatientRelationManager {
         if (relation == null || !currentUserId.equals(relation.getUserId())) {
             return Result.fail("无权删除该就诊人");
         }
-        // 检查该就诊人是否存在在途挂号（未完成就诊流程）：状态 0/1/5/6/7
+        Patient patient = patientService.getPatientById(relation.getPatientId());
+        if (SELF_RELATION.equals(relation.getRelation())
+                || (patient != null && currentUserId.equals(patient.getOwnerUserId()))) {
+            return Result.fail("本人关系不能删除");
+        }
+        // 状态 0/1/5/6/7 表示挂号尚未完成
         List<Integer> inTransitStatuses = Arrays.asList(0, 1, 5, 6, 7);
-        List<Registration> registrations = registrationService.listRegistrationsByUserId(relation.getPatientUserId());
+        List<Registration> registrations = registrationService.listRegistrationsByPatientId(relation.getPatientId());
         boolean hasInTransit = registrations.stream()
-                .anyMatch(r -> r.getStatus() != null && inTransitStatuses.contains(r.getStatus()));
+                .anyMatch(r -> r.getStatus() != null
+                        && inTransitStatuses.contains(r.getStatus()));
         if (hasInTransit) {
             return Result.fail("该就诊人存在在途挂号，无法删除");
-        }
-        // 释放手机号：把孤立 account 的 phone 改为唯一 tombstone，并禁用账号
-        // B19-fix: account.phone 列为 char(11)，旧值 "deleted_<id>@local" 达 33 字符触发 Data too long；
-        // 改用字母前缀 + 8 位随机数字（共 11 字符），与真实 11 位纯数字手机号天然不冲突，查重保证唯一索引不撞
-        Account orphanAccount = accountService.getAccountByUserId(relation.getPatientUserId());
-        if (orphanAccount != null) {
-            String tombstone;
-            do {
-                tombstone = "del" + RandomUtil.randomNumbers(8);
-            } while (!accountService.getAccountByPhone(tombstone).isEmpty());
-            orphanAccount.setEnabled(false);
-            orphanAccount.setPhone(tombstone);
-            accountService.updateAccountById(orphanAccount);
-            jwtTokenRevoker.revoke(orphanAccount.getId());
         }
         return Result.success(userPatientRelationService.deleteUserPatientRelationById(id));
     }
 
     /**
-     * 为未注册的就诊人创建用户、账户、就诊卡及患者档案
+     * 为未建档患者创建就诊卡及患者档案
+     * @param currentUserId 创建账号ID
      * @param name 就诊人姓名
-     * @param idCard 身份证号
+     * @param idCard 规范化身份证号
      * @param phone 手机号
-     * @return 新建的用户
+     * @return 新建的患者档案
      */
-    private User createPatientUser(String name, String idCard, String phone) {
-        User user = new User();
-        Long userId = IdUtil.getSnowflakeNextId();
-        user.setId(userId);
-        user.setNickname(name);
-        user.setUsername(name);
-        user.setIdCard(idCard);
-        user.setAvatar("");
-        userService.insertUser(user);
-
-        Account account = new Account();
-        account.setId(IdUtil.getSnowflakeNextId());
-        account.setUserId(userId);
-        account.setRoleId(USER_ROLE);
-        account.setPhone(phone);
-        // 随机 6 位数字初始密码，避免手机号后 6 位可预测导致账号被冒用
-        String initPwd = RandomUtil.randomNumbers(6);
-        account.setPassword(BCrypt.hashpw(initPwd, BCrypt.gensalt()));
-        account.setEnabled(true);
-        // 初始密码仅通过日志通知操作者，由操作者线下转交就诊人；后续应接短信通知
-        log.warn("[createPatientUser] 新建就诊人账号 phone={} 初始密码={}", phone, initPwd);
-        accountService.insertAccount(account);
-
+    private Patient createPatientOrReuse(Long currentUserId, String name, String idCard, String phone) {
         PatientCard patientCard = new PatientCard();
         patientCard.setId(IdUtil.getSnowflakeNextId());
         patientCard.setSn(IdUtil.getSnowflakeNextId());
@@ -351,25 +359,26 @@ public class UserPatientRelationManager {
         patientCard.setPaymentPassword("");
         patientCard.setStatus(0);
         patientCard.setQrCode("");
-        patientCardService.insertPatientCard(patientCard);
 
         Patient patient = new Patient();
         patient.setId(IdUtil.getSnowflakeNextId());
-        patient.setUserId(userId);
+        patient.setName(name);
+        patient.setIdCard(idCard);
+        patient.setPhone(phone);
+        patient.setCreatedByUserId(currentUserId);
         patient.setPatientCardId(patientCard.getId());
         patient.setEmergencyPhone(phone);
-        patientService.insertPatient(patient);
-
-        return user;
-    }
-
-    /**
-     * 判断用户是否存在启用状态的账号
-     * @param userId 用户id
-     * @return 是否存在启用账号
-     */
-    private boolean hasEnabledAccount(Long userId) {
-        Account account = accountService.getAccountByUserId(userId);
-        return account != null && !Boolean.FALSE.equals(account.getEnabled());
+        try {
+            // 先插患者身份证唯一索引，冲突时不会遗留孤立就诊卡
+            patientService.insertPatient(patient);
+        } catch (DuplicateKeyException e) {
+            Patient existingPatient = patientService.getPatientByIdCardForUpdate(idCard);
+            if (existingPatient == null) {
+                throw e;
+            }
+            return existingPatient;
+        }
+        patientCardService.insertPatientCard(patientCard);
+        return patient;
     }
 }

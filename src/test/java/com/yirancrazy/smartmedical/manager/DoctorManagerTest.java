@@ -7,10 +7,12 @@ import com.yirancrazy.smartmedical.exception.BizErrorCode;
 import com.yirancrazy.smartmedical.exception.BizException;
 import com.yirancrazy.smartmedical.pojo.AppointmentRule;
 import com.yirancrazy.smartmedical.pojo.Doctor;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
+import com.yirancrazy.smartmedical.pojo.dto.doctor.response.WaitingPatientVO;
 import com.yirancrazy.smartmedical.pojo.vo.RegistrationDoctorBaseInfo;
 import com.yirancrazy.smartmedical.service.AccountService;
 import com.yirancrazy.smartmedical.service.AppointmentRuleService;
@@ -18,17 +20,18 @@ import com.yirancrazy.smartmedical.service.DegreeService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorPositionService;
 import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
-import com.yirancrazy.smartmedical.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,8 +65,8 @@ class DoctorManagerTest {
     @Mock private DegreeService degreeService;
     @Mock private RegistrationService registrationService;
     @Mock private RegistrationStatusLogService registrationStatusLogService;
-    @Mock private UserService userService;
     @Mock private AccountService accountService;
+    @Mock private PatientService patientService;
 
     @InjectMocks
     private DoctorManager doctorManager;
@@ -192,6 +195,33 @@ class DoctorManagerTest {
         assertEquals(200, result.getCode());
         assertEquals(1, result.getData().size());
         assertNull(result.getData().get(0).getScore());
+    }
+
+    @Test
+    void listWaiting_usesRegistrationPatientIdAndPatientService() {
+        RegistrationSchedule schedule = buildSchedule(SCHEDULE_ID, TEMPLATE_ID);
+        Registration reg = buildRegistration(REG_ID, RegistrationStatusEnum.REPORTED.getCode(), SCHEDULE_ID);
+        reg.setUserId(9999L);
+        reg.setPatientId(3001L);
+
+        Patient patient = new Patient();
+        patient.setId(3001L);
+        patient.setName("张三");
+        patient.setPhone("13800138000");
+
+        when(registrationScheduleService.getRegistrationSchedulesByDoctorIdAndDate(
+                eq(DOCTOR_ID), any(LocalDate.class))).thenReturn(List.of(schedule));
+        when(registrationService.listByScheduleIdsAndStatus(
+                List.of(SCHEDULE_ID), RegistrationStatusEnum.REPORTED.getCode())).thenReturn(List.of(reg));
+        when(patientService.getPatientsByIds(List.of(3001L))).thenReturn(List.of(patient));
+
+        List<WaitingPatientVO> result = doctorManager.listWaiting(DOCTOR_ID);
+
+        assertEquals(1, result.size());
+        assertEquals("3001", result.get(0).getPatientId());
+        assertEquals("张三", result.get(0).getPatientName());
+        assertEquals("13800138000", result.get(0).getPatientPhone());
+        verify(patientService).getPatientsByIds(List.of(3001L));
     }
 
     // ===== 辅助构造 =====

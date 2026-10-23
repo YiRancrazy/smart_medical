@@ -19,11 +19,11 @@ import com.yirancrazy.smartmedical.pojo.Degree;
 import com.yirancrazy.smartmedical.pojo.Department;
 import com.yirancrazy.smartmedical.pojo.Doctor;
 import com.yirancrazy.smartmedical.pojo.DoctorPosition;
+import com.yirancrazy.smartmedical.pojo.Patient;
 import com.yirancrazy.smartmedical.pojo.Registration;
 import com.yirancrazy.smartmedical.pojo.RegistrationSchedule;
 import com.yirancrazy.smartmedical.pojo.RegistrationScheduleTemplate;
 import com.yirancrazy.smartmedical.pojo.Result;
-import com.yirancrazy.smartmedical.pojo.User;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorAddRequest;
 import com.yirancrazy.smartmedical.pojo.dto.admin.request.AdminDoctorUpdateRequest;
 import com.yirancrazy.smartmedical.pojo.dto.common.PageResult;
@@ -41,11 +41,11 @@ import com.yirancrazy.smartmedical.service.DegreeService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import com.yirancrazy.smartmedical.service.DoctorPositionService;
 import com.yirancrazy.smartmedical.service.DoctorService;
+import com.yirancrazy.smartmedical.service.PatientService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleService;
 import com.yirancrazy.smartmedical.service.RegistrationScheduleTemplateService;
 import com.yirancrazy.smartmedical.service.RegistrationService;
 import com.yirancrazy.smartmedical.service.RegistrationStatusLogService;
-import com.yirancrazy.smartmedical.service.UserService;
 import com.yirancrazy.smartmedical.utils.DoctorInitPasswordUtil;
 import com.yirancrazy.smartmedical.utils.PageUtils;
 import lombok.RequiredArgsConstructor;
@@ -91,8 +91,8 @@ public class DoctorManager {
     private final DegreeService degreeService;
     private final RegistrationService registrationService;
     private final RegistrationStatusLogService registrationStatusLogService;
-    private final UserService userService;
     private final AccountService accountService;
+    private final PatientService patientService;
     private final ConsultationRoomService consultationRoomService;
     /**
      * 新增医生（补雪花 ID 后入库）
@@ -620,9 +620,8 @@ public class DoctorManager {
     public List<WaitingPatientVO> listWaiting(Long doctorId) {
         List<Registration> registrations = listRegistrationsByDoctorIdAndStatus(
                 doctorId, RegistrationStatusEnum.REPORTED.getCode());
-        Map<Long, User> userMap = batchLoadUsers(registrations);
-        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
-        return registrations.stream().map(reg -> toWaitingVO(reg, userMap, accountMap))
+        Map<Long, Patient> patientMap = batchLoadPatients(registrations);
+        return registrations.stream().map(reg -> toWaitingVO(reg, patientMap))
                 .collect(Collectors.toList());
     }
 
@@ -638,9 +637,8 @@ public class DoctorManager {
         }
         List<Registration> registrations = registrationService.listByScheduleIdsAndStatus(
                 scheduleIds, RegistrationStatusEnum.IN_TREATMENT.getCode());
-        Map<Long, User> userMap = batchLoadUsers(registrations);
-        Map<Long, Account> accountMap = batchLoadAccounts(registrations);
-        return registrations.stream().map(reg -> toWaitingVO(reg, userMap, accountMap))
+        Map<Long, Patient> patientMap = batchLoadPatients(registrations);
+        return registrations.stream().map(reg -> toWaitingVO(reg, patientMap))
                 .collect(Collectors.toList());
     }
 
@@ -666,35 +664,30 @@ public class DoctorManager {
         return registrationService.listByScheduleIdsAndStatus(scheduleIds, status);
     }
 
-    private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, User> userMap, Map<Long, Account> accountMap) {
+    private WaitingPatientVO toWaitingVO(Registration reg, Map<Long, Patient> patientMap) {
         WaitingPatientVO vo = new WaitingPatientVO();
         vo.setRegistrationId(String.valueOf(reg.getId()));
-        vo.setPatientId(String.valueOf(reg.getUserId()));
+        vo.setPatientId(reg.getPatientId() == null ? null : String.valueOf(reg.getPatientId()));
         vo.setStatus(reg.getStatus());
         vo.setCheckInTime(reg.getCheckInTime());
         vo.setRegistrationTime(reg.getRegistrationTime());
-        User user = userMap.get(reg.getUserId());
-        Account account = accountMap.get(reg.getUserId());
-        vo.setPatientName(user != null ? user.getNickname() : null);
-        vo.setPatientPhone(account != null ? account.getPhone() : null);
+        Patient patient = patientMap.get(reg.getPatientId());
+        vo.setPatientName(patient != null ? patient.getName() : null);
+        vo.setPatientPhone(patient != null ? patient.getPhone() : null);
         return vo;
     }
 
-    /** 批量加载用户信息（userId → User） */
-    private Map<Long, User> batchLoadUsers(List<Registration> registrations) {
-        List<Long> userIds = registrations.stream()
-                .map(Registration::getUserId).distinct().collect(Collectors.toList());
-        if (userIds.isEmpty()) return Collections.emptyMap();
-        return userService.listUsersByUserIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
-    }
-
-    /** 批量加载账户信息（userId → Account，同一 userId 多账号时保留第一个） */
-    private Map<Long, Account> batchLoadAccounts(List<Registration> registrations) {
-        List<Long> userIds = registrations.stream()
-                .map(Registration::getUserId).distinct().collect(Collectors.toList());
-        if (userIds.isEmpty()) return Collections.emptyMap();
-        return accountService.listAccountsByUserIds(userIds).stream()
-                .collect(Collectors.toMap(Account::getUserId, a -> a, (a1, a2) -> a1));
+    /** 批量加载患者信息（patientId → Patient） */
+    private Map<Long, Patient> batchLoadPatients(List<Registration> registrations) {
+        List<Long> patientIds = registrations.stream()
+                .map(Registration::getPatientId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (patientIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return patientService.getPatientsByIds(patientIds).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p));
     }
 }

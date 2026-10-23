@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.mapper.AccountMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -92,5 +93,28 @@ class AccountServiceImplTest {
         assertTrue(sqlSegment.toUpperCase().contains("USER_ID"));
         assertTrue(sqlSegment.toUpperCase().contains("IN"));
         assertTrue(wrapper.getParamNameValuePairs().values().containsAll(List.of(11L, 22L)));
+    }
+
+    /**
+     * 患者账号查询必须同时限定 user_id 和患者角色，不能使用 getAccountByUserId 的 LIMIT 1。
+     */
+    @Test
+    void listPatientAccountsByUserId_filtersPatientRole() {
+        Account account = new Account();
+        account.setId(10L);
+        when(accountMapper.selectList(any())).thenReturn(List.of(account));
+
+        List<Account> result = accountService.listPatientAccountsByUserId(99L);
+
+        assertEquals(List.of(account), result);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<Account>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(accountMapper).selectList(captor.capture());
+        LambdaQueryWrapper<Account> wrapper = captor.getValue();
+        String sqlSegment = wrapper.getSqlSegment().toUpperCase();
+        assertTrue(sqlSegment.contains("USER_ID"));
+        assertTrue(sqlSegment.contains("ROLE_ID"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains(99L));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains(RoleEnum.PATIENT.getCodeAsLong()));
     }
 }

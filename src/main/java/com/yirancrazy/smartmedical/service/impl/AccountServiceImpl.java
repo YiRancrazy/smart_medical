@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.yirancrazy.smartmedical.constant.type.RoleEnum;
 import com.yirancrazy.smartmedical.mapper.AccountMapper;
 import com.yirancrazy.smartmedical.pojo.Account;
 import com.yirancrazy.smartmedical.service.AccountService;
@@ -122,6 +123,17 @@ public class AccountServiceImpl implements AccountService {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<Account> listPatientAccountsByUserId(Long userId) {
+        return accountMapper.selectList(new LambdaQueryWrapper<Account>()
+                .eq(Account::getUserId, userId)
+                .eq(Account::getRoleId, RoleEnum.PATIENT.getCodeAsLong())
+                .orderByAsc(Account::getCreateTime));
+    }
+
+    /**
      * 根据用户ID列表查询账户列表
      * @param userIdList 用户ID列表
      * @return 账户列表
@@ -190,7 +202,7 @@ public class AccountServiceImpl implements AccountService {
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
         }
-        return accountMapper.selectList(new LambdaQueryWrapper<Account>().in(Account::getUserId,userIds));
+        return accountMapper.selectList(new LambdaQueryWrapper<Account>().in(Account::getUserId, userIds));
     }
 
     /**
