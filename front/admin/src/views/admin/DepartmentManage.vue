@@ -80,7 +80,7 @@
         <a-form-item label="科室编号" required>
           <a-input v-model:value="formData.sn" placeholder="请输入科室编号" />
         </a-form-item>
-        <a-form-item label="科室负责人" required>
+        <a-form-item v-if="formData.id" label="科室负责人" required>
           <a-select
             v-model:value="formData.managerId"
             placeholder="请选择科室负责人"
@@ -195,7 +195,7 @@ async function loadAdminOptions() {
       value: a.id
     }))
   } catch {
-    // 拉取失败不阻塞页面，提交时后端会校验负责人
+    // 拉取失败不阻塞页面，编辑时仍可重新打开弹窗选择
   }
 }
 
@@ -294,7 +294,7 @@ async function handleModalOk() {
     message.warning('请填写必填项')
     return
   }
-  if (!formData.value.managerId) {
+  if (formData.value.id && !formData.value.managerId) {
     message.warning('请选择科室负责人')
     return
   }
@@ -310,7 +310,7 @@ async function handleModalOk() {
       await updateDepartment(formData.value.id, { ...rest, parentDepartmentId: parentId })
       message.success('修改成功')
     } else {
-      const { id, parentId, ...rest } = formData.value
+      const { id, managerId, parentId, ...rest } = formData.value
       await createDepartment({ ...rest, parentDepartmentId: parentId })
       message.success('新增成功')
     }

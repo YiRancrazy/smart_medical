@@ -11,6 +11,7 @@ import com.yirancrazy.smartmedical.service.AdminService;
 import com.yirancrazy.smartmedical.service.DepartmentService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -77,14 +79,19 @@ class DepartmentManagerTest {
     }
 
     /**
-     * 负责人ID为空 → Result.fail
+     * 负责人ID为空 → 创建成功且不写入负责人
      */
     @Test
-    void insertDepartment_nullManagerId_returnsFail() {
+    void insertDepartment_nullManagerId_returnsId() {
         AdminDepartmentRequest req = buildRequest("内科", "1001", null);
+
         Result<Long> result = departmentManager.insertDepartment(req);
-        assertEquals(500, result.getCode());
-        assertEquals("科室负责人不能为空", result.getMessage());
+
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        ArgumentCaptor<Department> captor = ArgumentCaptor.forClass(Department.class);
+        verify(departmentService).insertDepartment(captor.capture());
+        assertNull(captor.getValue().getManager());
     }
 
     /**
@@ -162,6 +169,35 @@ class DepartmentManagerTest {
 
         assertEquals(200, result.getCode());
         assertTrue(result.getData().isEmpty());
+    }
+
+    /**
+     * 未设置负责人的科室仍出现在列表中
+     */
+    @Test
+    void listAllDepartmentsSimpleResponse_noManager_mapsDepartment() {
+        Department dept = new Department();
+        dept.setId(1003L);
+        dept.setSn(1003L);
+        dept.setName("未分配科室");
+        dept.setParentDepartmentId(0L);
+        dept.setStatus(1);
+        dept.setType("1");
+
+        when(departmentService.listAllDepartment()).thenReturn(List.of(dept));
+        when(adminService.listAdminsByIds(List.of())).thenReturn(List.of());
+        when(accountService.listAccountsByUserIds(List.of())).thenReturn(List.of());
+
+        Result<List<AdminDepartmentSimpleResponse>> result = departmentManager.listAllDepartmentsSimpleResponse();
+
+        assertEquals(200, result.getCode());
+        assertEquals(1, result.getData().size());
+        AdminDepartmentSimpleResponse vo = result.getData().get(0);
+        assertEquals("1003", vo.getId());
+        assertEquals("未分配科室", vo.getName());
+        assertNull(vo.getManagerId());
+        assertNull(vo.getManagerName());
+        assertNull(vo.getManagerPhone());
     }
 
     // ===== 辅助构造 =====

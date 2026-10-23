@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -84,10 +85,6 @@ public class DepartmentManager {
         if (sn == null) {
             return Result.fail("科室编号不能为空");
         }
-        Long managerId = item.getManagerId();
-        if (managerId == null) {
-            return Result.fail("科室负责人不能为空");
-        }
         Long parentDepartmentId = item.getParentDepartmentId() == null ? 0L : item.getParentDepartmentId();
 
         Department department = new Department();
@@ -96,7 +93,6 @@ public class DepartmentManager {
         department.setName(item.getName());
         department.setType(item.getType());
         department.setParentDepartmentId(parentDepartmentId);
-        department.setManager(managerId);
         department.setPhone(item.getPhone());
         department.setAddress(item.getAddress());
         department.setStatus(Convert.toInt(item.getStatus(), 1));
@@ -259,10 +255,7 @@ public class DepartmentManager {
     public Result<List<AdminDepartmentSimpleResponse>> listAllDepartmentsSimpleResponse() {
         List<AdminDepartmentSimpleResponse> result = new ArrayList<>();
         List<Department> departments = departmentService.listAllDepartment();
-        List<Long> managerIds = departments
-                .stream()
-                .map(Department::getManager)
-                .toList();  // 获取所有负责人的id
+        List<Long> managerIds = listManagerIds(departments);
         List<Admin> admins = adminService.listAdminsByIds(managerIds);
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
 
@@ -279,10 +272,7 @@ public class DepartmentManager {
      */
     public Result<Map<AdminDepartmentSimpleResponse, List<AdminDepartmentSimpleResponse>>> listAllDepartmentsSimpleResponseByPageAndSnAscAndTree() {
         List<Department> departments = departmentService.listAllDepartment();  // 获取所有科室信息
-        List<Long> managerIds = departments
-                .stream()
-                .map(Department::getManager)
-                .toList();  // 获取所有负责人的id
+        List<Long> managerIds = listManagerIds(departments);
         List<Admin> admins = adminService.listAdminsByIds(managerIds); // 获取所有负责人的信息
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);  // 获取所有负责人的账户信息
 
@@ -321,10 +311,7 @@ public class DepartmentManager {
         List<Department> departments = departmentService.listAllDepartment();
 
         PageInfo<Department> pageinfo = new PageInfo<>( departments);
-        List<Long> managerIds = departments
-                .stream()
-                .map(Department::getManager)
-                .toList();  // 获取所有负责人的id
+        List<Long> managerIds = listManagerIds(departments);
         List<Admin> admins = adminService.listAdminsByIds(managerIds);
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
 
@@ -343,10 +330,7 @@ public class DepartmentManager {
         PageHelper.startPage(pageNum, pageSize);
         List<Department> departments = departmentService.listAllParentDepartments();
         PageInfo<Department> pageinfo = new PageInfo<>( departments);
-        List<Long> managerIds = departments
-                .stream()
-                .map(Department::getManager)
-                .toList();
+        List<Long> managerIds = listManagerIds(departments);
         List<Admin> admins = adminService.listAdminsByIds(managerIds);
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
@@ -363,10 +347,7 @@ public class DepartmentManager {
         List<AdminDepartmentSimpleResponse> result = new ArrayList<>();
         List<Department> departments = departmentService.listAllNonParentDepartments();
         PageInfo<Department> pageinfo = new PageInfo<>(departments);
-        List<Long> managerIds = departments
-                .stream()
-                .map(Department::getManager)
-                .toList();
+        List<Long> managerIds = listManagerIds(departments);
         List<Admin> admins = adminService.listAdminsByIds(managerIds);
         List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
@@ -386,25 +367,30 @@ public class DepartmentManager {
 
         for(Department department : departments){
             AdminDepartmentSimpleResponse item = new AdminDepartmentSimpleResponse();
-            Admin admin = admins.stream()
-                    .filter(a -> a.getId().equals(department.getManager()))
-                    .findFirst().orElse(null);
-            Account account = accounts.stream()
-                    .filter(a -> a.getUserId().equals(department.getManager()))
-                    .filter(a->a.getRoleId().equals(1L))
-                    .findFirst().orElse(null);
-            if (admin == null || account == null) {
-                log.warn("跳过科室 {}：未找到对应的管理员 admin={}, account={}", department.getId(), admin, account);
-                continue;
+            Long managerId = department.getManager();
+            Admin admin = null;
+            Account account = null;
+            if (managerId != null) {
+                admin = admins.stream()
+                        .filter(a -> a.getId().equals(managerId))
+                        .findFirst().orElse(null);
+                account = accounts.stream()
+                        .filter(a -> a.getUserId().equals(managerId))
+                        .filter(a->a.getRoleId().equals(1L))
+                        .findFirst().orElse(null);
+                if (admin == null || account == null) {
+                    log.warn("跳过科室 {}：未找到对应的管理员 admin={}, account={}", department.getId(), admin, account);
+                    continue;
+                }
             }
             item.setId(String.valueOf(department.getId()));
             item.setSn(String.valueOf(department.getSn()));
             item.setName(department.getName());
             item.setType(department.getType());
             item.setDescription(department.getDescription());
-            item.setManagerId(String.valueOf(department.getManager()));
-            item.setManagerName(admin.getName());
-            item.setManagerPhone(account.getPhone());
+            item.setManagerId(managerId == null ? null : String.valueOf(managerId));
+            item.setManagerName(admin == null ? null : admin.getName());
+            item.setManagerPhone(account == null ? null : account.getPhone());
             item.setPhone(department.getPhone());
             item.setParentDepartmentId(String.valueOf(department.getParentDepartmentId()));
             String parentId = item.getParentDepartmentId();
@@ -450,14 +436,22 @@ public class DepartmentManager {
         if (departments.isEmpty()) {
             return Result.success(PageUtils.toResult(pageinfo, new ArrayList<>()));
         }
-        List<Long> managerIds = departments
-                .stream()
-                .map(Department::getManager)
-                .toList();
+        List<Long> managerIds = listManagerIds(departments);
                 List<Admin> admins = adminService.listAdminsByIds(managerIds);
                 List<Account> accounts = accountService.listAccountsByUserIds(managerIds);
         List<AdminDepartmentSimpleResponse> result = mergeDepartmentAndAdminAndAccount(departments, admins, accounts);
         fillParentDepartmentNames(result);
         return Result.success(PageUtils.toResult(pageinfo, result));
+    }
+
+    /**
+     * 提取科室负责人ID，过滤未设置负责人的科室
+     */
+    private List<Long> listManagerIds(List<Department> departments) {
+        return departments.stream()
+                .map(Department::getManager)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 }
